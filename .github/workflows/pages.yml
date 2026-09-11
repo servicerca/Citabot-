@@ -27,8 +27,6 @@ jobs:
         uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Preparar sitio
-        run: cp CitaBot_Definitivo-2.html index.html
       - name: Empaquetar sitio
         uses: actions/upload-pages-artifact@v3
         with:
