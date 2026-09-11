@@ -25,6 +25,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Preparar GitHub Pages
         uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - name: Preparar sitio
         run: cp CitaBot_Definitivo-2.html index.html
       - name: Empaquetar sitio
