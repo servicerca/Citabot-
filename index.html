@@ -261,142 +261,8 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();docume
  else console.info("CitaBot self-check OK: estructura principal encontrada.");
 })();
 
-/* ===== CitaBot Offline Core =====
-   Everything here works without paid APIs: local persistence, CRUD demos,
-   agenda filtering, client search, business settings, export/import JSON,
-   notifications simulation and demo reset.
-*/
-(function(){
-  const KEY="citabot_offline_v2";
-  const defaults={
-    business:{name:"Mi negocio",type:"Servicios",phone:"",email:"",timezone:"America/Bogota",currency:"COP"},
-    services:[
-      {id:1,name:"Servicio premium",duration:60,price:59900,active:true},
-      {id:2,name:"Consulta",duration:30,price:39900,active:true},
-      {id:3,name:"Reserva",duration:90,price:89900,active:true}
-    ],
-    clients:[
-      {id:1,name:"Laura Gómez",phone:"3000000000",email:"laura@email.com",status:"Activo",notes:"Cliente frecuente"},
-      {id:2,name:"Carlos Pérez",phone:"3010000000",email:"carlos@email.com",status:"Activo",notes:"Prefiere tardes"},
-      {id:3,name:"Ana Torres",phone:"3020000000",email:"ana@email.com",status:"Inactivo",notes:"Última visita hace 90 días"}
-    ],
-    appointments:[
-      {id:1,client:"Laura Gómez",service:"Servicio premium",date:"2026-08-28",time:"10:00",status:"Confirmada"},
-      {id:2,client:"Carlos Pérez",service:"Consulta",date:"2026-08-28",time:"14:00",status:"Pendiente"}
-    ],
-    messages:[
-      {id:1,client:"Laura Gómez",text:"Hola, quisiera confirmar mi cita.",from:"client"},
-      {id:2,client:"Laura Gómez",text:"¡Claro! Tu cita está confirmada.",from:"bot"}
-    ],
-    settings:{reminders:true,autoConfirm:false,marketing:false},
-    initialized:false
-  };
-  function load(){
-    try{return JSON.parse(localStorage.getItem(KEY))||structuredClone(defaults)}
-    catch(e){return JSON.parse(JSON.stringify(defaults))}
-  }
-  let db=load();
-  function save(){localStorage.setItem(KEY,JSON.stringify(db));}
-  function toast(msg){
-    if(typeof showToast==="function") showToast(msg);
-    else alert(msg);
-  }
-  window.CitaBotData={get:()=>db,save,reset:()=>{db=JSON.parse(JSON.stringify(defaults));save();location.reload()}};
+/* The interactive demo is handled by the Supabase-aware runtime below. */
 
-  // Generic modal helpers
-  window.citaCreateClient=function(){
-    const name=prompt("Nombre del cliente:");
-    if(!name) return;
-    const phone=prompt("Teléfono (opcional):")||"";
-    db.clients.push({id:Date.now(),name,phone,email:"",status:"Activo",notes:""});
-    save(); renderAll(); toast("Cliente creado correctamente");
-  };
-window.citaDemoAppointment=function(){const client=db.clients[0]?.name||"Cliente demo";const service=db.services[0]?.name||"Servicio premium";const date=new Date().toISOString().slice(0,10);db.appointments.push({id:Date.now(),client,service,date,time:"09:00",status:"Confirmada"});save();renderAll();toast("Cita demo creada: ahora puedes mostrar la agenda");if(typeof go==="function")go("agenda");};
-  window.citaCreateAppointment=function(){
-    const client=prompt("Cliente:",db.clients[0]?.name||"");
-    if(!client)return;
-    const service=prompt("Servicio:",db.services[0]?.name||"");
-    const date=prompt("Fecha (AAAA-MM-DD):",new Date().toISOString().slice(0,10));
-    const time=prompt("Hora (HH:MM):","09:00");
-    if(!date||!time)return;
-    db.appointments.push({id:Date.now(),client,service,date,time,status:"Pendiente"});
-    save(); renderAll(); toast("Cita creada correctamente");
-  };
-  window.citaAddService=function(){
-    const name=prompt("Nombre del servicio:");
-    if(!name)return;
-    const price=Number(prompt("Precio en COP:","59900")||0);
-    const duration=Number(prompt("Duración en minutos:","60")||60);
-    db.services.push({id:Date.now(),name,price,duration,active:true});
-    save(); renderAll(); toast("Servicio agregado");
-  };
-  window.citaExport=function(){
-    const blob=new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);
-    a.download="citabot-respaldo.json";a.click();URL.revokeObjectURL(a.href);
-    toast("Respaldo descargado");
-  };
-  window.citaImport=function(){
-    const input=document.createElement("input");input.type="file";input.accept=".json,application/json";
-    input.onchange=async()=>{try{
-      const obj=JSON.parse(await input.files[0].text());
-      if(!obj.business||!obj.clients||!obj.appointments) throw Error();
-      db=obj;save();renderAll();toast("Respaldo restaurado");
-    }catch(e){toast("Archivo de respaldo no válido")}};
-    input.click();
-  };
-  window.citaReset=function(){if(confirm("¿Restablecer todos los datos de demostración?"))CitaBotData.reset()};
-
-  function setText(selector,value){
-    document.querySelectorAll(selector).forEach(x=>x.textContent=value);
-  }
-  function renderClients(){
-    const q=(document.querySelector("#clientSearch")?.value||"").toLowerCase();
-    const rows=db.clients.filter(c=>(c.name+" "+c.phone+" "+c.email).toLowerCase().includes(q));
-    const table=document.querySelector("#clientTable");
-    if(!table)return;
-    const body=table.querySelector("tbody")||table;
-    if(table.querySelector("tbody")) body.innerHTML="";
-    rows.forEach(c=>{
-      const tr=document.createElement("tr");
-      tr.innerHTML=`<td><b>${esc(c.name)}</b></td><td>${esc(c.phone||"—")}</td><td>${esc(c.email||"—")}</td><td><span class="badge ${c.status==="Activo"?"confirmed":"pending"}">${esc(c.status)}</span></td>`;
-      body.appendChild(tr);
-    });
-  }
-  function renderAll(){
-    renderClients();
-    setText("[data-count-clients]",String(db.clients.length));
-    setText("[data-count-appts]",String(db.appointments.length));
-  }
-  function esc(v){return String(v).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
-
-  document.addEventListener("DOMContentLoaded",()=>{
-    renderAll();
-    const search=document.querySelector("#clientSearch"); if(search) search.addEventListener("input",renderClients);
-    // In the connected app, all CRUD actions must use Supabase.
-    // The old prompt/localStorage helpers remain available only for the explicit demo mode.
-    document.querySelectorAll("button").forEach(b=>{
-      const t=b.textContent.trim();
-      if(t==="+ Nuevo cliente"||t==="Nuevo cliente") b.onclick=()=>openModal("Nuevo cliente");
-      if(t==="+ Nueva cita"||t==="Nueva cita") b.onclick=()=>openModal("Nueva cita");
-      if(t==="+ Nueva reserva"||t==="Nueva reserva") b.onclick=()=>openModal("Nueva reserva");
-      if(t==="+ Agregar servicio"||t==="Agregar servicio"||t==="+ Servicio") b.onclick=()=>openModal("Nuevo servicio");
-    });
-    // Offline backup tools are deliberately hidden once a real business session is active.
-    const settings=document.querySelector("#view-settings");
-    if(false && settings && !document.querySelector("#offlineTools")){
-      const box=document.createElement("div");box.id="offlineTools";box.className="card";
-      box.style.marginTop="16px";
-      box.innerHTML=`<div class="section-title"><h2>Herramientas sin costo</h2><span>Datos locales</span></div>
-      <p style="font-size:11px;color:var(--muted)">Esta versión guarda los datos en este dispositivo. Puedes hacer un respaldo antes de pasar a infraestructura de pago.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn soft" onclick="citaExport()">⬇ Exportar respaldo</button>
-      <button class="btn soft" onclick="citaImport()">⬆ Restaurar respaldo</button>
-      <button class="btn soft" onclick="citaReset()">↺ Restablecer demo</button></div>`;
-      settings.appendChild(box);
-    }
-  });
-})();
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -412,19 +278,27 @@ window.citaDemoAppointment=function(){const client=db.clients[0]?.name||"Cliente
   const SUPABASE_URL='https://rphyhaoxwvaezulvhcrf.supabase.co';
   const SUPABASE_KEY='sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH';
   const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  let authMode='signup', currentBusiness=null, currentData={services:[],staff:[],customers:[],appointments:[]};
+  let authMode='signup', currentBusiness=null, isDemo=false;
+  const demoData=()=>({
+    services:[{id:'demo-service-1',name:'Corte + barba',duration_minutes:60,price:45000,active:true},{id:'demo-service-2',name:'Corte',duration_minutes:30,price:30000,active:true}],
+    staff:[{id:'demo-staff-1',name:'Profesional demo',active:true}],
+    customers:[{id:'demo-customer-1',name:'Laura Gómez',phone:'300 555 0181',email:'laura@example.com'},{id:'demo-customer-2',name:'Andrés Ruiz',phone:'300 555 0192',email:'andres@example.com'}],
+    appointments:[]
+  });
+  let currentData=demoData();
+  const newDemoId=prefix=>`${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
   const $=id=>document.getElementById(id);
   const msg=(t,ok=false)=>{const el=$('cbAuthMsg');if(el){el.textContent=t;el.style.color=ok?'#126a3a':'#b42318'}};
   window.cbCloseAuth=()=>{$('cbAuth').classList.remove('open');msg('')};
   window.cbToggleAuth=()=>{authMode=authMode==='signup'?'login':'signup';$('cbAuthTitle').textContent=authMode==='signup'?'Crear cuenta en CitaBot':'Iniciar sesión';$('cbAuthSub').textContent=authMode==='signup'?'Empieza gratis y configura tu negocio en minutos.':'Accede a tu negocio y gestiona tus citas.';$('cbAuthName').style.display=authMode==='signup'?'block':'none';$('cbAuthSubmit').textContent=authMode==='signup'?'Crear cuenta':'Iniciar sesión';$('cbAuthToggle').textContent=authMode==='signup'?'Ya tengo una cuenta → Iniciar sesión':'No tengo cuenta → Crear una';$('cbAuthPassword').autocomplete=authMode==='signup'?'new-password':'current-password';msg('')};
   window.showOnboarding=()=>{ $('cbAuth').classList.add('open'); authMode='signup'; $('cbAuthTitle').textContent='Crear cuenta en CitaBot'; $('cbAuthSub').textContent='Empieza gratis y configura tu negocio en minutos.'; $('cbAuthName').style.display='block'; $('cbAuthSubmit').textContent='Crear cuenta'; $('cbAuthToggle').textContent='Ya tengo una cuenta → Iniciar sesión'; };
   window.cbSubmitAuth=async()=>{const email=$('cbAuthEmail').value.trim(), password=$('cbAuthPassword').value, name=$('cbAuthName').value.trim(); if(!email||password.length<6||(authMode==='signup'&&!name)){msg('Completa los datos correctamente.');return;} $('cbAuthSubmit').disabled=true;msg('Procesando...',true); try{let r;if(authMode==='signup'){r=await sb.auth.signUp({email,password,options:{data:{full_name:name}}}); if(r.error)throw r.error; if(!r.data.session){msg('Cuenta creada. Revisa tu correo para confirmar y luego inicia sesión.',true);return;} } else {r=await sb.auth.signInWithPassword({email,password});if(r.error)throw r.error;} $('cbAuth').classList.remove('open'); await cbLoadOrOnboard();}catch(e){msg(e.message||'No fue posible completar el acceso.')}finally{$('cbAuthSubmit').disabled=false}};
-  window.cbResetPassword=async()=>{const email=$('cbAuthEmail').value.trim();if(!email){msg('Escribe primero tu correo.');return;}const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href});msg(error?error.message:'Te enviamos un enlace para recuperar tu contraseña.',!error)};
+  window.cbResetPassword=async()=>{const email=$('cbAuthEmail').value.trim();if(!email){msg('Escribe primero tu correo.');return;}try{const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href});msg(error?error.message:'Te enviamos un enlace para recuperar tu contraseña.',!error)}catch(error){msg(error.message||'No fue posible enviar el correo de recuperación.')}};
   async function cbLoadOrOnboard(){const {data:{user}}=await sb.auth.getUser();if(!user){$('cbAuth').classList.add('open');return;} const {data:members,error:me}=await sb.from('business_members').select('business_id,role').eq('user_id',user.id);if(me)throw me; if(!members?.length){$('cbAuth').classList.remove('open');state.onboardStep=1;document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.add('open');renderOnboarding();showToast('Cuenta creada. Configura tu negocio.');return;} const ids=members.map(x=>x.business_id);const {data:biz,error}=await sb.from('businesses').select('*').in('id',ids).eq('is_active',true).limit(1);if(error)throw error;if(!biz?.length){state.onboardStep=1;document.getElementById('onboarding').classList.add('open');renderOnboarding();return;}currentBusiness=biz[0];await cbEnterApp();}
-  async function cbEnterApp(){document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.remove('open');document.getElementById('app').style.display='grid';$('businessName').textContent=currentBusiness.name;$('setBusiness').value=currentBusiness.name;await cbRefresh();go('dashboard');showToast('CitaBot conectado correctamente');}
+  async function cbEnterApp(){isDemo=false;await cbRefresh();document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.remove('open');document.getElementById('app').style.display='grid';$('businessName').textContent=currentBusiness.name;$('setBusiness').value=currentBusiness.name;go('dashboard');showToast('CitaBot conectado correctamente');}
   window.finishOnboarding=async()=>{const name=state.business?.trim(),city=($('obCity')?.value||'').trim(),phone=($('obPhone')?.value||'').trim();if(!name){showToast('Escribe el nombre del negocio');return;}const {data:{user}}=await sb.auth.getUser();if(!user){showOnboarding();return;}try{let slug=name.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60)||'negocio';const {data:existing,error:slugError}=await sb.from('businesses').select('id').eq('slug',slug).limit(1);if(slugError)throw slugError;if(existing?.length)slug=slug+'-'+Math.random().toString(36).slice(2,7);const {data:b,error}=await sb.from('businesses').insert({owner_id:user.id,name,slug,category:state.type==='restaurant'?'restaurant':'service',city,phone,whatsapp:phone,timezone:'America/Bogota'}).select('*').single();if(error)throw error;const {error:memberError}=await sb.from('business_members').upsert({business_id:b.id,user_id:user.id,role:'owner'},{onConflict:'business_id,user_id'});if(memberError)throw memberError;const {data:prof}=await sb.from('profiles').select('full_name').eq('id',user.id).maybeSingle();const staffName=prof?.full_name||user.email?.split('@')[0]||'Profesional';const {error:staffError}=await sb.from('staff').insert({business_id:b.id,name:staffName,phone,email:user.email});if(staffError)throw staffError;const {error:serviceError}=await sb.from('services').insert({business_id:b.id,name:state.type==='restaurant'?'Reserva':'Servicio inicial',description:'Configura este servicio desde tu agenda.',duration_minutes:30,price:0,active:true});if(serviceError)throw serviceError;const hours=Array.from({length:7},(_,d)=>({business_id:b.id,day_of_week:d,opening_time:d===0?'10:00':'09:00',closing_time:d===0?'16:00':'18:00',is_open:d!==0,opens_at:d===0?'10:00':'09:00',closes_at:d===0?'16:00':'18:00',closed:d===0}));const {error:hoursError}=await sb.from('business_hours').insert(hours);if(hoursError)throw hoursError;currentBusiness=b;await cbEnterApp();}catch(e){console.error(e);showToast(e.message||'No se pudo configurar el negocio');}};
-  window.enterDemo=()=>{document.getElementById('landing').classList.remove('active');document.getElementById('app').style.display='grid';state.business='Demo Studio';$('businessName').textContent='Demo Studio';$('setBusiness').value='Demo Studio';go('dashboard');showToast('Modo demo: los datos no generan cobros reales')};
-  window.logout=async()=>{await sb.auth.signOut();currentBusiness=null;document.getElementById('app').style.display='none';document.getElementById('landing').classList.add('active');showToast('Sesión cerrada')};
+  window.enterDemo=()=>{isDemo=true;currentBusiness=null;currentData=demoData();document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.remove('open');document.getElementById('app').style.display='grid';state.business='Demo Studio';$('businessName').textContent='Demo Studio';$('setBusiness').value='Demo Studio';cbRenderMetrics();cbRenderClients();cbRenderAgenda();go('dashboard');showToast('Modo demo: los datos no generan cobros reales')};
+  window.logout=async()=>{try{if(!isDemo) await sb.auth.signOut();}catch(error){console.error(error);showToast('No se pudo cerrar la sesión remota.');}finally{isDemo=false;currentBusiness=null;currentData=demoData();document.getElementById('app').style.display='none';document.getElementById('landing').classList.add('active');}};
   async function cbRefresh(){
     if(!currentBusiness) return;
     const bid=currentBusiness.id;
@@ -454,47 +328,63 @@ window.citaDemoAppointment=function(){const client=db.clients[0]?.name||"Cliente
   function cbRenderAgenda(){const sec=document.querySelector('#view-agenda');if(!sec)return;const old=sec.querySelector('.cb-live-agenda');if(old)old.remove();const wrap=document.createElement('div');wrap.className='card cb-live-agenda';const rows=currentData.appointments.slice(0,50).map(a=>`<tr><td>${new Date(a.starts_at).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(a.customers?.name||'Cliente')}</td><td>${esc(a.services?.name||'Servicio')}</td><td>${esc(a.staff?.name||'')}</td><td><span class="badge ${a.status==='confirmed'?'confirmed':'pending'}">${esc(a.status)}</span></td></tr>`).join('');wrap.innerHTML=`<h3 style="margin-top:0">Citas reales</h3><div style="overflow:auto"><table class="table"><thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Profesional</th><th>Estado</th></tr></thead><tbody>${rows||'<tr><td colspan="5">No hay citas todavía.</td></tr>'}</tbody></table></div>`;sec.appendChild(wrap);}
   window.openModal=type=>{state.modalType=type;const body=$('modalBody');$('modalTitle').textContent=type;$('modalDesc').textContent='Los datos se guardarán en tu cuenta CitaBot.';if(type==='Nuevo cliente')body.innerHTML='<div class="form-grid"><div class="field full"><label>Nombre</label><input id="mName"></div><div class="field"><label>WhatsApp</label><input id="mPhone"></div><div class="field"><label>Email</label><input id="mEmail" type="email"></div></div>';else if(type==='Nuevo servicio'||type==='+ Servicio')body.innerHTML='<div class="form-grid"><div class="field full"><label>Nombre</label><input id="mName"></div><div class="field"><label>Duración (min)</label><input id="mDuration" type="number" min="5" value="30"></div><div class="field"><label>Precio COP</label><input id="mPrice" type="number" min="0" value="0"></div></div>';else if(type==='Nueva cita'||type==='Nueva reserva')body.innerHTML=`<div class="form-grid"><div class="field"><label>Cliente</label><select id="mCustomer">${currentData.customers.map(c=>`<option value="${c.id}">${esc(c.name)} · ${esc(c.phone||'')}</option>`).join('')}</select></div><div class="field"><label>Servicio</label><select id="mService">${currentData.services.filter(s=>s.active).map(s=>`<option value="${s.id}">${esc(s.name)} · ${cbMoney(s.price)}</option>`).join('')}</select></div><div class="field"><label>Profesional</label><select id="mStaff">${currentData.staff.filter(s=>s.active).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></div><div class="field"><label>Fecha y hora</label><input id="mStart" type="datetime-local"></div><div class="field full"><label>Nota</label><textarea id="mNote"></textarea></div></div>`;else {body.innerHTML='<p>Esta función se activará cuando conectemos el proveedor externo correspondiente. El núcleo de CitaBot ya queda operativo con Supabase.</p>'; }$('modal').classList.add('open')};
   window.confirmModal=async()=>{try{
-    if(!currentBusiness) throw Error('Primero inicia sesión');
-    const type=state.modalType,bid=currentBusiness.id;
+    if(!currentBusiness&&!isDemo) throw Error('Primero inicia sesión');
+    const type=state.modalType,bid=currentBusiness?.id;
     if(type==='Nuevo cliente'){
       const name=$('mName').value.trim(); if(!name) throw Error('El nombre es obligatorio');
-      const {error}=await sb.from('customers').insert({business_id:bid,name,phone:$('mPhone').value.trim()||null,email:$('mEmail').value.trim()||null});
-      if(error) throw error;
+      const customer={name,phone:$('mPhone').value.trim()||null,email:$('mEmail').value.trim()||null};
+      if(isDemo) currentData.customers.unshift({id:newDemoId('demo-customer'),...customer});
+      else {const {error}=await sb.from('customers').insert({business_id:bid,...customer});if(error) throw error;}
     }else if(type==='Nuevo servicio'||type==='+ Servicio'){
       const name=$('mName').value.trim(), duration=Number($('mDuration').value), price=Number($('mPrice').value);
       if(!name) throw Error('El nombre del servicio es obligatorio');
       if(!Number.isFinite(duration)||duration<5||duration>1440) throw Error('La duración debe estar entre 5 y 1440 minutos');
       if(!Number.isFinite(price)||price<0) throw Error('El precio no es válido');
-      const {error}=await sb.from('services').insert({business_id:bid,name,duration_minutes:duration,price}); if(error) throw error;
+      if(isDemo) currentData.services.push({id:newDemoId('demo-service'),name,duration_minutes:duration,price,active:true});
+      else {const {error}=await sb.from('services').insert({business_id:bid,name,duration_minutes:duration,price});if(error) throw error;}
     }else if(type==='Nueva cita'||type==='Nueva reserva'){
       const c=$('mCustomer').value,s=$('mService').value,st=$('mStaff').value,start=$('mStart').value;
       if(!c||!s||!st||!start) throw Error('Completa todos los campos');
       const service=currentData.services.find(x=>x.id===s); if(!service) throw Error('Servicio no encontrado');
       const localStart=new Date(start); if(Number.isNaN(localStart.getTime())||localStart<=new Date()) throw Error('La fecha y hora deben ser futuras');
       const starts=localStart.toISOString(),ends=new Date(localStart.getTime()+service.duration_minutes*60000).toISOString();
-      const {error}=await sb.from('appointments').insert({business_id:bid,service_id:s,staff_id:st,customer_id:c,starts_at:starts,ends_at:ends,status:'confirmed',customer_notes:$('mNote').value.trim()||null});
-      if(error){if(error.code==='23P01')throw Error('Ese profesional ya tiene una cita en ese horario.');throw error;}
+      if(isDemo) currentData.appointments.push({id:newDemoId('demo-appointment'),customer_id:c,service_id:s,staff_id:st,starts_at:starts,ends_at:ends,status:'confirmed',customer_notes:$('mNote').value.trim()||null});
+      else {const {error}=await sb.from('appointments').insert({business_id:bid,service_id:s,staff_id:st,customer_id:c,starts_at:starts,ends_at:ends,status:'confirmed',customer_notes:$('mNote').value.trim()||null});if(error){if(error.code==='23P01')throw Error('Ese profesional ya tiene una cita en ese horario.');throw error;}}
     }else{closeModal();showToast('Esta función requiere conectar el proveedor externo correspondiente.');return;}
-    closeModal();await cbRefresh();showToast(type+' guardado correctamente');
+    closeModal();if(isDemo){cbRenderMetrics();cbRenderClients();cbRenderAgenda();}else await cbRefresh();showToast(type+' guardado correctamente');
   }catch(e){showToast(e.message||'No se pudo guardar')}};
-  window.saveSettings=async()=>{if(!currentBusiness)return;const name=$('setBusiness').value.trim();if(!name)return;const {error}=await sb.from('businesses').update({name}).eq('id',currentBusiness.id);if(error)showToast(error.message);else{currentBusiness.name=name;$('businessName').textContent=name;showToast('Cambios guardados en la nube')}};
+  window.saveSettings=async()=>{const name=$('setBusiness').value.trim();if(!name){showToast('Escribe el nombre del negocio');return;}if(isDemo){state.business=name;$('businessName').textContent=name;showToast('Cambios guardados en la demo');return;}if(!currentBusiness)return;const {error}=await sb.from('businesses').update({name}).eq('id',currentBusiness.id);if(error)showToast(error.message);else{currentBusiness.name=name;$('businessName').textContent=name;showToast('Cambios guardados en la nube')}};
   window.filterClients=()=>{const q=$('clientSearch').value.toLowerCase();document.querySelectorAll('#clientTable tbody tr').forEach(r=>r.style.display=r.textContent.toLowerCase().includes(q)?'':'none')};
   window.askAI=()=>{const q=$('aiInput').value.trim();$('aiAnswer').textContent=q?`Con tus datos actuales tienes ${currentData.appointments.length} citas, ${currentData.customers.length} clientes y ${currentData.services.length} servicios. Para preguntas avanzadas de IA hace falta conectar un proveedor de IA con una clave del servidor.`:'Escribe una pregunta para analizar tu negocio.'};
   window.runAI=()=>{const inactive=currentData.customers.filter(c=>!currentData.appointments.some(a=>a.customer_id===c.id&&new Date(a.starts_at)>new Date(Date.now()-30*864e5))).length;showToast(`Análisis: ${inactive} clientes podrían recuperarse`) };
+  function zonedDateTimeToUtc(date,time,timeZone){
+    const [year,month,day]=date.split('-').map(Number),[hour,minute]=time.split(':').map(Number);
+    if(![year,month,day,hour,minute].every(Number.isFinite)) return null;
+    let timestamp=Date.UTC(year,month-1,day,hour,minute);
+    const formatter=new Intl.DateTimeFormat('en-CA',{timeZone,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    for(let i=0;i<2;i++){
+      const parts=Object.fromEntries(formatter.formatToParts(new Date(timestamp)).filter(p=>p.type!=='literal').map(p=>[p.type,Number(p.value)]));
+      timestamp+=Date.UTC(year,month-1,day,hour,minute)-Date.UTC(parts.year,parts.month-1,parts.day,parts.hour,parts.minute);
+    }
+    return new Date(timestamp);
+  }
   async function publicBooking(slug){
     $('landing').classList.remove('active');$('app').style.display='none';$('cbBook').style.display='block';
     const body=$('cbBookBody');body.innerHTML='<p>Cargando agenda…</p>';
-    const {data:pub,error:pubError}=await sb.rpc('get_public_booking',{p_business_slug:slug});
-    if(pubError||!pub){body.innerHTML='<div class="cb-error">No encontramos este negocio o su agenda no está disponible.</div>';return;}
-    const b=pub.business,services=pub.services||[],staff=pub.staff||[];
-    if(!services.length||!staff.length){body.innerHTML=`<h1>${esc(b.name)}</h1><p>Este negocio todavía no configuró servicios o profesionales.</p>`;return;}
-    body.innerHTML=`<h1>${esc(b.name)}</h1><p>${esc(b.city||'')} · Reserva en línea</p><div class="cb-book-grid"><div><label>Servicio</label><select id="pbService">${services.map(x=>`<option value="${x.id}">${esc(x.name)} · ${cbMoney(x.price)} · ${x.duration_minutes} min</option>`).join('')}</select></div><div><label>Profesional</label><select id="pbStaff">${staff.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div><div><label>Fecha</label><input id="pbDate" type="date" min="${new Intl.DateTimeFormat('en-CA',{timeZone:'America/Bogota'}).format(new Date())}"></div><div><label>Hora</label><input id="pbTime" type="time"></div><div><label>Tu nombre</label><input id="pbName"></div><div><label>WhatsApp</label><input id="pbPhone" type="tel"></div><div><label>Email</label><input id="pbEmail" type="email"></div><div class="full"><label>Nota</label><textarea id="pbNote"></textarea></div></div><button class="btn primary" style="margin-top:16px" onclick="cbBookSubmit('${esc(slug)}')">Confirmar reserva</button><div id="pbMsg" style="margin-top:12px"></div><p style="font-size:10px;color:#888;margin-top:18px">Al reservar, aceptas que el negocio use estos datos para gestionar tu cita.</p>`;
+    try{
+      const {data:pub,error:pubError}=await sb.rpc('get_public_booking',{p_business_slug:slug});
+      if(pubError||!pub) throw pubError||Error('Agenda no disponible');
+      const b=pub.business,services=pub.services||[],staff=pub.staff||[],timeZone=b.timezone||'America/Bogota';
+      if(!services.length||!staff.length){body.innerHTML=`<h1>${esc(b.name)}</h1><p>Este negocio todavía no configuró servicios o profesionales.</p>`;return;}
+      body.innerHTML=`<h1>${esc(b.name)}</h1><p>${esc(b.city||'')} · Reserva en línea</p><div class="cb-book-grid"><div><label>Servicio</label><select id="pbService">${services.map(x=>`<option value="${x.id}">${esc(x.name)} · ${cbMoney(x.price)} · ${x.duration_minutes} min</option>`).join('')}</select></div><div><label>Profesional</label><select id="pbStaff">${staff.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div><div><label>Fecha</label><input id="pbDate" type="date" min="${new Intl.DateTimeFormat('en-CA',{timeZone}).format(new Date())}"></div><div><label>Hora</label><input id="pbTime" type="time"></div><div><label>Tu nombre</label><input id="pbName"></div><div><label>WhatsApp</label><input id="pbPhone" type="tel"></div><div><label>Email</label><input id="pbEmail" type="email"></div><div class="full"><label>Nota</label><textarea id="pbNote"></textarea></div></div><button id="pbSubmit" class="btn primary" style="margin-top:16px">Confirmar reserva</button><div id="pbMsg" style="margin-top:12px"></div><p style="font-size:10px;color:#888;margin-top:18px">Al reservar, aceptas que el negocio use estos datos para gestionar tu cita.</p>`;
+      $('pbSubmit').addEventListener('click',()=>window.cbBookSubmit(slug,timeZone));
+    }catch(error){console.error(error);body.innerHTML='<div class="cb-error">No fue posible cargar la agenda. Inténtalo de nuevo más tarde.</div>';}
   }
-  window.cbBookSubmit=async slug=>{const get=id=>$(id).value.trim();const service=get('pbService'),staff=get('pbStaff'),date=get('pbDate'),time=get('pbTime'),name=get('pbName'),phone=get('pbPhone'),email=get('pbEmail');if(!date||!time||!name||!phone){$('pbMsg').innerHTML='<div class="cb-error">Completa nombre, WhatsApp, fecha y hora.</div>';return;}const starts=new Date(`${date}T${time}:00-05:00`);if(Number.isNaN(starts.getTime())||starts<=new Date()){ $('pbMsg').innerHTML='<div class="cb-error">Selecciona una fecha y hora futuras.</div>';return;}$('pbMsg').innerHTML='<p style="color:#777;font-size:12px">Guardando reserva…</p>';const {error}=await sb.rpc('book_appointment',{p_business_slug:slug,p_service_id:service,p_staff_id:staff,p_customer_name:name,p_customer_phone:phone,p_customer_email:email||null,p_starts_at:starts.toISOString(),p_customer_notes:get('pbNote')||null});if(error){$('pbMsg').innerHTML=`<div class="cb-error">${esc(error.message.replace('PGRST',''))}</div>`;return;}$('pbMsg').innerHTML='<div class="cb-ok"><b>¡Reserva confirmada!</b><br>La reserva quedó registrada correctamente en CitaBot.</div>';};
+  window.cbBookSubmit=async(slug,timeZone='America/Bogota')=>{const get=id=>$(id).value.trim();const service=get('pbService'),staff=get('pbStaff'),date=get('pbDate'),time=get('pbTime'),name=get('pbName'),phone=get('pbPhone'),email=get('pbEmail');if(!date||!time||!name||!phone){$('pbMsg').innerHTML='<div class="cb-error">Completa nombre, WhatsApp, fecha y hora.</div>';return;}const starts=zonedDateTimeToUtc(date,time,timeZone);if(!starts||Number.isNaN(starts.getTime())||starts<=new Date()){ $('pbMsg').innerHTML='<div class="cb-error">Selecciona una fecha y hora futuras.</div>';return;}$('pbMsg').innerHTML='<p style="color:#777;font-size:12px">Guardando reserva…</p>';try{const {error}=await sb.rpc('book_appointment',{p_business_slug:slug,p_service_id:service,p_staff_id:staff,p_customer_name:name,p_customer_phone:phone,p_customer_email:email||null,p_starts_at:starts.toISOString(),p_customer_notes:get('pbNote')||null});if(error)throw error;$('pbMsg').innerHTML='<div class="cb-ok"><b>¡Reserva confirmada!</b><br>La reserva quedó registrada correctamente en CitaBot.</div>';}catch(error){$('pbMsg').innerHTML=`<div class="cb-error">${esc((error.message||'No fue posible guardar la reserva.').replace('PGRST',''))}</div>`;}};
   function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));}
   const originalNext=window.nextOnboard;window.nextOnboard=function(){if(state.onboardStep===2){state.business=$('obName').value.trim();}return originalNext?originalNext():null};
   sb.auth.getSession().then(async({data:{session}})=>{if(session){try{await cbLoadOrOnboard()}catch(e){console.error(e);showToast('No se pudo cargar CitaBot')}}});
-sb.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'||!session){currentBusiness=null;document.getElementById('app').style.display='none';document.getElementById('onboarding').classList.remove('open');document.getElementById('landing').classList.add('active');}});
+sb.auth.onAuthStateChange((event,session)=>{if((event==='SIGNED_OUT'||!session)&&!isDemo){currentBusiness=null;document.getElementById('app').style.display='none';document.getElementById('onboarding').classList.remove('open');document.getElementById('landing').classList.add('active');}});
   window.addEventListener('hashchange',()=>{const m=location.hash.match(/^#book=([^&]+)/);if(m)publicBooking(decodeURIComponent(m[1]))});
   const bm=new URLSearchParams(location.search).get('book');if(bm)publicBooking(bm);
 })();
