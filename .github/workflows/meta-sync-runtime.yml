@@ -15,23 +15,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Añadir sincronización Meta una sola vez
+      - name: Integrar sincronización Meta con diagnóstico visible
         shell: python
         run: |
           from pathlib import Path
           p=Path('citabot-production-runtime.js')
           text=p.read_text(encoding='utf-8')
-          marker='CITABOT_META_SYNC_V1'
-          if marker in text:
-              print('Meta sync ya integrado')
-          else:
-              old="if(b){ await load(); document.getElementById('landing')?.classList.remove('active');"
-              new="if(b){ try { await client.functions.invoke('citabot-meta-sync',{body:{}}); } catch(e) { console.warn('Meta sync pendiente:',e); } await load(); document.getElementById('landing')?.classList.remove('active');"
-              if old not in text:
-                  raise SystemExit('No se encontró el punto de integración esperado')
+          old="if(b){ try { await client.functions.invoke('citabot-meta-sync',{body:{}}); } catch(e) { console.warn('Meta sync pendiente:',e); } await load(); document.getElementById('landing')?.classList.remove('active');"
+          new="if(b){ try { const sync=await client.functions.invoke('citabot-meta-sync',{body:{}}); if(sync.error) throw sync.error; if(sync.data?.subscribed!==true) throw new Error('Meta no confirmó la suscripción de WhatsApp'); toast('WhatsApp + Meta sincronizados correctamente'); } catch(e) { console.error('CITABOT_META_SYNC_ERROR',e); toast('WhatsApp/Meta pendiente: '+(e?.message||'no se pudo confirmar la suscripción')); } await load(); document.getElementById('landing')?.classList.remove('active');"
+          if old in text:
               text=text.replace(old,new,1)
-              text='// CITABOT_META_SYNC_V1\n'+text
               p.write_text(text,encoding='utf-8')
+              print('Diagnóstico Meta integrado')
+          elif 'WhatsApp + Meta sincronizados correctamente' in text:
+              print('Diagnóstico Meta ya integrado')
+          else:
+              raise SystemExit('No se encontró el bloque de sincronización Meta esperado')
       - name: Commit automático
         shell: bash
         run: |
@@ -39,5 +38,5 @@ jobs:
           git config user.email "actions@github.com"
           git add citabot-production-runtime.js
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Sincronizar suscripción Meta desde CitaBot"
+          git commit -m "Mostrar estado real de sincronización Meta"
           git push
