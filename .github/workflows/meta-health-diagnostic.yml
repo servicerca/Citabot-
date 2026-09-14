@@ -1,0 +1,15 @@
+name: CitaBot Meta Health Diagnostic
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Meta WABA subscription
+        run: |
+          set -e
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            https://rphyhaoxwvaezulvhcrf.supabase.co/functions/v1/citabot-meta-health
