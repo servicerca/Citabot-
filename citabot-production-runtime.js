@@ -219,7 +219,7 @@
     removeDemoSurface();
     try {
       const b=await context();
-      if(b){ try { await client.functions.invoke('citabot-meta-sync',{body:{}}); } catch(e) { console.warn('Meta sync pendiente:',e); } await load(); document.getElementById('landing')?.classList.remove('active'); document.getElementById('app').style.display='grid'; $('businessName').textContent=b.name; }
+      if(b){ try { const sync=await client.functions.invoke('citabot-meta-sync',{body:{}}); if(sync.error) throw sync.error; if(sync.data?.subscribed!==true) throw new Error('Meta no confirmó la suscripción de WhatsApp'); toast('WhatsApp + Meta sincronizados correctamente'); } catch(e) { console.error('CITABOT_META_SYNC_ERROR',e); toast('WhatsApp/Meta pendiente: '+(e?.message||'no se pudo confirmar la suscripción')); } await load(); document.getElementById('landing')?.classList.remove('active'); document.getElementById('app').style.display='grid'; $('businessName').textContent=b.name; }
     } catch(e){ console.error('CitaBot production runtime',e); }
   }
   client.auth.onAuthStateChange(async (event) => { if(event==='SIGNED_IN'){ await boot(); } if(event==='SIGNED_OUT'){ location.reload(); } });
