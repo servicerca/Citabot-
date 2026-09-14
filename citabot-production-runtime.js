@@ -1,3 +1,4 @@
+// CITABOT_META_SYNC_V1
 (() => {
   'use strict';
   const URL = 'https://rphyhaoxwvaezulvhcrf.supabase.co';
@@ -218,7 +219,7 @@
     removeDemoSurface();
     try {
       const b=await context();
-      if(b){ await load(); document.getElementById('landing')?.classList.remove('active'); document.getElementById('app').style.display='grid'; $('businessName').textContent=b.name; }
+      if(b){ try { await client.functions.invoke('citabot-meta-sync',{body:{}}); } catch(e) { console.warn('Meta sync pendiente:',e); } await load(); document.getElementById('landing')?.classList.remove('active'); document.getElementById('app').style.display='grid'; $('businessName').textContent=b.name; }
     } catch(e){ console.error('CitaBot production runtime',e); }
   }
   client.auth.onAuthStateChange(async (event) => { if(event==='SIGNED_IN'){ await boot(); } if(event==='SIGNED_OUT'){ location.reload(); } });
