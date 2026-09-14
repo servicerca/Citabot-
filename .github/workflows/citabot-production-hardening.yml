@@ -1,0 +1,49 @@
+name: CitaBot Production Hardening
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  harden:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply production hardening
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+
+          # Runtime: real outbound WhatsApp sending through the authenticated Edge Function.
+          p = Path('citabot-production-runtime.js')
+          text = p.read_text(encoding='utf-8')
+          marker = 'CITABOT_REAL_WHATSAPP_SEND_V1'
+          if marker not in text:
+              injection = r'''\n\n  // CITABOT_REAL_WHATSAPP_SEND_V1\n  window.sendMessage = async () => {\n    try {\n      if (!business) throw new Error('Primero inicia sesión.');\n      const composer = document.querySelector('#view-conversations .composer');\n      const input = composer?.querySelector('input,textarea');\n      const body = input?.value?.trim();\n      const selected = document.querySelector('#view-conversations .chat-item.selected');\n      const customerId = selected?.dataset?.customer;\n      if (!body) throw new Error('Escribe un mensaje.');\n      if (!customerId) throw new Error('Selecciona un cliente.');\n      const { data: result, error } = await client.functions.invoke('citabot-whatsapp-send', { body: { customer_id: customerId, body } });\n      if (error) throw error;\n      if (!result?.ok) throw new Error(result?.error || 'WhatsApp no confirmó el envío.');\n      if (input) input.value = '';\n      await load();\n      toast('Mensaje enviado por WhatsApp.');\n    } catch (e) {\n      console.error('CITABOT_WHATSAPP_SEND_ERROR', e);\n      toast(e?.message || 'No se pudo enviar el mensaje.');\n    }\n  };\n'''
+              text = text.replace('\n  async function boot(){', injection + '\n  async function boot(){', 1)
+
+          # Never leave demo-only controls visible in production.
+          text = text.replace("window.enterDemo = () => toast('El modo demo está deshabilitado en producción.');", "window.enterDemo = () => { throw new Error('Demo deshabilitado en producción'); };")
+          p.write_text(text, encoding='utf-8')
+
+          # Remove explicitly demo-labelled UI blocks from the source when they are standalone.
+          h = Path('index.html')
+          html = h.read_text(encoding='utf-8')
+          html = html.replace('CitaBot — MVP Premium', 'CitaBot — Plataforma para negocios')
+          html = html.replace('citabot-version\" content=\"3.0-stable\"', 'citabot-version\" content=\"3.1-production\"')
+          # Hide any legacy demo-only block at source level; runtime also removes it defensively.
+          html = html.replace('.demo-hero{', '.demo-hero{display:none!important;')
+          h.write_text(html, encoding='utf-8')
+
+      - name: Commit production hardening
+        run: |
+          git config user.name "CitaBot Production"
+          git config user.email "actions@github.com"
+          git add index.html citabot-production-runtime.js
+          if git diff --cached --quiet; then echo "Sin cambios"; exit 0; fi
+          git commit -m "Hardening: eliminar restos demo y habilitar mensajería WhatsApp real"
+          git push
