@@ -17,6 +17,16 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Diagnosticar suscripción real de Meta
+        shell: bash
+        run: |
+          set -e
+          echo "=== CITABOT META HEALTH ==="
+          curl --fail-with-body --silent --show-error --max-time 30 \
+            https://rphyhaoxwvaezulvhcrf.supabase.co/functions/v1/citabot-meta-health
+          echo
+          echo "=== FIN META HEALTH ==="
+
       - name: Integrar runtime sin duplicar
         shell: python
         run: |
