@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Diagnosticar suscripción real de Meta
+      - name: Diagnosticar suscripción y teléfono real de Meta
         shell: bash
         run: |
           set -e
