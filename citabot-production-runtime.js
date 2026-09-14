@@ -184,7 +184,7 @@
     } catch (e) { toast(e.message || 'No se pudo consultar la IA'); }
   };
   window.askAI = window.runAI;
-  window.enterDemo = () => toast('El modo demo está deshabilitado en producción.');
+  window.enterDemo = () => { throw new Error('Demo deshabilitado en producción'); };
   window.confirmModal = async () => {
     try {
       const type = window.state?.modalType || '';
@@ -214,7 +214,7 @@
     const {error}=await client.from('businesses').update({name,phone:document.querySelector('#view-settings input[value="+57 300 000 0000"]')?.value?.trim()||business.phone}).eq('id',business.id);
     if(error) return toast(error.message); business.name=name; $('businessName').textContent=name; toast('Cambios guardados.');
   };
-
+\n\n  // CITABOT_REAL_WHATSAPP_SEND_V1\n  window.sendMessage = async () => {\n    try {\n      if (!business) throw new Error('Primero inicia sesión.');\n      const composer = document.querySelector('#view-conversations .composer');\n      const input = composer?.querySelector('input,textarea');\n      const body = input?.value?.trim();\n      const selected = document.querySelector('#view-conversations .chat-item.selected');\n      const customerId = selected?.dataset?.customer;\n      if (!body) throw new Error('Escribe un mensaje.');\n      if (!customerId) throw new Error('Selecciona un cliente.');\n      const { data: result, error } = await client.functions.invoke('citabot-whatsapp-send', { body: { customer_id: customerId, body } });\n      if (error) throw error;\n      if (!result?.ok) throw new Error(result?.error || 'WhatsApp no confirmó el envío.');\n      if (input) input.value = '';\n      await load();\n      toast('Mensaje enviado por WhatsApp.');\n    } catch (e) {\n      console.error('CITABOT_WHATSAPP_SEND_ERROR', e);\n      toast(e?.message || 'No se pudo enviar el mensaje.');\n    }\n  };\n
   async function boot(){
     removeDemoSurface();
     try {
