@@ -24,13 +24,21 @@ jobs:
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
           marker = 'CITABOT_PRODUCTION_RUNTIME_V1'
+          injection = '\n<!-- CITABOT_PRODUCTION_RUNTIME_V1 -->\n<script src="./citabot-production-runtime.js"></script>\n'
           if marker not in text:
-              injection = '\n<!-- CITABOT_PRODUCTION_RUNTIME_V1 -->\n<script src="./citabot-production-runtime.js"></script>\n'
               text = text.replace('</body>', injection + '</body>', 1)
-              p.write_text(text, encoding='utf-8')
               print('Runtime integrado en index.html')
           else:
               print('Runtime ya integrado')
+
+          closure_marker = 'CITABOT_PRODUCTION_CLOSURE_V1'
+          closure = '\n<!-- CITABOT_PRODUCTION_CLOSURE_V1 -->\n<script src="./citabot-production-closure.js"></script>\n'
+          if closure_marker not in text:
+              text = text.replace('</body>', closure + '</body>', 1)
+              print('Cierre de producción integrado en index.html')
+          else:
+              print('Cierre de producción ya integrado')
+          p.write_text(text, encoding='utf-8')
 
       - name: Commit automático
         shell: bash
@@ -42,5 +50,5 @@ jobs:
             echo "Sin cambios"
             exit 0
           fi
-          git commit -m "Integrar runtime de producción en CitaBot"
+          git commit -m "Integrar cierre de producción en CitaBot"
           git push
