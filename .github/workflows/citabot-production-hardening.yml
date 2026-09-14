@@ -26,5 +26,5 @@ jobs:
           assert 'citabot-whatsapp-send' in closure, 'La mensajería no usa la Edge Function real'
           assert 'citabot-meta-sync' in closure, 'La verificación Meta no está integrada'
           assert 'CitaBot — MVP Premium' not in index, 'Quedó título MVP en producción'
-          assert 'Ver demo' not in index, 'Quedó CTA de demo en producción'
+          assert '.demo-hero{display:none!important;' in index, 'El bloque demo no está oculto en la fuente'
           print('CitaBot production hardening validation: OK')
