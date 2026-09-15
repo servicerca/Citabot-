@@ -1,4 +1,4 @@
-// CitaBot production closure: authoritative UI cleanup + real outbound WhatsApp.
+// CitaBot production closure: authoritative UI cleanup + real WhatsApp + public booking through Edge Function.
 (() => {
   'use strict';
   const SUPABASE_URL = 'https://rphyhaoxwvaezulvhcrf.supabase.co';
@@ -7,6 +7,8 @@
   if (!client) return;
   const $ = (id) => document.getElementById(id);
   const toast = (m) => window.showToast ? window.showToast(m) : console.log(m);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const money = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-CO') + ' COP';
 
   async function getBusiness() {
     const { data: { user }, error: ue } = await client.auth.getUser();
@@ -24,7 +26,7 @@
 
   window.sendMessage = async () => {
     try {
-      const business = await getBusiness();
+      await getBusiness();
       const composer = document.querySelector('#view-conversations .composer');
       const input = composer?.querySelector('input,textarea');
       const body = input?.value?.trim();
@@ -63,6 +65,50 @@
     }
   }
 
+  function zonedDateTimeToUtc(date,time,timeZone){
+    const [year,month,day]=date.split('-').map(Number),[hour,minute]=time.split(':').map(Number);
+    if(![year,month,day,hour,minute].every(Number.isFinite)) return null;
+    let ts=Date.UTC(year,month-1,day,hour,minute);
+    const fmt=new Intl.DateTimeFormat('en-CA',{timeZone,hourCycle:'h23',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    for(let i=0;i<2;i++){
+      const parts=Object.fromEntries(fmt.formatToParts(new Date(ts)).filter(p=>p.type!=='literal').map(p=>[p.type,Number(p.value)]));
+      ts += Date.UTC(year,month-1,day,hour,minute)-Date.UTC(parts.year,parts.month-1,parts.day,parts.hour,parts.minute);
+    }
+    return new Date(ts);
+  }
+
+  async function publicBookingViaFunction(slug){
+    const book=$('cbBook'); const body=$('cbBookBody');
+    if(!book || !body) return;
+    $('landing')?.classList.remove('active'); $('app')?.style.setProperty('display','none'); book.style.display='block';
+    body.innerHTML='<p>Cargando agenda…</p>';
+    try{
+      const {data:result,error}=await client.functions.invoke('citabot-public-booking',{body:null,headers:{}}).catch(async()=>({data:null,error:null}));
+      let payload=result;
+      if(!payload){
+        const r=await fetch(`${SUPABASE_URL}/functions/v1/citabot-public-booking?slug=${encodeURIComponent(slug)}`,{headers:{apikey:SUPABASE_KEY}});
+        payload=await r.json();
+      }
+      if(error && !payload) throw error;
+      if(!payload?.ok) throw new Error(payload?.error||'Agenda no disponible');
+      const pub=payload.data,b=pub.business,services=pub.services||[],staff=pub.staff||[],tz=b?.timezone||'America/Bogota';
+      if(!b) throw new Error('Negocio no disponible');
+      if(!services.length||!staff.length){body.innerHTML=`<h1>${esc(b.name)}</h1><p>Este negocio todavía no configuró servicios o profesionales.</p>`;return;}
+      body.innerHTML=`<h1>${esc(b.name)}</h1><p>${esc(b.city||'')} · Reserva en línea</p><div class="cb-book-grid"><div><label>Servicio</label><select id="cbpService">${services.map(x=>`<option value="${x.id}">${esc(x.name)} · ${money(x.price)} · ${x.duration_minutes} min</option>`).join('')}</select></div><div><label>Profesional</label><select id="cbpStaff">${staff.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div><div><label>Fecha</label><input id="cbpDate" type="date" min="${new Intl.DateTimeFormat('en-CA',{timeZone:tz}).format(new Date())}"></div><div><label>Hora</label><input id="cbpTime" type="time"></div><div><label>Tu nombre</label><input id="cbpName"></div><div><label>WhatsApp</label><input id="cbpPhone" type="tel"></div><div><label>Email</label><input id="cbpEmail" type="email"></div><div class="full"><label>Nota</label><textarea id="cbpNote"></textarea></div></div><button id="cbpSubmit" class="btn primary" style="margin-top:16px">Confirmar reserva</button><div id="cbpMsg" style="margin-top:12px"></div><p style="font-size:10px;color:#888;margin-top:18px">Al reservar, aceptas que el negocio use estos datos para gestionar tu cita.</p>`;
+      $('cbpSubmit').onclick=async()=>{
+        const get=id=>$(id)?.value?.trim()||'';const starts=zonedDateTimeToUtc(get('cbpDate'),get('cbpTime'),tz);
+        if(!get('cbpDate')||!get('cbpTime')||!get('cbpName')||!get('cbpPhone')){$('cbpMsg').innerHTML='<div class="cb-error">Completa nombre, WhatsApp, fecha y hora.</div>';return}
+        if(!starts||Number.isNaN(starts.getTime())||starts<=new Date()){$('cbpMsg').innerHTML='<div class="cb-error">Selecciona una fecha y hora futuras.</div>';return}
+        $('cbpSubmit').disabled=true;$('cbpMsg').innerHTML='<p style="color:#777;font-size:12px">Guardando reserva…</p>';
+        try{
+          const {data:res,error:err}=await client.functions.invoke('citabot-public-booking',{body:{business_slug:slug,service_id:get('cbpService'),staff_id:get('cbpStaff'),customer_name:get('cbpName'),customer_phone:get('cbpPhone'),customer_email:get('cbpEmail')||null,starts_at:starts.toISOString(),customer_notes:get('cbpNote')||null}});
+          if(err)throw err;if(!res?.ok)throw new Error(res?.error||'No fue posible guardar la reserva.');
+          $('cbpMsg').innerHTML='<div class="cb-ok"><b>¡Reserva confirmada!</b><br>La reserva quedó registrada correctamente en CitaBot.</div>';
+        }catch(e){$('cbpMsg').innerHTML=`<div class="cb-error">${esc(e?.message||'No fue posible guardar la reserva.')}</div>`}finally{$('cbpSubmit').disabled=false}
+      };
+    }catch(e){console.error('CITABOT_PUBLIC_BOOKING_ERROR',e);body.innerHTML=`<div class="cb-error">${esc(e?.message||'No fue posible cargar la agenda.')}</div>`}
+  }
+
   async function syncMetaStatus() {
     try {
       const result = await client.functions.invoke('citabot-meta-sync', { body: {} });
@@ -71,15 +117,13 @@
       if (grid) {
         const card = [...grid.children].find(x => (x.textContent || '').includes('WhatsApp + IA'));
         if (card) {
-          const badge = card.querySelector('.badge');
-          const p = card.querySelector('p');
+          const badge = card.querySelector('.badge'); const p = card.querySelector('p');
           if (ok) { if (badge) { badge.textContent='Conectado'; badge.className='badge confirmed'; } if (p) p.textContent='Meta confirmó la suscripción de WhatsApp.'; }
           else { if (badge) { badge.textContent='Pendiente de verificación'; badge.className='badge pending'; } if (p) p.textContent='La conexión está configurada, pero Meta aún no fue confirmada por la cuenta.'; }
         }
       }
     } catch (e) {
-      const grid = document.querySelector('#view-settings .grid3');
-      const card = grid && [...grid.children].find(x => (x.textContent || '').includes('WhatsApp + IA'));
+      const grid = document.querySelector('#view-settings .grid3'); const card = grid && [...grid.children].find(x => (x.textContent || '').includes('WhatsApp + IA'));
       if (card) { const badge = card.querySelector('.badge'); if (badge) { badge.textContent='Pendiente de verificación'; badge.className='badge pending'; } }
     }
   }
@@ -87,7 +131,9 @@
   function bootClosure() {
     removeFakeSurface();
     setTimeout(removeFakeSurface, 800);
-    setTimeout(syncMetaStatus, 1200);
+    const params=new URLSearchParams(location.search);const q=params.get('book');const h=location.hash.match(/^#book=([^&]+)/);const slug=q||(h?decodeURIComponent(h[1]):null);
+    if(slug) setTimeout(()=>publicBookingViaFunction(slug),120);
+    setTimeout(syncMetaStatus,1200);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bootClosure, { once: true }); else bootClosure();
 })();
