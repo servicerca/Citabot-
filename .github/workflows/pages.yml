@@ -77,6 +77,20 @@ jobs:
           grep -q 'citabot-public-booking' citabot-production-closure.js
           echo "CitaBot build commit: $(git rev-parse HEAD)"
 
+      - name: Registrar versión exacta del despliegue
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > citabot-build.json <<EOF
+          {
+            "app": "CitaBot",
+            "commit": "${GITHUB_SHA}",
+            "branch": "${GITHUB_REF_NAME}",
+            "workflow": "${GITHUB_WORKFLOW}"
+          }
+          EOF
+          python3 -m json.tool citabot-build.json >/dev/null
+
       - name: Preparar GitHub Pages
         uses: actions/configure-pages@v5
         with:
@@ -90,3 +104,33 @@ jobs:
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verificar que GitHub Pages publicó este commit
+        shell: bash
+        env:
+          PAGES_URL: ${{ steps.deployment.outputs.page_url }}
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test -n "${PAGES_URL}"
+          base="${PAGES_URL%/}"
+          tmp="$(mktemp)"
+          trap 'rm -f "$tmp"' EXIT
+          for attempt in 1 2 3 4 5 6; do
+            if curl --fail --silent --show-error --location --max-time 20 "$base/citabot-build.json" -o "$tmp"; then
+              actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["commit"])' "$tmp")"
+              if [ "$actual" = "$EXPECTED_COMMIT" ]; then
+                echo "GitHub Pages verificado: $actual"
+                curl --fail --silent --show-error --location --max-time 20 "$base/index.html" | grep -q 'citabot-live-data-guard.js'
+                curl --fail --silent --show-error --location --max-time 20 "$base/index.html" | grep -q 'citabot-production-runtime.js'
+                echo "CitaBot publicado y con guardia + runtime en producción."
+                exit 0
+              fi
+              echo "Publicación aún apunta a $actual; se esperaba $EXPECTED_COMMIT. Reintentando..."
+            else
+              echo "GitHub Pages todavía no responde. Reintentando..."
+            fi
+            sleep 10
+          done
+          echo "ERROR: GitHub Pages no publicó/verificó el commit $EXPECTED_COMMIT dentro del tiempo de espera."
+          exit 1
