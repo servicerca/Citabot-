@@ -1,0 +1,62 @@
+name: Finalizar publicación real de CitaBot
+
+on:
+  workflow_run:
+    workflows: ["Publicar CitaBot en GitHub Pages"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages-final"
+  cancel-in-progress: true
+
+jobs:
+  deploy-final:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar código publicado
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Reparar runtime de producción
+        shell: bash
+        run: |
+          # El runtime tenía barras invertidas de continuación introducidas por una edición anterior.
+          # Se eliminan únicamente cuando están al final de una línea.
+          sed -i 's/\\$//' citabot-production-runtime.js
+          if grep -n '\\$' citabot-production-runtime.js; then
+            echo 'Quedan barras invertidas inválidas en el runtime.'
+            exit 1
+          fi
+
+      - name: Verificar archivos críticos
+        shell: bash
+        run: |
+          test -f index.html
+          test -f citabot-production-runtime.js
+          test -f citabot-production-closure.js
+          grep -q 'citabot-production-runtime.js' index.html
+          grep -q 'citabot-production-closure.js' index.html
+
+      - name: Preparar GitHub Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Empaquetar sitio corregido
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Publicar corrección final
+        id: deployment
+        uses: actions/deploy-pages@v4
