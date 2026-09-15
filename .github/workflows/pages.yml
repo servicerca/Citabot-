@@ -38,7 +38,7 @@ jobs:
           node --check citabot-live-data-guard.js
           git diff --check
 
-      - name: Colocar guardia de datos reales antes del runtime
+      - name: Colocar guardia de datos reales antes del runtime y romper cache de scripts
         shell: bash
         run: |
           set -euo pipefail
@@ -48,18 +48,27 @@ jobs:
           s=p.read_text(encoding='utf-8')
           guard='<script src="./citabot-live-data-guard.js"></script>'
           runtime='<script src="./citabot-production-runtime.js"></script>'
+          closure='<script src="./citabot-production-closure.js"></script>'
           s=s.replace(guard,'')
+          s=s.replace('./citabot-live-data-guard.js?cb=','./citabot-live-data-guard.js')
+          s=s.replace('./citabot-production-runtime.js?cb=','./citabot-production-runtime.js')
+          s=s.replace('./citabot-production-closure.js?cb=','./citabot-production-closure.js')
           if runtime in s:
               s=s.replace(runtime,guard+'\n'+runtime,1)
           else:
               s=s.replace('</body>',guard+'\n</body>',1)
+          s=s.replace('src="./citabot-live-data-guard.js"','src="./citabot-live-data-guard.js?cb=${GITHUB_SHA}"')
+          s=s.replace('src="./citabot-production-runtime.js"','src="./citabot-production-runtime.js?cb=${GITHUB_SHA}"')
+          s=s.replace('src="./citabot-production-closure.js"','src="./citabot-production-closure.js?cb=${GITHUB_SHA}"')
           p.write_text(s,encoding='utf-8')
           PY
-          grep -q 'citabot-live-data-guard.js' index.html
+          grep -q 'citabot-live-data-guard.js?cb=${GITHUB_SHA}' index.html
+          grep -q 'citabot-production-runtime.js?cb=${GITHUB_SHA}' index.html
+          grep -q 'citabot-production-closure.js?cb=${GITHUB_SHA}' index.html
           python3 - <<'PY'
           from pathlib import Path
           s=Path('index.html').read_text(encoding='utf-8')
-          assert s.index('citabot-live-data-guard.js') < s.index('citabot-production-runtime.js')
+          assert s.index('citabot-live-data-guard.js?cb=${GITHUB_SHA}') < s.index('citabot-production-runtime.js?cb=${GITHUB_SHA}')
           PY
 
       - name: Verificar integración de producción
@@ -117,13 +126,13 @@ jobs:
           tmp="$(mktemp)"
           trap 'rm -f "$tmp"' EXIT
           for attempt in 1 2 3 4 5 6; do
-            if curl --fail --silent --show-error --location --max-time 20 "$base/citabot-build.json" -o "$tmp"; then
+            if curl --fail --silent --show-error --location --max-time 20 "$base/citabot-build.json?cb=${EXPECTED_COMMIT}" -o "$tmp"; then
               actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["commit"])' "$tmp")"
               if [ "$actual" = "$EXPECTED_COMMIT" ]; then
                 echo "GitHub Pages verificado: $actual"
-                curl --fail --silent --show-error --location --max-time 20 "$base/index.html" | grep -q 'citabot-live-data-guard.js'
-                curl --fail --silent --show-error --location --max-time 20 "$base/index.html" | grep -q 'citabot-production-runtime.js'
-                echo "CitaBot publicado y con guardia + runtime en producción."
+                curl --fail --silent --show-error --location --max-time 20 "$base/index.html?cb=${EXPECTED_COMMIT}" | grep -q 'citabot-live-data-guard.js?cb='
+                curl --fail --silent --show-error --location --max-time 20 "$base/index.html?cb=${EXPECTED_COMMIT}" | grep -q 'citabot-production-runtime.js?cb='
+                echo "CitaBot publicado y con guardia + runtime + cierre en producción."
                 exit 0
               fi
               echo "Publicación aún apunta a $actual; se esperaba $EXPECTED_COMMIT. Reintentando..."
