@@ -23,14 +23,42 @@ jobs:
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
+
+      - name: Reparar runtime de producción
+        shell: bash
+        run: |
+          set -euo pipefail
+          sed -i 's/\\$//' citabot-production-runtime.js
+          if grep -n '\\$' citabot-production-runtime.js; then
+            echo 'Quedan barras invertidas inválidas al final de líneas.'
+            exit 1
+          fi
+          node --check citabot-production-runtime.js
+          node --check citabot-production-closure.js
+
+      - name: Verificar integración de producción
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f index.html
+          test -f citabot-production-runtime.js
+          test -f citabot-production-closure.js
+          grep -q 'citabot-production-runtime.js' index.html
+          grep -q 'citabot-production-closure.js' index.html
+          grep -q 'citabot-whatsapp-send' citabot-production-runtime.js citabot-production-closure.js
+          grep -q 'citabot-public-booking' citabot-production-closure.js
+          grep -q 'CitaBot_PRODUCTION_RUNTIME_V1' index.html
+
       - name: Preparar GitHub Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
-      - name: Empaquetar sitio
+
+      - name: Empaquetar sitio corregido
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
+
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v4
