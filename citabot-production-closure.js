@@ -83,13 +83,9 @@
     $('landing')?.classList.remove('active'); $('app')?.style.setProperty('display','none'); book.style.display='block';
     body.innerHTML='<p>Cargando agenda…</p>';
     try{
-      const {data:result,error}=await client.functions.invoke('citabot-public-booking',{body:null,headers:{}}).catch(async()=>({data:null,error:null}));
-      let payload=result;
-      if(!payload){
-        const r=await fetch(`${SUPABASE_URL}/functions/v1/citabot-public-booking?slug=${encodeURIComponent(slug)}`,{headers:{apikey:SUPABASE_KEY}});
-        payload=await r.json();
-      }
-      if(error && !payload) throw error;
+      const r=await fetch(`${SUPABASE_URL}/functions/v1/citabot-public-booking?slug=${encodeURIComponent(slug)}`,{headers:{apikey:SUPABASE_KEY}});
+      if(!r.ok) throw new Error('No fue posible cargar la agenda.');
+      const payload=await r.json();
       if(!payload?.ok) throw new Error(payload?.error||'Agenda no disponible');
       const pub=payload.data,b=pub.business,services=pub.services||[],staff=pub.staff||[],tz=b?.timezone||'America/Bogota';
       if(!b) throw new Error('Negocio no disponible');
