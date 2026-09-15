@@ -28,6 +28,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('citabot-production-runtime.js')
+          s=p.read_text(encoding='utf-8')
+          s=s.replace('\\n', '\n')
+          p.write_text(s, encoding='utf-8')
+          PY
           sed -i 's/\\$//' citabot-production-runtime.js
           if grep -n '\\$' citabot-production-runtime.js; then
             echo 'Quedan barras invertidas inválidas al final de líneas.'
