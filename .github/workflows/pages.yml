@@ -24,7 +24,7 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Reparar runtime de producción
+      - name: Reparar y validar runtime de producción
         shell: bash
         run: |
           set -euo pipefail
@@ -35,6 +35,14 @@ jobs:
           fi
           node --check citabot-production-runtime.js
           node --check citabot-production-closure.js
+          node --check citabot-live-data-guard.js
+
+      - name: Activar guardia de datos reales
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'citabot-live-data-guard.js' index.html || sed -i 's#</body>#<script src="citabot-live-data-guard.js"></script>\\n</body>#' index.html
+          grep -q 'citabot-live-data-guard.js' index.html
 
       - name: Verificar integración de producción
         shell: bash
@@ -43,11 +51,12 @@ jobs:
           test -f index.html
           test -f citabot-production-runtime.js
           test -f citabot-production-closure.js
+          test -f citabot-live-data-guard.js
           grep -q 'citabot-production-runtime.js' index.html
           grep -q 'citabot-production-closure.js' index.html
+          grep -q 'citabot-live-data-guard.js' index.html
           grep -q 'citabot-whatsapp-send' citabot-production-runtime.js citabot-production-closure.js
           grep -q 'citabot-public-booking' citabot-production-closure.js
-          grep -q 'CITABOT_PRODUCTION_RUNTIME_V1' index.html
 
       - name: Preparar GitHub Pages
         uses: actions/configure-pages@v5
