@@ -65,6 +65,79 @@
     }
   }
 
+  // Remove the remaining static demo calendar/events before the live data renderer runs.
+  function removeStaticDemoData() {
+    document.querySelectorAll('.calendar').forEach(e => e.remove());
+    document.querySelectorAll('.event').forEach(e => e.remove());
+    document.querySelectorAll('#view-agenda .cb-demo-agenda, #view-agenda [data-demo="true"]').forEach(e => e.remove());
+
+    // Clear static client rows/metrics only when the live renderer is about to replace them.
+    const clientTable = document.querySelector('#clientTable tbody');
+    if (clientTable) clientTable.innerHTML = '<tr><td colspan="5" class="empty">Cargando clientes reales…</td></tr>';
+
+    const agenda = document.querySelector('#view-agenda');
+    if (agenda) {
+      const tables = agenda.querySelectorAll('table');
+      tables.forEach(t => {
+        if (!t.closest('.cb-production-agenda')) t.remove();
+      });
+    }
+
+    // Never allow known demo KPI values to remain visible while live data is loading.
+    document.querySelectorAll('#view-clients .metric, #view-dashboard .metric, #view-reports .metric, #view-revenue .metric, #view-marketing .metric').forEach(card => {
+      const text = (card.textContent || '').toLowerCase();
+      if (/248|96|38\.7%|12 este mes|por recuperar\s*7|480k|480\.000|7 clientes/.test(text)) {
+        const strong = card.querySelector('strong');
+        if (strong) strong.textContent = '0';
+        card.querySelectorAll('.trend').forEach(t => t.textContent = 'Datos reales');
+      }
+    });
+  }
+
+  function setRealClientMetrics(count, frequent, inactive) {
+    const cards = document.querySelectorAll('#view-clients .metric');
+    if (cards[0]) {
+      const v = cards[0].querySelector('strong'); if (v) v.textContent = String(count);
+      cards[0].querySelectorAll('.trend').forEach(t => t.textContent = count ? 'Datos reales' : 'Sin clientes todavía');
+    }
+    if (cards[1]) {
+      const v = cards[1].querySelector('strong'); if (v) v.textContent = String(frequent);
+      cards[1].querySelectorAll('.trend').forEach(t => t.textContent = 'Datos reales');
+    }
+    if (cards[2]) {
+      const v = cards[2].querySelector('strong'); if (v) v.textContent = String(inactive);
+      cards[2].querySelectorAll('.trend').forEach(t => t.textContent = 'Datos reales');
+    }
+  }
+
+  async function refreshRealClientMetrics() {
+    try {
+      const business = await getBusiness();
+      const bid = business.id;
+      const [{ data: customers, error: ce }, { data: appointments, error: ae }] = await Promise.all([
+        client.from('customers').select('id').eq('business_id', bid),
+        client.from('appointments').select('customer_id,starts_at,status').eq('business_id', bid)
+      ]);
+      if (ce) throw ce; if (ae) throw ae;
+      const rows = appointments || [];
+      const frequentIds = new Set(rows.filter(a => !['cancelled','no_show'].includes(a.status)).reduce((acc, a) => {
+        acc[a.customer_id] = (acc[a.customer_id] || 0) + 1; return acc;
+      }, {}));
+      const counts = {};
+      for (const a of rows) counts[a.customer_id] = (counts[a.customer_id] || 0) + 1;
+      const frequent = Object.values(counts).filter(n => n >= 3).length;
+      const last = {};
+      for (const a of rows) {
+        if (!a.customer_id || !a.starts_at) continue;
+        if (!last[a.customer_id] || new Date(a.starts_at) > new Date(last[a.customer_id])) last[a.customer_id] = a.starts_at;
+      }
+      const inactive = Object.values(last).filter(d => Date.now() - new Date(d).getTime() > 30 * 864e5).length;
+      setRealClientMetrics((customers || []).length, frequent, inactive);
+    } catch (e) {
+      console.error('CITABOT_REAL_METRICS_ERROR', e);
+    }
+  }
+
   function zonedDateTimeToUtc(date,time,timeZone){
     const [year,month,day]=date.split('-').map(Number),[hour,minute]=time.split(':').map(Number);
     if(![year,month,day,hour,minute].every(Number.isFinite)) return null;
@@ -126,7 +199,9 @@
 
   function bootClosure() {
     removeFakeSurface();
-    setTimeout(removeFakeSurface, 800);
+    removeStaticDemoData();
+    setTimeout(() => { removeFakeSurface(); removeStaticDemoData(); refreshRealClientMetrics(); }, 800);
+    setTimeout(refreshRealClientMetrics, 1800);
     const params=new URLSearchParams(location.search);const q=params.get('book');const h=location.hash.match(/^#book=([^&]+)/);const slug=q||(h?decodeURIComponent(h[1]):null);
     if(slug) setTimeout(()=>publicBookingViaFunction(slug),120);
     setTimeout(syncMetaStatus,1200);
