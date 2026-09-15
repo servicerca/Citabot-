@@ -1,31 +1,25 @@
-// CITABOT_LIVE_DATA_GUARD_V3
+// CITABOT_LIVE_DATA_GUARD_V4
 (() => {
   'use strict';
-  const URL = 'https://rphyhaoxwvaezulvhcrf.supabase.co';
-  const KEY = 'sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH';
-  const fakeNames = ['Laura Gómez', 'Andrés Ruiz', 'Sofía Pérez', 'Mateo Díaz'];
-  let client = null, business = null, running = false;
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-  const money = v => '$' + Math.round(Number(v || 0)).toLocaleString('es-CO') + ' COP';
-  const statusLabel = s => ({confirmed:'Confirmada',pending:'Pendiente',completed:'Completada',cancelled:'Cancelada',no_show:'No asistió'}[s] || s || 'Pendiente');
-  const validStatus = s => !['cancelled','no_show'].includes(s);
-  const localDate = (date,tz) => new Intl.DateTimeFormat('en-CA',{timeZone:tz||'America/Bogota'}).format(date);
-
+  const URL='https://rphyhaoxwvaezulvhcrf.supabase.co';
+  const KEY='sb_publishable_XjqZnyBiOxC1fNE9rJxQw_9xzEXquH';
+  const fakeNames=['Laura Gómez','Andrés Ruiz','Sofía Pérez','Mateo Díaz'];
+  let client=null,business=null,running=false;
+  const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const money=v=>'$'+Math.round(Number(v||0)).toLocaleString('es-CO')+' COP';
+  const statusLabel=s=>({confirmed:'Confirmada',pending:'Pendiente',completed:'Completada',cancelled:'Cancelada',no_show:'No asistió'}[s]||s||'Pendiente');
+  const validStatus=s=>!['cancelled','no_show'].includes(s);
+  const localDate=(date,tz)=>new Intl.DateTimeFormat('en-CA',{timeZone:tz||'America/Bogota'}).format(date);
   async function getContext(){
-    if(!client) client=window.supabase?.createClient(URL,KEY);
-    if(!client) return null;
-    const {data:{user},error:ue}=await client.auth.getUser();
-    if(ue||!user) return null;
-    const {data:members,error:me}=await client.from('business_members').select('business_id').eq('user_id',user.id);
-    if(me||!members?.length) return null;
+    if(!client)client=window.supabase?.createClient(URL,KEY);if(!client)return null;
+    const {data:{user},error:ue}=await client.auth.getUser();if(ue||!user)return null;
+    const {data:members,error:me}=await client.from('business_members').select('business_id').eq('user_id',user.id);if(me||!members?.length)return null;
     const ids=members.map(x=>x.business_id);
-    const {data:businesses,error:be}=await client.from('businesses').select('*').in('id',ids).eq('is_active',true).limit(1);
-    if(be||!businesses?.[0]) return null;
-    business=businesses[0]; return business;
+    const {data:businesses,error:be}=await client.from('businesses').select('*').in('id',ids).eq('is_active',true).limit(1);if(be||!businesses?.[0])return null;
+    business=businesses[0];return business;
   }
-
   async function loadData(){
-    const b=await getContext(); if(!b) return null; const bid=b.id;
+    const b=await getContext();if(!b)return null;const bid=b.id;
     const [a,c,p,m,ca,s,st,bi,sub]=await Promise.all([
       client.from('appointments').select('*,customers(name,phone),services(name,price,duration_minutes),staff(name)').eq('business_id',bid).order('starts_at',{ascending:true}),
       client.from('customers').select('*').eq('business_id',bid).order('created_at',{ascending:false}),
@@ -37,90 +31,35 @@
       client.from('business_integrations').select('*').eq('business_id',bid),
       client.from('subscriptions').select('*').eq('business_id',bid).order('created_at',{ascending:false})
     ]);
-    const firstError=[a,c,p,m,ca,s,st,bi,sub].find(x=>x.error); if(firstError) throw firstError.error;
+    const firstError=[a,c,p,m,ca,s,st,bi,sub].find(x=>x.error);if(firstError)throw firstError.error;
     return {appointments:a.data||[],customers:c.data||[],payments:p.data||[],messages:m.data||[],campaigns:ca.data||[],services:s.data||[],staff:st.data||[],integrations:bi.data||[],subscriptions:sub.data||[],timezone:b.timezone||'America/Bogota'};
   }
-
-  function setMetric(section,index,value,trend){
-    const card=document.querySelectorAll(`${section} .metric`)[index]; if(!card) return;
-    const strong=card.querySelector('strong'); if(strong) strong.textContent=String(value);
-    const t=card.querySelector('.trend'); if(t) t.textContent=trend||'Datos reales';
-  }
-  function cleanFakeText(root){
-    if(!root) return;
-    root.querySelectorAll('*').forEach(el=>{if(el.children.length)return;const text=(el.textContent||'').trim();if(fakeNames.some(n=>text.includes(n)))el.remove();});
-  }
-
+  function setMetric(section,index,value,trend){const card=document.querySelectorAll(`${section} .metric`)[index];if(!card)return;const strong=card.querySelector('strong');if(strong)strong.textContent=String(value);const t=card.querySelector('.trend');if(t)t.textContent=trend||'Datos reales';}
+  function cleanFakeText(root){if(!root)return;root.querySelectorAll('*').forEach(el=>{if(el.children.length)return;const text=(el.textContent||'').trim();if(fakeNames.some(n=>text.includes(n)))el.remove();});}
   function renderDashboard(d){
-    const today=localDate(new Date(),d.timezone);
-    const todayAp=d.appointments.filter(a=>a.starts_at?.slice(0,10)===today&&validStatus(a.status));
-    const paid=d.payments.filter(p=>p.status==='paid'); const revenue=paid.reduce((n,p)=>n+Number(p.amount||0),0);
+    const today=localDate(new Date(),d.timezone),todayAp=d.appointments.filter(a=>a.starts_at?.slice(0,10)===today&&validStatus(a.status));
+    const paid=d.payments.filter(p=>p.status==='paid'),revenue=paid.reduce((n,p)=>n+Number(p.amount||0),0);
     const inactive=d.customers.filter(c=>{const rows=d.appointments.filter(a=>a.customer_id===c.id&&validStatus(a.status)).sort((x,y)=>new Date(y.starts_at)-new Date(x.starts_at));return rows[0]&&Date.now()-new Date(rows[0].starts_at).getTime()>30*864e5;}).length;
     setMetric('#view-dashboard',0,todayAp.length,'Datos reales');setMetric('#view-dashboard',1,d.customers.length,'Datos reales');setMetric('#view-dashboard',2,money(revenue),'Datos reales');setMetric('#view-dashboard',3,inactive,'Datos reales');
-    const table=document.querySelector('#view-dashboard .table tbody');
-    if(table)table.innerHTML=todayAp.slice(0,8).map(a=>`<tr><td>${new Date(a.starts_at).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(a.customers?.name||'Cliente')}</td><td>${esc(a.services?.name||'Servicio')}</td><td><span class="badge ${a.status==='cancelled'?'cancelled':a.status==='confirmed'||a.status==='completed'?'confirmed':'pending'}">${esc(statusLabel(a.status))}</span></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay citas para hoy.</td></tr>';
-    const performance=[...document.querySelectorAll('#view-dashboard .card')].find(c=>(c.textContent||'').includes('Reservas confirmadas'));
-    if(performance)performance.innerHTML=`<div class="section-title" style="margin-top:0"><h2>Rendimiento</h2><span>Últimos 30 días</span></div><div class="metric"><small>Reservas confirmadas</small><strong>${d.appointments.filter(a=>new Date(a.starts_at).getTime()>=Date.now()-30*864e5&&validStatus(a.status)).length}</strong><span class="trend">Datos reales</span></div>`;
+    const table=document.querySelector('#view-dashboard .table tbody');if(table)table.innerHTML=todayAp.slice(0,8).map(a=>`<tr><td>${new Date(a.starts_at).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(a.customers?.name||'Cliente')}</td><td>${esc(a.services?.name||'Servicio')}</td><td><span class="badge ${a.status==='cancelled'?'cancelled':a.status==='confirmed'||a.status==='completed'?'confirmed':'pending'}">${esc(statusLabel(a.status))}</span></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay citas para hoy.</td></tr>';
+    const performance=[...document.querySelectorAll('#view-dashboard .card')].find(c=>(c.textContent||'').includes('Reservas confirmadas'));if(performance)performance.innerHTML=`<div class="section-title" style="margin-top:0"><h2>Rendimiento</h2><span>Últimos 30 días</span></div><div class="metric"><small>Reservas confirmadas</small><strong>${d.appointments.filter(a=>new Date(a.starts_at).getTime()>=Date.now()-30*864e5&&validStatus(a.status)).length}</strong><span class="trend">Datos reales</span></div>`;
     cleanFakeText(document.getElementById('view-dashboard'));
   }
-
   function renderClients(d){
     const frequent=d.customers.filter(c=>d.appointments.filter(a=>a.customer_id===c.id&&validStatus(a.status)).length>=3).length;
     const inactive=d.customers.filter(c=>{const rows=d.appointments.filter(a=>a.customer_id===c.id&&validStatus(a.status)).sort((x,y)=>new Date(y.starts_at)-new Date(x.starts_at));return rows[0]&&Date.now()-new Date(rows[0].starts_at).getTime()>30*864e5;}).length;
     setMetric('#view-clients',0,d.customers.length,d.customers.length?'Datos reales':'Sin clientes todavía');setMetric('#view-clients',1,frequent,'Datos reales');setMetric('#view-clients',2,inactive,'Datos reales');
     const table=document.querySelector('#clientTable tbody');if(!table)return;
-    table.innerHTML=d.customers.map(c=>{const ap=d.appointments.filter(a=>a.customer_id===c.id&&validStatus(a.status)).sort((x,y)=>new Date(y.starts_at)-new Date(x.starts_at));const last=ap[0];const value=ap.reduce((n,a)=>n+Number(a.services?.price||0),0);const old=last&&Date.now()-new Date(last.starts_at).getTime()>30*864e5;return `<tr><td><b>${esc(c.name)}</b><br><small>${esc(c.phone||'')}</small></td><td>${last?new Date(last.starts_at).toLocaleDateString('es-CO'):'—'}</td><td>${ap.length}</td><td>${money(value)}</td><td><span class="badge ${old?'inactive':'confirmed'}">${old?'Por recuperar':'Activo'}</span></td></tr>`;}).join('')||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';
+    table.innerHTML=d.customers.map(c=>{const ap=d.appointments.filter(a=>a.customer_id===c.id&&validStatus(a.status)).sort((x,y)=>new Date(y.starts_at)-new Date(x.starts_at)),last=ap[0],value=ap.reduce((n,a)=>n+Number(a.services?.price||0),0),old=last&&Date.now()-new Date(last.starts_at).getTime()>30*864e5;return `<tr><td><b>${esc(c.name)}</b><br><small>${esc(c.phone||'')}</small></td><td>${last?new Date(last.starts_at).toLocaleDateString('es-CO'):'—'}</td><td>${ap.length}</td><td>${money(value)}</td><td><span class="badge ${old?'inactive':'confirmed'}">${old?'Por recuperar':'Activo'}</span></td></tr>`}).join('')||'<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';
     cleanFakeText(document.getElementById('view-clients'));
   }
-
-  function renderAgenda(d){
-    const section=document.getElementById('view-agenda');if(!section)return;section.querySelectorAll('.calendar,.event,.cb-demo-agenda').forEach(e=>e.remove());
-    let live=section.querySelector('.cb-production-live-agenda');if(!live){live=document.createElement('div');live.className='card cb-production-live-agenda';section.appendChild(live);}
-    live.innerHTML=`<div class="section-title" style="margin-top:0"><h2>Agenda real</h2><span>${d.appointments.length} registros</span></div><div style="overflow:auto"><table class="table"><thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Profesional</th><th>Estado</th></tr></thead><tbody>${d.appointments.slice(0,100).map(a=>`<tr><td>${new Date(a.starts_at).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(a.customers?.name||'Cliente')}</td><td>${esc(a.services?.name||'Servicio')}</td><td>${esc(a.staff?.name||'')}</td><td><span class="badge ${a.status==='confirmed'||a.status==='completed'?'confirmed':a.status==='cancelled'?'cancelled':'pending'}">${esc(statusLabel(a.status))}</span></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No hay citas todavía.</td></tr>'}</tbody></table></div>`;
-    cleanFakeText(section);
-  }
-
-  function renderConversations(d){
-    const section=document.getElementById('view-conversations');if(!section)return;const list=section.querySelector('.chat-list'),main=section.querySelector('.chat-main');if(!list||!main)return;
-    const grouped=new Map();d.messages.filter(m=>m.customer_id).forEach(m=>{if(!grouped.has(m.customer_id))grouped.set(m.customer_id,[]);grouped.get(m.customer_id).push(m);});
-    const customers=[...grouped.keys()].map(id=>d.customers.find(c=>c.id===id)).filter(Boolean);
-    list.innerHTML=customers.map((c,i)=>{const rows=grouped.get(c.id)||[],last=rows[rows.length-1];return `<div class="chat-item ${i===0?'selected':''}" data-customer="${c.id}"><b>${esc(c.name)}</b><small style="display:block;color:var(--muted)">${esc(last?.body||'')}</small></div>`;}).join('')||'<div class="empty">Aún no hay conversaciones.</div>';
-    const renderOne=c=>{const rows=grouped.get(c.id)||[],head=main.querySelector('div[style*="border-bottom"]'),messages=main.querySelector('.messages');if(head)head.innerHTML=`<b style="font-size:12px">${esc(c.name)}</b><small style="display:block;color:var(--muted);font-size:9px">WhatsApp · ${esc(c.phone||'')}</small>`;if(messages)messages.innerHTML=rows.slice(-50).map(m=>`<div class="bubble ${m.direction==='outbound'?'out':'in'}">${esc(m.body)}</div>`).join('')||'<div class="empty">Sin mensajes.</div>';};
-    if(customers[0])renderOne(customers[0]);list.querySelectorAll('.chat-item').forEach(item=>item.onclick=()=>{list.querySelectorAll('.chat-item').forEach(x=>x.classList.remove('selected'));item.classList.add('selected');const c=d.customers.find(x=>x.id===item.dataset.customer);if(c)renderOne(c);});cleanFakeText(section);
-  }
-
-  function renderMarketing(d){
-    const active=d.campaigns.filter(c=>['active','scheduled'].includes(c.status)).length;const reached=d.campaigns.reduce((n,c)=>n+Number(c.recipients_count||c.recipients||0),0);const recovered=d.campaigns.reduce((n,c)=>n+Number(c.recovered_count||c.recovered||0),0);
-    setMetric('#view-marketing',0,active,active?'Datos reales':'Sin campañas');setMetric('#view-marketing',1,reached,'Datos reales');setMetric('#view-marketing',2,recovered,'Datos reales');
-    const title=[...document.querySelectorAll('#view-marketing .section-title h2')].find(x=>x.textContent.trim()==='Campañas');const box=title?.closest('.section-title')?.nextElementSibling;
-    if(box?.classList.contains('card'))box.innerHTML=d.campaigns.map(c=>`<div class="campaign"><div><b>${esc(c.name)}</b><small>${esc(c.channel||'')}${c.segment?' · '+esc(c.segment):''}</small></div><span class="badge ${c.status==='active'?'confirmed':c.status==='scheduled'?'pending':'inactive'}">${esc(c.status||'')}</span></div>`).join('')||'<div class="empty">No hay campañas creadas.</div>';
-    cleanFakeText(document.getElementById('view-marketing'));
-  }
-
-  function renderReports(d){
-    const paid=d.payments.filter(p=>p.status==='paid'),revenue=paid.reduce((n,p)=>n+Number(p.amount||0),0),total=d.appointments.length,completed=d.appointments.filter(a=>a.status==='completed').length;
-    const activeCustomers=d.customers.filter(c=>d.appointments.some(a=>a.customer_id===c.id&&validStatus(a.status))).length;const repeatCustomers=d.customers.filter(c=>d.appointments.filter(a=>a.customer_id===c.id&&a.status==='completed').length>=2).length;const retention=activeCustomers?Math.round(repeatCustomers/activeCustomers*100):0;
-    setMetric('#view-reports',0,money(revenue),'Datos reales');setMetric('#view-reports',1,total,'Datos reales');setMetric('#view-reports',2,total?Math.round(completed/total*100)+'%':'0%','Datos reales');setMetric('#view-reports',3,retention+'%','Datos reales');
-    const reports=document.getElementById('view-reports');if(!reports)return;const title=reports.querySelector('.card b');if(title&&title.textContent.includes('Ocupación'))title.textContent='Distribución de citas por día';
-    const bars=reports.querySelectorAll('.statbar');bars.forEach((bar,i)=>{const day=i+1,count=d.appointments.filter(a=>new Date(a.starts_at).getDay()===day&&validStatus(a.status)).length,pct=total?Math.round(count/total*100):0;const inner=bar.querySelector('i');if(inner)inner.style.width=pct+'%';const label=bar.parentElement?.querySelector('small');if(label)label.textContent=['Lunes','Martes','Miércoles','Jueves','Viernes'][i]+' · '+pct+'%';});
-    const serviceTable=[...reports.querySelectorAll('table')].find(t=>t.previousElementSibling?.textContent?.includes('Servicios más vendidos'));
-    if(serviceTable){const counts=new Map();d.appointments.filter(a=>a.service_id).forEach(a=>counts.set(a.service_id,(counts.get(a.service_id)||0)+1));const rows=[...counts.entries()].map(([id,count])=>({name:d.services.find(s=>s.id===id)?.name||'Servicio',count})).sort((a,b)=>b.count-a.count);serviceTable.querySelector('tbody').innerHTML=rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${total?Math.round(r.count/total*100):0}%</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Sin datos suficientes.</td></tr>';}
-    cleanFakeText(reports);
-  }
-
-  function renderRevenue(d){
-    const paid=d.payments.filter(p=>p.status==='paid');const ticket=paid.length?paid.reduce((n,p)=>n+Number(p.amount||0),0)/paid.length:0;const paying=d.subscriptions.filter(s=>s.status==='active').length;
-    setMetric('#view-revenue',0,money(0),'Sin suscripciones activas');setMetric('#view-revenue',1,paying,'Datos reales');setMetric('#view-revenue',2,money(ticket),'Datos reales');setMetric('#view-revenue',3,'0%','Sin datos de conversión');
-    const table=document.querySelector('#view-revenue table tbody');if(table)table.innerHTML=d.subscriptions.map(s=>`<tr><td>${esc(business?.name||'Negocio')}</td><td>${esc(s.plan||'')}</td><td>${s.current_period_end?new Date(s.current_period_end).toLocaleDateString('es-CO'):'—'}</td><td><span class="badge ${s.status==='active'?'confirmed':s.status==='trialing'?'pending':'inactive'}">${esc(s.status||'')}</span></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay suscripciones registradas.</td></tr>';
-    cleanFakeText(document.getElementById('view-revenue'));
-  }
-
-  function renderSettings(d){
-    const name=document.getElementById('setBusiness');if(name)name.value=business?.name||'';const phone=[...document.querySelectorAll('#view-settings input')].find(x=>x.type==='tel'||x.value?.includes('+57'));if(phone&&business?.phone)phone.value=business.phone;
-    const grid=document.querySelector('#view-settings .grid3');if(grid){const whatsapp=d.integrations.some(x=>x.provider==='whatsapp'&&x.enabled!==false);grid.innerHTML=`<div class="card"><b>🗄️ Backend + BD</b><p style="font-size:11px;color:var(--muted)">Supabase operativo y conectado.</p><span class="badge confirmed">Conectado</span></div><div class="card"><b>💬 WhatsApp + IA</b><p style="font-size:11px;color:var(--muted)">${whatsapp?'Integración de WhatsApp configurada.':'WhatsApp todavía no está configurado en este negocio.'}</p><span class="badge ${whatsapp?'confirmed':'pending'}">${whatsapp?'Conectado':'Pendiente'}</span></div><div class="card"><b>🔐 Seguridad</b><p style="font-size:11px;color:var(--muted)">Sesión y acceso aislado por negocio.</p><span class="badge confirmed">Activo</span></div>`;}
-  }
-
-  async function run(){if(running)return;running=true;try{const d=await loadData();if(!d)return;renderDashboard(d);renderClients(d);renderAgenda(d);renderConversations(d);renderMarketing(d);renderReports(d);renderRevenue(d);renderSettings(d);document.querySelectorAll('#view-dashboard .trend,#view-clients .trend,#view-marketing .trend,#view-reports .trend,#view-revenue .trend').forEach(t=>{if(/%|vs\.|este mes|anterior|en ejecución|plan profesional/i.test(t.textContent||''))t.textContent='Datos reales';});document.querySelectorAll('#view-dashboard,#view-clients,#view-agenda,#view-conversations,#view-marketing,#view-reports,#view-revenue,#view-settings').forEach(cleanFakeText);}catch(e){console.error('CITABOT_LIVE_GUARD_ERROR',e);}finally{running=false;}}
-  function boot(){run();setInterval(run,15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)run();});document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>setTimeout(run,50)));}
+  function renderAgenda(d){const section=document.getElementById('view-agenda');if(!section)return;section.querySelectorAll('.calendar,.event,.cb-demo-agenda,.cb-production-live-agenda').forEach(e=>e.remove());const live=document.createElement('div');live.className='card cb-production-live-agenda';live.innerHTML=`<div class="section-title" style="margin-top:0"><h2>Agenda real</h2><span>${d.appointments.length} registros</span></div><div style="overflow:auto"><table class="table"><thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Profesional</th><th>Estado</th></tr></thead><tbody>${d.appointments.slice(0,100).map(a=>`<tr><td>${new Date(a.starts_at).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(a.customers?.name||'Cliente')}</td><td>${esc(a.services?.name||'Servicio')}</td><td>${esc(a.staff?.name||'')}</td><td><span class="badge ${a.status==='confirmed'||a.status==='completed'?'confirmed':a.status==='cancelled'?'cancelled':'pending'}">${esc(statusLabel(a.status))}</span></td></tr>`).join('')||'<tr><td colspan="5" class="empty">No hay citas todavía.</td></tr>'}</tbody></table></div>`;section.appendChild(live);cleanFakeText(section);}
+  function renderConversations(d){const section=document.getElementById('view-conversations');if(!section)return;const list=section.querySelector('.chat-list'),main=section.querySelector('.chat-main');if(!list||!main)return;const grouped=new Map();d.messages.filter(m=>m.customer_id).forEach(m=>{if(!grouped.has(m.customer_id))grouped.set(m.customer_id,[]);grouped.get(m.customer_id).push(m);});const customers=[...grouped.keys()].map(id=>d.customers.find(c=>c.id===id)).filter(Boolean);list.innerHTML=customers.map((c,i)=>{const rows=grouped.get(c.id)||[],last=rows[rows.length-1];return `<div class="chat-item ${i===0?'selected':''}" data-customer="${c.id}"><b>${esc(c.name)}</b><small style="display:block;color:var(--muted)">${esc(last?.body||'')}</small></div>`}).join('')||'<div class="empty">Aún no hay conversaciones.</div>';const renderOne=c=>{const rows=grouped.get(c.id)||[],head=main.querySelector('div[style*="border-bottom"]'),messages=main.querySelector('.messages');if(head)head.innerHTML=`<b style="font-size:12px">${esc(c.name)}</b><small style="display:block;color:var(--muted);font-size:9px">WhatsApp · ${esc(c.phone||'')}</small>`;if(messages)messages.innerHTML=rows.slice(-50).map(m=>`<div class="bubble ${m.direction==='outbound'?'out':'in'}">${esc(m.body)}</div>`).join('')||'<div class="empty">Sin mensajes.</div>';};if(customers[0])renderOne(customers[0]);list.querySelectorAll('.chat-item').forEach(item=>item.onclick=()=>{list.querySelectorAll('.chat-item').forEach(x=>x.classList.remove('selected'));item.classList.add('selected');const c=d.customers.find(x=>x.id===item.dataset.customer);if(c)renderOne(c);});cleanFakeText(section);}
+  function renderMarketing(d){const active=d.campaigns.filter(c=>['active','scheduled'].includes(c.status)).length,reached=d.campaigns.reduce((n,c)=>n+Number(c.recipients_count||c.recipients||0),0),recovered=d.campaigns.reduce((n,c)=>n+Number(c.recovered_count||c.recovered||0),0);setMetric('#view-marketing',0,active,active?'Datos reales':'Sin campañas');setMetric('#view-marketing',1,reached,'Datos reales');setMetric('#view-marketing',2,recovered,'Datos reales');const title=[...document.querySelectorAll('#view-marketing .section-title h2')].find(x=>x.textContent.trim()==='Campañas'),box=title?.closest('.section-title')?.nextElementSibling;if(box?.classList.contains('card'))box.innerHTML=d.campaigns.map(c=>`<div class="campaign"><div><b>${esc(c.name)}</b><small>${esc(c.channel||'')}${c.segment?' · '+esc(c.segment):''}</small></div><span class="badge ${c.status==='active'?'confirmed':c.status==='scheduled'?'pending':'inactive'}">${esc(c.status||'')}</span></div>`).join('')||'<div class="empty">No hay campañas creadas.</div>';cleanFakeText(document.getElementById('view-marketing'));}
+  function renderReports(d){const paid=d.payments.filter(p=>p.status==='paid'),revenue=paid.reduce((n,p)=>n+Number(p.amount||0),0),total=d.appointments.length,completed=d.appointments.filter(a=>a.status==='completed').length,activeCustomers=d.customers.filter(c=>d.appointments.some(a=>a.customer_id===c.id&&validStatus(a.status))).length,repeatCustomers=d.customers.filter(c=>d.appointments.filter(a=>a.customer_id===c.id&&a.status==='completed').length>=2).length,retention=activeCustomers?Math.round(repeatCustomers/activeCustomers*100):0;setMetric('#view-reports',0,money(revenue),'Datos reales');setMetric('#view-reports',1,total,'Datos reales');setMetric('#view-reports',2,total?Math.round(completed/total*100)+'%':'0%','Datos reales');setMetric('#view-reports',3,retention+'%','Datos reales');const reports=document.getElementById('view-reports');if(!reports)return;const bars=reports.querySelectorAll('.statbar');bars.forEach((bar,i)=>{const day=i+1,count=d.appointments.filter(a=>new Date(a.starts_at).getDay()===day&&validStatus(a.status)).length,pct=total?Math.round(count/total*100):0,inner=bar.querySelector('i');if(inner)inner.style.width=pct+'%';const label=bar.parentElement?.querySelector('small');if(label)label.textContent=['Lunes','Martes','Miércoles','Jueves','Viernes'][i]+' · '+pct+'%';});const serviceTable=[...reports.querySelectorAll('table')].find(t=>t.previousElementSibling?.textContent?.includes('Servicios más vendidos'));if(serviceTable){const counts=new Map();d.appointments.filter(a=>a.service_id).forEach(a=>counts.set(a.service_id,(counts.get(a.service_id)||0)+1));const rows=[...counts.entries()].map(([id,count])=>({name:d.services.find(s=>s.id===id)?.name||'Servicio',count})).sort((a,b)=>b.count-a.count);serviceTable.querySelector('tbody').innerHTML=rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${total?Math.round(r.count/total*100):0}%</td></tr>`).join('')||'<tr><td colspan="2" class="empty">Sin datos suficientes.</td></tr>';}cleanFakeText(reports);}
+  function renderRevenue(d){const paid=d.payments.filter(p=>p.status==='paid'),ticket=paid.length?paid.reduce((n,p)=>n+Number(p.amount||0),0)/paid.length:0,paying=d.subscriptions.filter(s=>s.status==='active').length;setMetric('#view-revenue',0,money(0),'Sin suscripciones activas');setMetric('#view-revenue',1,paying,'Datos reales');setMetric('#view-revenue',2,money(ticket),'Datos reales');setMetric('#view-revenue',3,'0%','Sin datos de conversión');const table=document.querySelector('#view-revenue table tbody');if(table)table.innerHTML=d.subscriptions.map(s=>`<tr><td>${esc(business?.name||'Negocio')}</td><td>${esc(s.plan||'')}</td><td>${s.current_period_end?new Date(s.current_period_end).toLocaleDateString('es-CO'):'—'}</td><td><span class="badge ${s.status==='active'?'confirmed':s.status==='trialing'?'pending':'inactive'}">${esc(s.status||'')}</span></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay suscripciones registradas.</td></tr>';cleanFakeText(document.getElementById('view-revenue'));}
+  function renderSettings(d){const name=document.getElementById('setBusiness');if(name)name.value=business?.name||'';const grid=document.querySelector('#view-settings .grid3');if(grid){const whatsapp=d.integrations.some(x=>x.provider==='whatsapp'&&x.enabled!==false);grid.innerHTML=`<div class="card"><b>🗄️ Backend + BD</b><p style="font-size:11px;color:var(--muted)">Supabase operativo y conectado.</p><span class="badge confirmed">Conectado</span></div><div class="card"><b>💬 WhatsApp + IA</b><p style="font-size:11px;color:var(--muted)">${whatsapp?'Integración de WhatsApp configurada.':'WhatsApp todavía no está configurado en este negocio.'}</p><span class="badge ${whatsapp?'confirmed':'pending'}">${whatsapp?'Conectado':'Pendiente'}</span></div><div class="card"><b>🔐 Seguridad</b><p style="font-size:11px;color:var(--muted)">Sesión y acceso aislado por negocio.</p><span class="badge confirmed">Activo</span></div>`;}}
+  async function run(){if(running)return;running=true;try{const d=await loadData();if(!d)return;renderDashboard(d);renderClients(d);renderAgenda(d);renderConversations(d);renderMarketing(d);renderReports(d);renderRevenue(d);renderSettings(d);document.querySelectorAll('#view-dashboard .trend,#view-clients .trend,#view-marketing .trend,#view-reports .trend,#view-revenue .trend').forEach(t=>{if(/%|vs\.|este mes|anterior|en ejecución|plan profesional/i.test(t.textContent||''))t.textContent='Datos reales';});document.querySelectorAll('#view-dashboard,#view-clients,#view-agenda,#view-conversations,#view-marketing,#view-reports,#view-revenue,#view-settings').forEach(cleanFakeText);}catch(e){console.error('CITABOT_LIVE_DATA_GUARD_V4_ERROR',e);}finally{running=false;}}
+  function boot(){run();[1200,3000,6000,10000].forEach(ms=>setTimeout(run,ms));setInterval(run,15000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)run();});document.querySelectorAll('.nav button').forEach(b=>b.addEventListener('click',()=>setTimeout(run,50)));}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 })();
