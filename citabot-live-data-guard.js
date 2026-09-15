@@ -1,82 +1,227 @@
-// CITABOT_LIVE_DATA_GUARD_V1
+// CITABOT_LIVE_DATA_GUARD_V2
 (() => {
   'use strict';
   const URL = 'https://rphyhaoxwvaezulvhcrf.supabase.co';
   const KEY = 'sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH';
+  const fakeNames = ['Laura Gómez', 'Andrés Ruiz', 'Sofía Pérez', 'Mateo Díaz'];
+  let client = null;
+  let business = null;
+  let running = false;
 
-  function esc(v) {
-    return String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[m]));
+  const money = (v) => '$' + Math.round(Number(v || 0)).toLocaleString('es-CO') + ' COP';
+  const statusLabel = (s) => ({ confirmed:'Confirmada', pending:'Pendiente', completed:'Completada', cancelled:'Cancelada', no_show:'No asistió' }[s] || s || 'Pendiente');
+  const validStatus = (s) => !['cancelled','no_show'].includes(s);
+  const localDate = (date, tz) => new Intl.DateTimeFormat('en-CA', { timeZone: tz || 'America/Bogota' }).format(date);
+
+  async function getContext() {
+    if (!client) client = window.supabase?.createClient(URL, KEY);
+    if (!client) return null;
+    const { data: { user }, error: ue } = await client.auth.getUser();
+    if (ue || !user) return null;
+    const { data: members, error: me } = await client.from('business_members').select('business_id').eq('user_id', user.id);
+    if (me || !members?.length) return null;
+    const ids = members.map(x => x.business_id);
+    const { data: businesses, error: be } = await client.from('businesses').select('*').in('id', ids).eq('is_active', true).limit(1);
+    if (be || !businesses?.[0]) return null;
+    business = businesses[0];
+    return business;
   }
-  function money(v) {
-    return '$' + Math.round(Number(v || 0)).toLocaleString('es-CO') + ' COP';
+
+  async function loadData() {
+    const b = await getContext();
+    if (!b) return null;
+    const bid = b.id;
+    const [a,c,p,m,ca,s,st,bi] = await Promise.all([
+      client.from('appointments').select('*,customers(name,phone),services(name,price,duration_minutes),staff(name)').eq('business_id', bid).order('starts_at', { ascending: true }),
+      client.from('customers').select('*').eq('business_id', bid).order('created_at', { ascending: false }),
+      client.from('payments').select('*').eq('business_id', bid).order('created_at', { ascending: false }),
+      client.from('messages').select('*').eq('business_id', bid).order('created_at', { ascending: true }).limit(300),
+      client.from('campaigns').select('*').eq('business_id', bid).order('created_at', { ascending: false }),
+      client.from('services').select('*').eq('business_id', bid).order('name'),
+      client.from('staff').select('*').eq('business_id', bid).order('name'),
+      client.from('business_integrations').select('*').eq('business_id', bid)
+    ]);
+    const firstError = [a,c,p,m,ca,s,st,bi].find(x => x.error);
+    if (firstError) throw firstError.error;
+    return {
+      appointments:a.data || [], customers:c.data || [], payments:p.data || [], messages:m.data || [], campaigns:ca.data || [],
+      services:s.data || [], staff:st.data || [], integrations:bi.data || [], timezone:b.timezone || 'America/Bogota'
+    };
   }
-  function statusLabel(status) {
-    const map = { confirmed: 'Confirmada', pending: 'Pendiente', completed: 'Completada', cancelled: 'Cancelada', no_show: 'No asistió' };
-    return map[status] || status || 'Pendiente';
+
+  function setMetric(section, index, value, trend) {
+    const cards = document.querySelectorAll(`${section} .metric`);
+    const card = cards[index];
+    if (!card) return;
+    const strong = card.querySelector('strong');
+    if (strong) strong.textContent = String(value);
+    const t = card.querySelector('.trend');
+    if (t) t.textContent = trend || 'Datos reales';
+  }
+
+  function cleanFakeText(root) {
+    if (!root) return;
+    root.querySelectorAll('*').forEach((el) => {
+      if (el.children.length > 0) return;
+      const text = (el.textContent || '').trim();
+      if (fakeNames.some(n => text.includes(n))) el.remove();
+    });
+  }
+
+  function renderDashboard(d) {
+    const today = localDate(new Date(), d.timezone);
+    const todayAp = d.appointments.filter(a => a.starts_at?.slice(0,10) === today && validStatus(a.status));
+    const paid = d.payments.filter(p => p.status === 'paid');
+    const revenue = paid.reduce((n,p) => n + Number(p.amount || 0), 0);
+    const inactive = d.customers.filter(c => {
+      const rows = d.appointments.filter(a => a.customer_id === c.id && validStatus(a.status)).sort((x,y) => new Date(y.starts_at)-new Date(x.starts_at));
+      return rows[0] && Date.now() - new Date(rows[0].starts_at).getTime() > 30 * 864e5;
+    }).length;
+    setMetric('#view-dashboard',0,todayAp.length,'Datos reales');
+    setMetric('#view-dashboard',1,d.customers.length,'Datos reales');
+    setMetric('#view-dashboard',2,money(revenue),'Datos reales');
+    setMetric('#view-dashboard',3,inactive,'Datos reales');
+    const table = document.querySelector('#view-dashboard .table tbody');
+    if (table) table.innerHTML = todayAp.slice(0,8).map(a => `<tr><td>${new Date(a.starts_at).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(a.customers?.name || 'Cliente')}</td><td>${esc(a.services?.name || 'Servicio')}</td><td><span class="badge ${a.status==='cancelled'?'cancelled':a.status==='confirmed'||a.status==='completed'?'confirmed':'pending'}">${esc(statusLabel(a.status))}</span></td></tr>`).join('') || '<tr><td colspan="4" class="empty">No hay citas para hoy.</td></tr>';
+    const performance = [...document.querySelectorAll('#view-dashboard .card')].find(c => (c.textContent || '').includes('Reservas confirmadas'));
+    if (performance) performance.innerHTML = `<div class="section-title" style="margin-top:0"><h2>Rendimiento</h2><span>Últimos 30 días</span></div><div class="metric"><small>Reservas confirmadas</small><strong>${d.appointments.filter(a => new Date(a.starts_at).getTime() >= Date.now()-30*864e5 && validStatus(a.status)).length}</strong><span class="trend">Datos reales</span></div>`;
+    cleanFakeText(document.getElementById('view-dashboard'));
+  }
+
+  function renderClients(d) {
+    const frequent = d.customers.filter(c => d.appointments.filter(a => a.customer_id === c.id && validStatus(a.status)).length >= 3).length;
+    const inactive = d.customers.filter(c => {
+      const rows = d.appointments.filter(a => a.customer_id === c.id && validStatus(a.status)).sort((x,y) => new Date(y.starts_at)-new Date(x.starts_at));
+      return rows[0] && Date.now() - new Date(rows[0].starts_at).getTime() > 30*864e5;
+    }).length;
+    setMetric('#view-clients',0,d.customers.length,d.customers.length?'Datos reales':'Sin clientes todavía');
+    setMetric('#view-clients',1,frequent,'Datos reales');
+    setMetric('#view-clients',2,inactive,'Datos reales');
+    const table = document.querySelector('#clientTable tbody');
+    if (!table) return;
+    table.innerHTML = d.customers.map(c => {
+      const ap = d.appointments.filter(a => a.customer_id === c.id && validStatus(a.status)).sort((x,y)=>new Date(y.starts_at)-new Date(x.starts_at));
+      const last = ap[0];
+      const value = ap.reduce((n,a)=>n+Number(a.services?.price||0),0);
+      const old = last && Date.now()-new Date(last.starts_at).getTime()>30*864e5;
+      return `<tr><td><b>${esc(c.name)}</b><br><small>${esc(c.phone||'')}</small></td><td>${last?new Date(last.starts_at).toLocaleDateString('es-CO'):'—'}</td><td>${ap.length}</td><td>${money(value)}</td><td><span class="badge ${old?'inactive':'confirmed'}">${old?'Por recuperar':'Activo'}</span></td></tr>`;
+    }).join('') || '<tr><td colspan="5" class="empty">Aún no tienes clientes.</td></tr>';
+    cleanFakeText(document.getElementById('view-clients'));
+  }
+
+  function renderAgenda(d) {
+    const section = document.getElementById('view-agenda');
+    if (!section) return;
+    section.querySelectorAll('.calendar,.event,.cb-demo-agenda').forEach(e => e.remove());
+    let live = section.querySelector('.cb-production-live-agenda');
+    if (!live) { live = document.createElement('div'); live.className='card cb-production-live-agenda'; section.appendChild(live); }
+    live.innerHTML = `<div class="section-title" style="margin-top:0"><h2>Agenda real</h2><span>${d.appointments.length} registros</span></div><div style="overflow:auto"><table class="table"><thead><tr><th>Fecha</th><th>Cliente</th><th>Servicio</th><th>Profesional</th><th>Estado</th></tr></thead><tbody>${d.appointments.slice(0,100).map(a=>`<tr><td>${new Date(a.starts_at).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'})}</td><td>${esc(a.customers?.name||'Cliente')}</td><td>${esc(a.services?.name||'Servicio')}</td><td>${esc(a.staff?.name||'')}</td><td><span class="badge ${a.status==='confirmed'||a.status==='completed'?'confirmed':a.status==='cancelled'?'cancelled':'pending'}">${esc(statusLabel(a.status))}</span></td></tr>`).join('') || '<tr><td colspan="5" class="empty">No hay citas todavía.</td></tr>'}</tbody></table></div>`;
+    cleanFakeText(section);
+  }
+
+  function renderConversations(d) {
+    const section = document.getElementById('view-conversations');
+    if (!section) return;
+    const list = section.querySelector('.chat-list');
+    const main = section.querySelector('.chat-main');
+    if (!list || !main) return;
+    const grouped = new Map();
+    d.messages.filter(m=>m.customer_id).forEach(m => { if(!grouped.has(m.customer_id)) grouped.set(m.customer_id,[]); grouped.get(m.customer_id).push(m); });
+    const customers = [...grouped.keys()].map(id=>d.customers.find(c=>c.id===id)).filter(Boolean);
+    list.innerHTML = customers.map((c,i)=>{const rows=grouped.get(c.id)||[];const last=rows[rows.length-1];return `<div class="chat-item ${i===0?'selected':''}" data-customer="${c.id}"><b>${esc(c.name)}</b><small style="display:block;color:var(--muted)">${esc(last?.body||'')}</small></div>`}).join('') || '<div class="empty">Aún no hay conversaciones.</div>';
+    const renderOne = (c) => {
+      const rows = grouped.get(c.id)||[];
+      const head = main.querySelector('div[style*="border-bottom"]');
+      const messages = main.querySelector('.messages');
+      if(head) head.innerHTML=`<b style="font-size:12px">${esc(c.name)}</b><small style="display:block;color:var(--muted);font-size:9px">WhatsApp · ${esc(c.phone||'')}</small>`;
+      if(messages) messages.innerHTML=rows.slice(-50).map(m=>`<div class="bubble ${m.direction==='outbound'?'out':'in'}">${esc(m.body)}</div>`).join('')||'<div class="empty">Sin mensajes.</div>';
+    };
+    if (customers[0]) renderOne(customers[0]);
+    list.querySelectorAll('.chat-item').forEach(item=>item.onclick=()=>{list.querySelectorAll('.chat-item').forEach(x=>x.classList.remove('selected'));item.classList.add('selected');const c=d.customers.find(x=>x.id===item.dataset.customer);if(c)renderOne(c);});
+    cleanFakeText(section);
+  }
+
+  function renderMarketing(d) {
+    const active = d.campaigns.filter(c=>['active','scheduled'].includes(c.status)).length;
+    const reached = d.campaigns.reduce((n,c)=>n+Number(c.recipients_count||c.recipients||0),0);
+    const recovered = d.campaigns.reduce((n,c)=>n+Number(c.recovered_count||c.recovered||0),0);
+    setMetric('#view-marketing',0,active,active?'Datos reales':'Sin campañas');
+    setMetric('#view-marketing',1,reached,'Datos reales');
+    setMetric('#view-marketing',2,recovered,'Datos reales');
+    const title = [...document.querySelectorAll('#view-marketing .section-title h2')].find(x=>x.textContent.trim()==='Campañas');
+    const box = title?.closest('.section-title')?.nextElementSibling;
+    if (box?.classList.contains('card')) {
+      box.innerHTML = d.campaigns.map(c=>`<div class="campaign"><div><b>${esc(c.name)}</b><small>${esc(c.channel||'')}${c.segment?' · '+esc(c.segment):''}</small></div><span class="badge ${c.status==='active'?'confirmed':c.status==='scheduled'?'pending':'inactive'}">${esc(c.status||'')}</span></div>`).join('') || '<div class="empty">No hay campañas creadas.</div>';
+    }
+    cleanFakeText(document.getElementById('view-marketing'));
+  }
+
+  function renderReports(d) {
+    const paid = d.payments.filter(p=>p.status==='paid');
+    const revenue = paid.reduce((n,p)=>n+Number(p.amount||0),0);
+    const total = d.appointments.length;
+    const completed = d.appointments.filter(a=>a.status==='completed').length;
+    const retention = d.customers.length ? Math.round(d.customers.filter(c=>d.appointments.some(a=>a.customer_id===c.id && validStatus(a.status))).length/d.customers.length*100) : 0;
+    setMetric('#view-reports',0,money(revenue),'Datos reales');
+    setMetric('#view-reports',1,total,'Datos reales');
+    setMetric('#view-reports',2,total?Math.round(completed/total*100)+'%':'0%','Datos reales');
+    setMetric('#view-reports',3,retention+'%','Datos reales');
+    const reports = document.getElementById('view-reports');
+    if (reports) {
+      const bars = reports.querySelectorAll('.statbar');
+      bars.forEach((bar,i)=>{ const pct = total ? Math.round(d.appointments.filter(a=>new Date(a.starts_at).getDay()===((i+1)%7)&&validStatus(a.status)).length/Math.max(1,total)*100) : 0; bar.style.width='100%'; const inner=bar.querySelector('i'); if(inner) inner.style.width=Math.min(100,pct*5)+'%'; const label=bar.parentElement?.querySelector('small'); if(label) label.textContent=['Lunes','Martes','Miércoles','Jueves','Viernes'][i]+' · '+Math.min(100,pct*5)+'%'; });
+      const serviceTable = [...reports.querySelectorAll('table')].find(t => t.previousElementSibling?.textContent?.includes('Servicios más vendidos'));
+      if (serviceTable) {
+        const counts = new Map(); d.appointments.filter(a=>a.service_id).forEach(a=>counts.set(a.service_id,(counts.get(a.service_id)||0)+1));
+        const rows = [...counts.entries()].map(([id,count])=>({name:d.services.find(s=>s.id===id)?.name||'Servicio',count})).sort((a,b)=>b.count-a.count);
+        serviceTable.querySelector('tbody').innerHTML = rows.map(r=>`<tr><td>${esc(r.name)}</td><td>${total?Math.round(r.count/total*100):0}%</td></tr>`).join('') || '<tr><td colspan="2" class="empty">Sin datos suficientes.</td></tr>';
+      }
+      cleanFakeText(reports);
+    }
+  }
+
+  function renderRevenue(d) {
+    const paid=d.payments.filter(p=>p.status==='paid');
+    const revenue=paid.reduce((n,p)=>n+Number(p.amount||0),0);
+    setMetric('#view-revenue',0,money(revenue),'Datos reales');
+    setMetric('#view-revenue',1,d.customers.length,'Datos reales');
+    setMetric('#view-revenue',2,d.customers.length?money(revenue/d.customers.length):money(0),'Datos reales');
+    setMetric('#view-revenue',3,d.customers.length?Math.round(paid.length/d.customers.length*100)+'%':'0%','Datos reales');
+    const table=document.querySelector('#view-revenue table tbody');
+    if(table) table.innerHTML=d.payments.slice(0,100).map(p=>`<tr><td>${esc(p.concept||'Cobro')}</td><td>${money(p.amount)}</td><td>${esc(p.method||'')}</td><td><span class="badge ${p.status==='paid'?'confirmed':'pending'}">${esc(p.status||'')}</span></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay pagos registrados.</td></tr>';
+    cleanFakeText(document.getElementById('view-revenue'));
+  }
+
+  function renderSettings(d) {
+    const name=document.getElementById('setBusiness'); if(name) name.value=business?.name||'';
+    const phone=[...document.querySelectorAll('#view-settings input')].find(x=>x.type==='tel' || x.value?.includes('+57')); if(phone && business?.phone) phone.value=business.phone;
+    const grid=document.querySelector('#view-settings .grid3');
+    if(grid){
+      const whatsapp=d.integrations.some(x=>x.provider==='whatsapp' && x.enabled!==false);
+      grid.innerHTML=`<div class="card"><b>🗄️ Backend + BD</b><p style="font-size:11px;color:var(--muted)">Supabase operativo y conectado.</p><span class="badge confirmed">Conectado</span></div><div class="card"><b>💬 WhatsApp + IA</b><p style="font-size:11px;color:var(--muted)">${whatsapp?'Integración de WhatsApp configurada.':'WhatsApp todavía no está configurado en este negocio.'}</p><span class="badge ${whatsapp?'confirmed':'pending'}">${whatsapp?'Conectado':'Pendiente'}</span></div><div class="card"><b>🔐 Seguridad</b><p style="font-size:11px;color:var(--muted)">Sesión y acceso aislado por negocio.</p><span class="badge confirmed">Activo</span></div>`;
+    }
   }
 
   async function run() {
-    const client = window.supabase?.createClient(URL, KEY);
-    if (!client) return;
-    const { data: { user } } = await client.auth.getUser();
-    if (!user) return;
-    const { data: members, error: me } = await client.from('business_members').select('business_id').eq('user_id', user.id);
-    if (me || !members?.length) return;
-    const ids = members.map((m) => m.business_id);
-    const { data: businesses, error: be } = await client.from('businesses').select('id,timezone').in('id', ids).eq('is_active', true).limit(1);
-    if (be || !businesses?.length) return;
-    const business = businesses[0];
-    const [appointments, payments, customers] = await Promise.all([
-      client.from('appointments').select('*,customers(name),services(name,price),staff(name)').eq('business_id', business.id).order('starts_at', { ascending: true }),
-      client.from('payments').select('*').eq('business_id', business.id),
-      client.from('customers').select('*').eq('business_id', business.id)
-    ]);
-    if (appointments.error || payments.error || customers.error) return;
-    const ap = appointments.data || [];
-    const pay = payments.data || [];
-    const cust = customers.data || [];
-    const tz = business.timezone || 'America/Bogota';
-    const today = new Intl.DateTimeFormat('en-CA', { timeZone: tz }).format(new Date());
-    const todayAp = ap.filter(a => a.starts_at && a.starts_at.slice(0, 10) === today && !['cancelled','no_show'].includes(a.status));
-    const paid = pay.filter(p => p.status === 'paid');
-    const revenue = paid.reduce((n, p) => n + Number(p.amount || 0), 0);
-    const last30 = Date.now() - 30 * 864e5;
-    const recent = ap.filter(a => new Date(a.starts_at).getTime() >= last30 && !['cancelled','no_show'].includes(a.status));
-
-    // Remove every hard-coded dashboard activity row and rebuild it from Supabase.
-    const table = document.querySelector('#view-dashboard .table tbody');
-    if (table) {
-      table.innerHTML = todayAp.slice(0, 8).map(a => `<tr><td>${new Date(a.starts_at).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</td><td>${esc(a.customers?.name || 'Cliente')}</td><td>${esc(a.services?.name || 'Servicio')}</td><td><span class="badge ${a.status==='confirmed'?'confirmed':a.status==='completed'?'confirmed':a.status==='cancelled'?'cancelled':'pending'}">${esc(statusLabel(a.status))}</span></td></tr>`).join('') || '<tr><td colspan="4" class="empty">No hay citas para hoy.</td></tr>';
-    }
-
-    // Replace fake comparison text and values with real, explainable values.
-    document.querySelectorAll('#view-dashboard .trend').forEach(el => {
-      if ((el.textContent || '').includes('18%')) el.textContent = 'Datos reales';
-    });
-
-    const perfLabel = [...document.querySelectorAll('#view-dashboard *')].find(el => (el.textContent || '').trim() === 'Reservas confirmadas');
-    if (perfLabel) {
-      const card = perfLabel.closest('.card');
-      if (card) {
-        const count = recent.length;
-        card.innerHTML = `<div class="section-title" style="margin-top:0"><h2>Rendimiento</h2><span>Últimos 30 días</span></div><div class="metric"><small>Reservas confirmadas</small><strong>${count}</strong><span class="trend">Datos reales</span></div>`;
-      }
-    }
-
-    // Remove remaining obvious demo people if any static node survived elsewhere on Inicio.
-    const fakeNames = ['Laura Gómez','Andrés Ruiz','Sofía Pérez','Mateo Díaz'];
-    document.querySelectorAll('#view-dashboard *').forEach(el => {
-      const t = (el.textContent || '').trim();
-      if (fakeNames.some(name => t.includes(name))) el.remove();
-    });
-
-    // Keep the live KPI values consistent with the database.
-    const metrics = document.querySelectorAll('#view-dashboard .metric strong');
-    if (metrics[0]) metrics[0].textContent = todayAp.length;
-    if (metrics[1]) metrics[1].textContent = cust.length;
-    if (metrics[2]) metrics[2].textContent = money(revenue);
+    if (running) return;
+    running = true;
+    try {
+      const d = await loadData();
+      if (!d) return;
+      renderDashboard(d); renderClients(d); renderAgenda(d); renderConversations(d); renderMarketing(d); renderReports(d); renderRevenue(d); renderSettings(d);
+      document.querySelectorAll('#view-dashboard .trend,#view-clients .trend,#view-marketing .trend,#view-reports .trend,#view-revenue .trend').forEach(t=>{ if(/%|vs\.|este mes|anterior|en ejecución/i.test(t.textContent||'')) t.textContent='Datos reales'; });
+      document.querySelectorAll('#view-dashboard,#view-clients,#view-agenda,#view-conversations,#view-marketing,#view-reports,#view-revenue,#view-settings').forEach(cleanFakeText);
+    } catch (e) {
+      console.error('CITABOT_LIVE_GUARD_ERROR', e);
+    } finally { running = false; }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => run().catch(() => {}), { once: true });
-  else run().catch(() => {});
+  function boot() {
+    run();
+    setInterval(run, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) run(); });
+    document.querySelectorAll('.nav button').forEach(b => b.addEventListener('click', () => setTimeout(run, 50)));
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true }); else boot();
 })();
