@@ -38,12 +38,29 @@ jobs:
           node --check citabot-live-data-guard.js
           git diff --check
 
-      - name: Activar guardia de datos reales
+      - name: Colocar guardia de datos reales antes del runtime
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'citabot-live-data-guard.js' index.html || sed -i 's#</body>#<script src="citabot-live-data-guard.js"></script>\\n</body>#' index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text(encoding='utf-8')
+          guard='<script src="./citabot-live-data-guard.js"></script>'
+          runtime='<script src="./citabot-production-runtime.js"></script>'
+          s=s.replace(guard,'')
+          if runtime in s:
+              s=s.replace(runtime,guard+'\n'+runtime,1)
+          else:
+              s=s.replace('</body>',guard+'\n</body>',1)
+          p.write_text(s,encoding='utf-8')
+          PY
           grep -q 'citabot-live-data-guard.js' index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          s=Path('index.html').read_text(encoding='utf-8')
+          assert s.index('citabot-live-data-guard.js') < s.index('citabot-production-runtime.js')
+          PY
 
       - name: Verificar integración de producción
         shell: bash
