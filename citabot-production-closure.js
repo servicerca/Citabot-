@@ -7,7 +7,7 @@
   if (!client) return;
   const $ = (id) => document.getElementById(id);
   const toast = (m) => window.showToast ? window.showToast(m) : console.log(m);
-  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const esc = (s) => String(s ?? '').replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
   const money = n => '$' + Math.round(Number(n || 0)).toLocaleString('es-CO') + ' COP';
 
   async function getBusiness() {
@@ -78,12 +78,22 @@
     }
     document.querySelectorAll('#view-clients .metric, #view-dashboard .metric, #view-reports .metric, #view-revenue .metric, #view-marketing .metric').forEach(card => {
       const text = (card.textContent || '').toLowerCase();
-      if (/248|96|38\.7%|12 este mes|por recuperar\s*7|480k|480\.000|7 clientes/.test(text)) {
+      if (/248|96|38\.7%|12 este mes|por recuperar\s*7|480k|480\.000|7 clientes|8\.4m|186|78%|64%|1\.8m|31|59\.900/.test(text)) {
         const strong = card.querySelector('strong');
         if (strong) strong.textContent = '0';
         card.querySelectorAll('.trend').forEach(t => t.textContent = 'Datos reales');
       }
     });
+    const marketing = document.getElementById('view-marketing');
+    if (marketing) {
+      const campaignCards = marketing.querySelectorAll(':scope > .card');
+      campaignCards.forEach(c => c.innerHTML = '<div class="empty">Cargando campañas reales…</div>');
+    }
+    const reports = document.getElementById('view-reports');
+    if (reports) {
+      const grids = reports.querySelectorAll(':scope > .grid2');
+      grids.forEach(g => g.innerHTML = '<div class="card"><b style="font-size:13px">Citas por día</b><div class="empty">Cargando datos reales…</div></div><div class="card"><b style="font-size:13px">Servicios más solicitados</b><div class="empty">Cargando datos reales…</div></div>');
+    }
   }
 
   function setRealClientMetrics(count, frequent, inactive) {
@@ -175,8 +185,6 @@
     }
   }
 
-  // FASE 5: la creación interna de citas usa el mismo motor seguro que la reserva pública.
-  // Esto evita que el panel pueda saltarse validaciones de horario, fecha, profesional y conflictos.
   function installSafeInternalAppointmentFlow(attempt = 0) {
     const originalConfirmModal = window.confirmModal;
     if (typeof originalConfirmModal !== 'function') {
@@ -210,7 +218,7 @@
           customer_phone: customer.phone,
           customer_email: customer.email || null,
           starts_at: dt.toISOString(),
-          customer_notes: $('mNotes')?.value?.trim() || null
+          customer_notes: $('mNote')?.value?.trim() || null
         };
         const { data: result, error } = await client.functions.invoke('citabot-public-booking', { body: payload });
         if (error) throw error;
@@ -225,11 +233,64 @@
     };
   }
 
+  function renderMarketingReal() {
+    const section = document.getElementById('view-marketing');
+    if (!section) return;
+    const metrics = section.querySelectorAll('.metric strong');
+    const campaignRows = window.__citabotRuntimeData?.campaigns || [];
+    const messageRows = window.__citabotRuntimeData?.messages || [];
+    const customerRows = window.__citabotRuntimeData?.customers || [];
+    if (metrics[0]) metrics[0].textContent = campaignRows.filter(c => ['active','scheduled'].includes(c.status)).length;
+    if (metrics[1]) metrics[1].textContent = messageRows.filter(m => m.direction === 'outbound').length;
+    if (metrics[2]) metrics[2].textContent = customerRows.filter(c => true).length;
+    const box = section.querySelector(':scope > .card');
+    if (box) box.innerHTML = campaignRows.length ? campaignRows.map(c => `<div class="campaign"><div><b>${esc(c.name)}</b><small>${esc(c.channel || '')} · ${esc(c.segment || '')}</small></div><span class="badge ${c.status==='active'?'confirmed':'pending'}">${esc(c.status || '')}</span></div>`).join('') : '<div class="empty">No hay campañas registradas.</div>';
+  }
+
+  function renderReportsReal() {
+    const section = document.getElementById('view-reports');
+    if (!section) return;
+    const appointments = window.__citabotRuntimeData?.appointments || [];
+    const services = window.__citabotRuntimeData?.services || [];
+    const grids = section.querySelectorAll(':scope > .grid2');
+    if (!grids.length) return;
+    const byDay = [0,0,0,0,0,0,0];
+    const serviceCounts = {};
+    appointments.forEach(a => {
+      const d = new Date(a.starts_at);
+      if (!Number.isNaN(d.getTime())) byDay[d.getDay()]++;
+      if (a.service_id) serviceCounts[a.service_id] = (serviceCounts[a.service_id] || 0) + 1;
+    });
+    const dayNames = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const dayRows = dayNames.map((name,i) => `<div style="display:flex;justify-content:space-between;padding:6px 0"><span>${name}</span><b>${byDay[i]}</b></div>`).join('');
+    const serviceRows = Object.entries(serviceCounts).sort((a,b)=>b[1]-a[1]).slice(0,8).map(([id,n]) => `<tr><td>${esc(services.find(s=>s.id===id)?.name || 'Servicio')}</td><td>${n}</td></tr>`).join('') || '<tr><td colspan="2" class="empty">No hay citas todavía.</td></tr>';
+    grids[0].innerHTML = `<div class="card"><b style="font-size:13px">Citas por día</b><div style="margin-top:12px">${dayRows}</div></div><div class="card"><b style="font-size:13px">Servicios más solicitados</b><table class="table"><thead><tr><th>Servicio</th><th>Citas</th></tr></thead><tbody>${serviceRows}</tbody></table></div>`;
+  }
+
+  function renderRevenueReal() {
+    const section = document.getElementById('view-revenue');
+    if (!section) return;
+    const payments = window.__citabotRuntimeData?.payments || [];
+    const customers = window.__citabotRuntimeData?.customers || [];
+    const subscriptions = window.__citabotRuntimeData?.subscription;
+    const revenue = payments.filter(p => p.status === 'paid').reduce((n,p) => n + Number(p.amount || 0), 0);
+    const paidCount = payments.filter(p => p.status === 'paid').length;
+    const metrics = section.querySelectorAll('.metric');
+    const set = (i,label,value,trend) => { const c=metrics[i]; if(!c)return; const s=c.querySelector('small'),v=c.querySelector('strong'),t=c.querySelector('.trend'); if(s)s.textContent=label; if(v)v.textContent=value; if(t)t.textContent=trend; };
+    set(0,'Ingresos cobrados',money(revenue),'Datos reales');
+    set(1,'Pagos realizados',String(paidCount),'Datos reales');
+    set(2,'Ticket medio',money(paidCount ? revenue/paidCount : 0),'Pagos reales');
+    set(3,'Suscripción',subscriptions?.status || 'Sin suscripción','Estado real');
+    const table=section.querySelector('table tbody');
+    if(table) table.innerHTML=payments.slice(0,50).map(p=>`<tr><td>${esc(p.concept||'Cobro')}</td><td>${money(p.amount)}</td><td>${esc(p.method||'')}</td><td><span class="badge ${p.status==='paid'?'confirmed':'pending'}">${esc(p.status||'')}</span></td></tr>`).join('')||'<tr><td colspan="4" class="empty">No hay pagos registrados.</td></tr>';
+    void customers;
+  }
+
   function bootClosure() {
     removeFakeSurface();
     removeStaticDemoData();
     installSafeInternalAppointmentFlow();
-    setTimeout(() => { removeFakeSurface(); removeStaticDemoData(); refreshRealClientMetrics(); installSafeInternalAppointmentFlow(); }, 800);
+    setTimeout(() => { removeFakeSurface(); removeStaticDemoData(); refreshRealClientMetrics(); installSafeInternalAppointmentFlow(); renderMarketingReal(); renderReportsReal(); renderRevenueReal(); }, 800);
     setTimeout(refreshRealClientMetrics, 1800);
     const params=new URLSearchParams(location.search);const q=params.get('book');const h=location.hash.match(/^#book=([^&]+)/);const slug=q||(h?decodeURIComponent(h[1]):null);
     if(slug) setTimeout(()=>publicBookingViaFunction(slug),120);
