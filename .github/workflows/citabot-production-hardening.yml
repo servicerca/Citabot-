@@ -6,94 +6,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply and repair internal appointment save guard
-        shell: python
-        run: |
-          from pathlib import Path
-          p = Path('citabot-production-closure.js')
-          s = p.read_text(encoding='utf-8')
-          marker = 'CITABOT_INTERNAL_SAVE_GUARD_V1'
-          if marker not in s:
-              injection = """
-
-  function installInternalSaveGuard() {
-    if (window.__citabotInternalSaveGuardInstalled) return;
-    window.__citabotInternalSaveGuardInstalled = true;
-    document.addEventListener('click', async (event) => {
-      const button = event.target?.closest?.('button');
-      if (!button || (button.textContent || '').trim().toLowerCase() !== 'guardar') return;
-      const type = window.state?.modalType || '';
-      if (type !== 'Nueva cita' && type !== 'Nueva reserva') return;
-      if (!$('mCustomer') || !$('mService') || !$('mStaff') || !$('mStart')) return;
-      event.preventDefault();
-      event.stopPropagation();
-      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-      if (button.disabled) return;
-      button.disabled = true;
-      try {
-        const business = await getBusiness();
-        const customerId = $('mCustomer')?.value?.trim();
-        const serviceId = $('mService')?.value?.trim();
-        const staffId = $('mStaff')?.value?.trim();
-        const startRaw = $('mStart')?.value?.trim();
-        if (!customerId || !serviceId || !staffId || !startRaw) throw new Error('Completa cliente, servicio, profesional y fecha.');
-        const { data: customer, error: ce } = await client.from('customers').select('name,phone,email').eq('id', customerId).eq('business_id', business.id).single();
-        if (ce || !customer) throw new Error('Cliente no válido para este negocio.');
-        if (!customer.phone) throw new Error('El cliente debe tener un número de WhatsApp para crear la cita.');
-        const { data: service, error: se } = await client.from('services').select('id,duration_minutes,active').eq('id', serviceId).eq('business_id', business.id).single();
-        if (se || !service?.active) throw new Error('Servicio no disponible.');
-        const parts = startRaw.split('T');
-        const dt = parts.length === 2 && typeof zonedDateTimeToUtc === 'function' ? zonedDateTimeToUtc(parts[0], parts[1], business.timezone || 'America/Bogota') : new Date(startRaw);
-        if (!dt || Number.isNaN(dt.getTime()) || dt <= new Date()) throw new Error('La fecha y hora deben ser futuras.');
-        const { data: result, error } = await client.functions.invoke('citabot-public-booking', { body: {
-          business_slug: business.slug,
-          service_id: serviceId,
-          staff_id: staffId,
-          customer_name: customer.name,
-          customer_phone: customer.phone,
-          customer_email: customer.email || null,
-          starts_at: dt.toISOString(),
-          customer_notes: $('mNote')?.value?.trim() || null
-        }});
-        if (error) throw error;
-        if (!result?.ok) throw new Error(result?.error || 'No fue posible crear la cita.');
-        if (window.closeModal) window.closeModal();
-        if (typeof window.loadCitaBotData === 'function') await window.loadCitaBotData();
-        else if (typeof window.load === 'function') await window.load();
-        toast('Cita guardada correctamente.');
-      } catch (e) {
-        console.error('CITABOT_INTERNAL_SAVE_GUARD_ERROR', e);
-        toast(e?.message || 'No se pudo guardar la cita.');
-      } finally {
-        button.disabled = false;
-      }
-    }, true);
-  }
-  // CITABOT_INTERNAL_SAVE_GUARD_V1
-"""
-              needle = '\n  function bootClosure() {'
-              if needle not in s:
-                  raise SystemExit('No se encontró bootClosure para insertar el guard.')
-              s = s.replace(needle, injection + needle, 1)
-              s = s.replace('    installSafeInternalAppointmentFlow();\n    setTimeout(() => {', '    installSafeInternalAppointmentFlow();\n    installInternalSaveGuard();\n    setTimeout(() => {', 1)
-              p.write_text(s, encoding='utf-8')
-              print('Internal save guard applied.')
-          else:
-              start = s.find('  function installInternalSaveGuard()')
-              end = s.find('\n  function bootClosure()', start)
-              if start < 0 or end < 0:
-                  raise SystemExit('No se encontró el bloque del guard para reparar.')
-              block = s[start:end].replace('\\n', '\n')
-              s = s[:start] + block + s[end:]
-              p.write_text(s, encoding='utf-8')
-              print('Internal save guard repaired.')
       - name: Validate production markers and no demo surface
         shell: python
         run: |
@@ -106,25 +25,6 @@ jobs:
           assert 'window.sendMessage = async' in closure, 'Mensajería WhatsApp real no está definida'
           assert 'citabot-whatsapp-send' in closure, 'La mensajería no usa la Edge Function real'
           assert 'citabot-meta-sync' in closure, 'La verificación Meta no está integrada'
-          assert 'CITABOT_INTERNAL_SAVE_GUARD_V1' in closure, 'El guard de Guardar cita no está integrado'
-          start = closure.find('  function installInternalSaveGuard()')
-          end = closure.find('\n  function bootClosure()', start)
-          assert start >= 0 and end >= 0, 'Bloque del guard no encontrado'
-          assert '\\n' not in closure[start:end], 'El guard contiene escapes de salto de línea literales'
-          assert "document.addEventListener('click'" in closure[start:end], 'El guard de clic no está integrado'
-          assert 'citabot-public-booking' in closure[start:end], 'El guard no usa la reserva segura'
           assert 'CitaBot — MVP Premium' not in index, 'Quedó título MVP en producción'
           assert '.demo-hero{display:none!important;' in index, 'El bloque demo no está oculto en la fuente'
           print('CitaBot production hardening validation: OK')
-      - name: Commit generated production fix
-        shell: bash
-        run: |
-          if git diff --quiet -- citabot-production-closure.js; then
-            echo 'No generated change to commit.'
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add citabot-production-closure.js
-          git commit -m 'Fix internal appointment save flow'
-          git push
