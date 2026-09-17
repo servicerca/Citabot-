@@ -148,7 +148,7 @@
     document.addEventListener('click',async event=>{
       const button=event.target?.closest?.('button');
       if(!button||(button.textContent||'').trim().toLowerCase()!=='guardar')return;
-      const type=window.state?.modalType||'';
+      const type=(document.getElementById('modalTitle')?.textContent||'').trim();
       if(type!=='Nueva cita'&&type!=='Nueva reserva')return;
       if(!$('mCustomer')||!$('mService')||!$('mStaff')||!$('mStart'))return;
       event.preventDefault();event.stopPropagation();event.stopImmediatePropagation?.();
@@ -164,7 +164,7 @@
     if(window.__citabotSafeAppointmentFlowInstalled)return;
     window.__citabotSafeAppointmentFlowInstalled=true;
     window.confirmModal=async function(){
-      const type=window.state?.modalType||'';
+      const type=(document.getElementById('modalTitle')?.textContent||'').trim();
       if(type!=='Nueva cita'&&type!=='Nueva reserva')return original.apply(this,arguments);
       try{await bookInternalAppointment();}catch(e){console.error('CITABOT_INTERNAL_APPOINTMENT_ERROR',e);toast(e?.message||'No se pudo guardar la cita.');}
     };
