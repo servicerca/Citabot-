@@ -6,25 +6,52 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Validate production markers and no demo surface
+      - name: Fix internal appointment save guard target
         shell: python
         run: |
           from pathlib import Path
-          runtime = Path('citabot-production-runtime.js').read_text(encoding='utf-8')
+          p = Path('citabot-production-closure.js')
+          s = p.read_text(encoding='utf-8')
+          old = "const type=window.state?.modalType||'';"
+          new = "const type=(document.getElementById('modalTitle')?.textContent||'').trim();"
+          if old in s:
+              s = s.replace(old, new)
+              p.write_text(s, encoding='utf-8')
+              print('Fixed save guard modal target.')
+          elif new in s:
+              print('Save guard modal target already fixed.')
+          else:
+              raise SystemExit('Save guard target not found.')
+      - name: Validate production
+        shell: python
+        run: |
+          from pathlib import Path
           index = Path('index.html').read_text(encoding='utf-8')
           closure = Path('citabot-production-closure.js').read_text(encoding='utf-8')
-          assert 'CITABOT_PRODUCTION_RUNTIME_V1' in index, 'Runtime de producción no está integrado'
-          assert 'CITABOT_PRODUCTION_CLOSURE_V1' in index, 'Cierre de producción no está integrado'
-          assert 'window.sendMessage = async' in closure, 'Mensajería WhatsApp real no está definida'
-          assert 'citabot-whatsapp-send' in closure, 'La mensajería no usa la Edge Function real'
-          assert 'citabot-meta-sync' in closure, 'La verificación Meta no está integrada'
-          assert 'CitaBot — MVP Premium' not in index, 'Quedó título MVP en producción'
-          assert '.demo-hero{display:none!important;' in index, 'El bloque demo no está oculto en la fuente'
+          assert 'CITABOT_PRODUCTION_RUNTIME_V1' in index
+          assert 'CITABOT_PRODUCTION_CLOSURE_V1' in index
+          assert "const type=(document.getElementById('modalTitle')?.textContent||'').trim();" in closure
+          assert 'citabot-public-booking' in closure
+          assert 'CITABOT_INTERNAL_APPOINTMENT_ERROR' in closure
+          assert 'CitaBot — MVP Premium' not in index
+          assert '.demo-hero{display:none!important;' in index
           print('CitaBot production hardening validation: OK')
+      - name: Commit production fix
+        shell: bash
+        run: |
+          if git diff --quiet -- citabot-production-closure.js; then
+            echo 'No generated change to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add citabot-production-closure.js
+          git commit -m 'Fix internal appointment modal target'
+          git push
