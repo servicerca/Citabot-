@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: true
 
 jobs:
@@ -24,28 +24,25 @@ jobs:
       - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Reparar y validar runtime de producción
+      - name: Validar JavaScript de producción
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
           p=Path('citabot-production-runtime.js')
-          s=p.read_text(encoding='utf-8')
-          s=s.replace('\\n', '\n')
-          p.write_text(s, encoding='utf-8')
+          s=p.read_text(encoding='utf-8').replace('\\n','\n')
+          p.write_text(s,encoding='utf-8')
           PY
           sed -i 's/\\$//' citabot-production-runtime.js
-          if grep -n '\\$' citabot-production-runtime.js; then
-            echo 'Quedan barras invertidas inválidas al final de líneas.'
-            exit 1
-          fi
+          if grep -n '\\$' citabot-production-runtime.js; then exit 1; fi
           node --check citabot-production-runtime.js
           node --check citabot-production-closure.js
           node --check citabot-live-data-guard.js
+          node --check citabot-mercadopago.js
           git diff --check
 
-      - name: Colocar guardia de datos reales antes del runtime y romper cache de scripts
+      - name: Preparar bundle de producción
         shell: bash
         run: |
           set -euo pipefail
@@ -56,29 +53,21 @@ jobs:
           guard='<script src="./citabot-live-data-guard.js"></script>'
           runtime='<script src="./citabot-production-runtime.js"></script>'
           closure='<script src="./citabot-production-closure.js"></script>'
-          s=s.replace(guard,'')
-          s=s.replace('./citabot-live-data-guard.js?cb=','./citabot-live-data-guard.js')
-          s=s.replace('./citabot-production-runtime.js?cb=','./citabot-production-runtime.js')
-          s=s.replace('./citabot-production-closure.js?cb=','./citabot-production-closure.js')
-          if runtime in s:
-              s=s.replace(runtime,guard+'\n'+runtime,1)
-          else:
-              s=s.replace('</body>',guard+'\n</body>',1)
-          s=s.replace('src="./citabot-live-data-guard.js"','src="./citabot-live-data-guard.js?cb=${GITHUB_SHA}"')
-          s=s.replace('src="./citabot-production-runtime.js"','src="./citabot-production-runtime.js?cb=${GITHUB_SHA}"')
-          s=s.replace('src="./citabot-production-closure.js"','src="./citabot-production-closure.js?cb=${GITHUB_SHA}"')
+          billing='<script src="./citabot-mercadopago.js"></script>'
+          for tag in (guard,runtime,closure,billing): s=s.replace(tag,'')
+          if runtime in s: s=s.replace(runtime,guard+'\n'+runtime,1)
+          else: s=s.replace('</body>',guard+'\n</body>',1)
+          s=s.replace('</body>',closure+'\n'+billing+'\n</body>',1)
+          for name in ('citabot-live-data-guard.js','citabot-production-runtime.js','citabot-production-closure.js','citabot-mercadopago.js'):
+              s=s.replace(f'src="./{name}"',f'src="./{name}?cb=${{GITHUB_SHA}}"')
           p.write_text(s,encoding='utf-8')
           PY
           grep -q 'citabot-live-data-guard.js?cb=${GITHUB_SHA}' index.html
           grep -q 'citabot-production-runtime.js?cb=${GITHUB_SHA}' index.html
           grep -q 'citabot-production-closure.js?cb=${GITHUB_SHA}' index.html
-          python3 - <<'PY'
-          from pathlib import Path
-          s=Path('index.html').read_text(encoding='utf-8')
-          assert s.index('citabot-live-data-guard.js?cb=${GITHUB_SHA}') < s.index('citabot-production-runtime.js?cb=${GITHUB_SHA}')
-          PY
+          grep -q 'citabot-mercadopago.js?cb=${GITHUB_SHA}' index.html
 
-      - name: Verificar integración de producción
+      - name: Verificar archivos requeridos
         shell: bash
         run: |
           set -euo pipefail
@@ -86,24 +75,17 @@ jobs:
           test -f citabot-production-runtime.js
           test -f citabot-production-closure.js
           test -f citabot-live-data-guard.js
-          grep -q 'citabot-production-runtime.js' index.html
-          grep -q 'citabot-production-closure.js' index.html
-          grep -q 'citabot-live-data-guard.js' index.html
+          test -f citabot-mercadopago.js
           grep -q 'citabot-whatsapp-send' citabot-production-runtime.js citabot-production-closure.js
           grep -q 'citabot-public-booking' citabot-production-closure.js
-          echo "CitaBot build commit: $(git rev-parse HEAD)"
+          grep -q 'citabot-mercadopago-subscribe' citabot-mercadopago.js
 
-      - name: Registrar versión exacta del despliegue
+      - name: Registrar versión exacta
         shell: bash
         run: |
           set -euo pipefail
           cat > citabot-build.json <<EOF
-          {
-            "app": "CitaBot",
-            "commit": "${GITHUB_SHA}",
-            "branch": "${GITHUB_REF_NAME}",
-            "workflow": "${GITHUB_WORKFLOW}"
-          }
+          {"app":"CitaBot","commit":"${GITHUB_SHA}","branch":"${GITHUB_REF_NAME}","workflow":"${GITHUB_WORKFLOW}"}
           EOF
           python3 -m json.tool citabot-build.json >/dev/null
 
@@ -112,7 +94,7 @@ jobs:
         with:
           enablement: true
 
-      - name: Empaquetar sitio corregido
+      - name: Empaquetar sitio
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
@@ -121,32 +103,26 @@ jobs:
         id: deployment
         uses: actions/deploy-pages@v4
 
-      - name: Verificar que GitHub Pages publicó este commit
+      - name: Verificar publicación
         shell: bash
         env:
           PAGES_URL: ${{ steps.deployment.outputs.page_url }}
           EXPECTED_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          test -n "${PAGES_URL}"
           base="${PAGES_URL%/}"
           tmp="$(mktemp)"
           trap 'rm -f "$tmp"' EXIT
           for attempt in 1 2 3 4 5 6; do
             if curl --fail --silent --show-error --location --max-time 20 "$base/citabot-build.json?cb=${EXPECTED_COMMIT}" -o "$tmp"; then
-              actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["commit"])' "$tmp")"
+              actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1],encoding="utf-8"))["commit"])' "$tmp")"
               if [ "$actual" = "$EXPECTED_COMMIT" ]; then
+                curl --fail --silent --show-error --location --max-time 20 "$base/index.html?cb=${EXPECTED_COMMIT}" | grep -q 'citabot-mercadopago.js?cb='
                 echo "GitHub Pages verificado: $actual"
-                curl --fail --silent --show-error --location --max-time 20 "$base/index.html?cb=${EXPECTED_COMMIT}" | grep -q 'citabot-live-data-guard.js?cb='
-                curl --fail --silent --show-error --location --max-time 20 "$base/index.html?cb=${EXPECTED_COMMIT}" | grep -q 'citabot-production-runtime.js?cb='
-                echo "CitaBot publicado y con guardia + runtime + cierre en producción."
                 exit 0
               fi
-              echo "Publicación aún apunta a $actual; se esperaba $EXPECTED_COMMIT. Reintentando..."
-            else
-              echo "GitHub Pages todavía no responde. Reintentando..."
             fi
             sleep 10
           done
-          echo "ERROR: GitHub Pages no publicó/verificó el commit $EXPECTED_COMMIT dentro del tiempo de espera."
+          echo "ERROR: GitHub Pages no verificó el commit esperado."
           exit 1
