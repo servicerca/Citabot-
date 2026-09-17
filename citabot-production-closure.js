@@ -65,25 +65,17 @@
     }
   }
 
-  // Remove the remaining static demo calendar/events before the live data renderer runs.
   function removeStaticDemoData() {
     document.querySelectorAll('.calendar').forEach(e => e.remove());
     document.querySelectorAll('.event').forEach(e => e.remove());
     document.querySelectorAll('#view-agenda .cb-demo-agenda, #view-agenda [data-demo="true"]').forEach(e => e.remove());
-
-    // Clear static client rows/metrics only when the live renderer is about to replace them.
     const clientTable = document.querySelector('#clientTable tbody');
     if (clientTable) clientTable.innerHTML = '<tr><td colspan="5" class="empty">Cargando clientes reales…</td></tr>';
-
     const agenda = document.querySelector('#view-agenda');
     if (agenda) {
       const tables = agenda.querySelectorAll('table');
-      tables.forEach(t => {
-        if (!t.closest('.cb-production-agenda')) t.remove();
-      });
+      tables.forEach(t => { if (!t.closest('.cb-production-agenda')) t.remove(); });
     }
-
-    // Never allow known demo KPI values to remain visible while live data is loading.
     document.querySelectorAll('#view-clients .metric, #view-dashboard .metric, #view-reports .metric, #view-revenue .metric, #view-marketing .metric').forEach(card => {
       const text = (card.textContent || '').toLowerCase();
       if (/248|96|38\.7%|12 este mes|por recuperar\s*7|480k|480\.000|7 clientes/.test(text)) {
@@ -96,18 +88,9 @@
 
   function setRealClientMetrics(count, frequent, inactive) {
     const cards = document.querySelectorAll('#view-clients .metric');
-    if (cards[0]) {
-      const v = cards[0].querySelector('strong'); if (v) v.textContent = String(count);
-      cards[0].querySelectorAll('.trend').forEach(t => t.textContent = count ? 'Datos reales' : 'Sin clientes todavía');
-    }
-    if (cards[1]) {
-      const v = cards[1].querySelector('strong'); if (v) v.textContent = String(frequent);
-      cards[1].querySelectorAll('.trend').forEach(t => t.textContent = 'Datos reales');
-    }
-    if (cards[2]) {
-      const v = cards[2].querySelector('strong'); if (v) v.textContent = String(inactive);
-      cards[2].querySelectorAll('.trend').forEach(t => t.textContent = 'Datos reales');
-    }
+    if (cards[0]) { const v = cards[0].querySelector('strong'); if (v) v.textContent = String(count); cards[0].querySelectorAll('.trend').forEach(t => t.textContent = count ? 'Datos reales' : 'Sin clientes todavía'); }
+    if (cards[1]) { const v = cards[1].querySelector('strong'); if (v) v.textContent = String(frequent); cards[1].querySelectorAll('.trend').forEach(t => t.textContent = 'Datos reales'); }
+    if (cards[2]) { const v = cards[2].querySelector('strong'); if (v) v.textContent = String(inactive); cards[2].querySelectorAll('.trend').forEach(t => t.textContent = 'Datos reales'); }
   }
 
   async function refreshRealClientMetrics() {
@@ -120,9 +103,6 @@
       ]);
       if (ce) throw ce; if (ae) throw ae;
       const rows = appointments || [];
-      const frequentIds = new Set(rows.filter(a => !['cancelled','no_show'].includes(a.status)).reduce((acc, a) => {
-        acc[a.customer_id] = (acc[a.customer_id] || 0) + 1; return acc;
-      }, {}));
       const counts = {};
       for (const a of rows) counts[a.customer_id] = (counts[a.customer_id] || 0) + 1;
       const frequent = Object.values(counts).filter(n => n >= 3).length;
@@ -133,9 +113,7 @@
       }
       const inactive = Object.values(last).filter(d => Date.now() - new Date(d).getTime() > 30 * 864e5).length;
       setRealClientMetrics((customers || []).length, frequent, inactive);
-    } catch (e) {
-      console.error('CITABOT_REAL_METRICS_ERROR', e);
-    }
+    } catch (e) { console.error('CITABOT_REAL_METRICS_ERROR', e); }
   }
 
   function zonedDateTimeToUtc(date,time,timeZone){
@@ -197,10 +175,61 @@
     }
   }
 
+  // FASE 5: la creación interna de citas usa el mismo motor seguro que la reserva pública.
+  // Esto evita que el panel pueda saltarse validaciones de horario, fecha, profesional y conflictos.
+  function installSafeInternalAppointmentFlow(attempt = 0) {
+    const originalConfirmModal = window.confirmModal;
+    if (typeof originalConfirmModal !== 'function') {
+      if (attempt < 20) setTimeout(() => installSafeInternalAppointmentFlow(attempt + 1), 100);
+      return;
+    }
+    if (window.__citabotSafeAppointmentFlowInstalled) return;
+    window.__citabotSafeAppointmentFlowInstalled = true;
+    window.confirmModal = async function() {
+      const type = window.state?.modalType || '';
+      if (type !== 'Nueva cita' && type !== 'Nueva reserva') return originalConfirmModal.apply(this, arguments);
+      try {
+        const business = await getBusiness();
+        const customerId = $('mCustomer')?.value?.trim();
+        const serviceId = $('mService')?.value?.trim();
+        const staffId = $('mStaff')?.value?.trim();
+        const startRaw = $('mStart')?.value?.trim();
+        if (!customerId || !serviceId || !staffId || !startRaw) throw new Error('Completa cliente, servicio, profesional y fecha.');
+        const { data: customer, error: ce } = await client.from('customers').select('name,phone,email').eq('id', customerId).eq('business_id', business.id).single();
+        if (ce || !customer) throw new Error('Cliente no válido para este negocio.');
+        if (!customer.phone) throw new Error('El cliente debe tener un número de WhatsApp para crear la cita.');
+        const { data: service, error: se } = await client.from('services').select('id,duration_minutes,active').eq('id', serviceId).eq('business_id', business.id).single();
+        if (se || !service?.active) throw new Error('Servicio no disponible.');
+        const dt = new Date(startRaw);
+        if (Number.isNaN(dt.getTime()) || dt <= new Date()) throw new Error('La fecha y hora deben ser futuras.');
+        const payload = {
+          business_slug: business.slug,
+          service_id: serviceId,
+          staff_id: staffId,
+          customer_name: customer.name,
+          customer_phone: customer.phone,
+          customer_email: customer.email || null,
+          starts_at: dt.toISOString(),
+          customer_notes: $('mNotes')?.value?.trim() || null
+        };
+        const { data: result, error } = await client.functions.invoke('citabot-public-booking', { body: payload });
+        if (error) throw error;
+        if (!result?.ok) throw new Error(result?.error || 'No fue posible crear la cita.');
+        if (window.closeModal) window.closeModal();
+        if (typeof window.loadCitaBotData === 'function') await window.loadCitaBotData();
+        toast('Cita guardada correctamente.');
+      } catch (e) {
+        console.error('CITABOT_INTERNAL_APPOINTMENT_ERROR', e);
+        toast(e?.message || 'No se pudo guardar la cita.');
+      }
+    };
+  }
+
   function bootClosure() {
     removeFakeSurface();
     removeStaticDemoData();
-    setTimeout(() => { removeFakeSurface(); removeStaticDemoData(); refreshRealClientMetrics(); }, 800);
+    installSafeInternalAppointmentFlow();
+    setTimeout(() => { removeFakeSurface(); removeStaticDemoData(); refreshRealClientMetrics(); installSafeInternalAppointmentFlow(); }, 800);
     setTimeout(refreshRealClientMetrics, 1800);
     const params=new URLSearchParams(location.search);const q=params.get('book');const h=location.hash.match(/^#book=([^&]+)/);const slug=q||(h?decodeURIComponent(h[1]):null);
     if(slug) setTimeout(()=>publicBookingViaFunction(slug),120);
