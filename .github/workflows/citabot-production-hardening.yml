@@ -21,7 +21,63 @@ jobs:
           s = p.read_text(encoding='utf-8')
           marker = 'CITABOT_INTERNAL_SAVE_GUARD_V1'
           if marker not in s:
-              injection = r'''\n\n  function installInternalSaveGuard() {\n    if (window.__citabotInternalSaveGuardInstalled) return;\n    window.__citabotInternalSaveGuardInstalled = true;\n    document.addEventListener('click', async (event) => {\n      const button = event.target?.closest?.('button');\n      if (!button || (button.textContent || '').trim().toLowerCase() !== 'guardar') return;\n      const type = window.state?.modalType || '';\n      if (type !== 'Nueva cita' && type !== 'Nueva reserva') return;\n      if (!$('mCustomer') || !$('mService') || !$('mStaff') || !$('mStart')) return;\n      event.preventDefault();\n      event.stopPropagation();\n      if (event.stopImmediatePropagation) event.stopImmediatePropagation();\n      if (button.disabled) return;\n      button.disabled = true;\n      try {\n        const business = await getBusiness();\n        const customerId = $('mCustomer')?.value?.trim();\n        const serviceId = $('mService')?.value?.trim();\n        const staffId = $('mStaff')?.value?.trim();\n        const startRaw = $('mStart')?.value?.trim();\n        if (!customerId || !serviceId || !staffId || !startRaw) throw new Error('Completa cliente, servicio, profesional y fecha.');\n        const { data: customer, error: ce } = await client.from('customers').select('name,phone,email').eq('id', customerId).eq('business_id', business.id).single();\n        if (ce || !customer) throw new Error('Cliente no válido para este negocio.');\n        if (!customer.phone) throw new Error('El cliente debe tener un número de WhatsApp para crear la cita.');\n        const { data: service, error: se } = await client.from('services').select('id,duration_minutes,active').eq('id', serviceId).eq('business_id', business.id).single();\n        if (se || !service?.active) throw new Error('Servicio no disponible.');\n        const parts = startRaw.split('T');\n        const dt = parts.length === 2 && typeof zonedDateTimeToUtc === 'function' ? zonedDateTimeToUtc(parts[0], parts[1], business.timezone || 'America/Bogota') : new Date(startRaw);\n        if (!dt || Number.isNaN(dt.getTime()) || dt <= new Date()) throw new Error('La fecha y hora deben ser futuras.');\n        const { data: result, error } = await client.functions.invoke('citabot-public-booking', { body: {\n          business_slug: business.slug,\n          service_id: serviceId,\n          staff_id: staffId,\n          customer_name: customer.name,\n          customer_phone: customer.phone,\n          customer_email: customer.email || null,\n          starts_at: dt.toISOString(),\n          customer_notes: $('mNote')?.value?.trim() || null\n        }});\n        if (error) throw error;\n        if (!result?.ok) throw new Error(result?.error || 'No fue posible crear la cita.');\n        if (window.closeModal) window.closeModal();\n        if (typeof window.loadCitaBotData === 'function') await window.loadCitaBotData();\n        else if (typeof window.load === 'function') await window.load();\n        toast('Cita guardada correctamente.');\n      } catch (e) {\n        console.error('CITABOT_INTERNAL_SAVE_GUARD_ERROR', e);\n        toast(e?.message || 'No se pudo guardar la cita.');\n      } finally {\n        button.disabled = false;\n      }\n    }, true);\n  }\n  // CITABOT_INTERNAL_SAVE_GUARD_V1\n'''
+              injection = """
+
+  function installInternalSaveGuard() {
+    if (window.__citabotInternalSaveGuardInstalled) return;
+    window.__citabotInternalSaveGuardInstalled = true;
+    document.addEventListener('click', async (event) => {
+      const button = event.target?.closest?.('button');
+      if (!button || (button.textContent || '').trim().toLowerCase() !== 'guardar') return;
+      const type = window.state?.modalType || '';
+      if (type !== 'Nueva cita' && type !== 'Nueva reserva') return;
+      if (!$('mCustomer') || !$('mService') || !$('mStaff') || !$('mStart')) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      if (button.disabled) return;
+      button.disabled = true;
+      try {
+        const business = await getBusiness();
+        const customerId = $('mCustomer')?.value?.trim();
+        const serviceId = $('mService')?.value?.trim();
+        const staffId = $('mStaff')?.value?.trim();
+        const startRaw = $('mStart')?.value?.trim();
+        if (!customerId || !serviceId || !staffId || !startRaw) throw new Error('Completa cliente, servicio, profesional y fecha.');
+        const { data: customer, error: ce } = await client.from('customers').select('name,phone,email').eq('id', customerId).eq('business_id', business.id).single();
+        if (ce || !customer) throw new Error('Cliente no válido para este negocio.');
+        if (!customer.phone) throw new Error('El cliente debe tener un número de WhatsApp para crear la cita.');
+        const { data: service, error: se } = await client.from('services').select('id,duration_minutes,active').eq('id', serviceId).eq('business_id', business.id).single();
+        if (se || !service?.active) throw new Error('Servicio no disponible.');
+        const parts = startRaw.split('T');
+        const dt = parts.length === 2 && typeof zonedDateTimeToUtc === 'function' ? zonedDateTimeToUtc(parts[0], parts[1], business.timezone || 'America/Bogota') : new Date(startRaw);
+        if (!dt || Number.isNaN(dt.getTime()) || dt <= new Date()) throw new Error('La fecha y hora deben ser futuras.');
+        const { data: result, error } = await client.functions.invoke('citabot-public-booking', { body: {
+          business_slug: business.slug,
+          service_id: serviceId,
+          staff_id: staffId,
+          customer_name: customer.name,
+          customer_phone: customer.phone,
+          customer_email: customer.email || null,
+          starts_at: dt.toISOString(),
+          customer_notes: $('mNote')?.value?.trim() || null
+        }});
+        if (error) throw error;
+        if (!result?.ok) throw new Error(result?.error || 'No fue posible crear la cita.');
+        if (window.closeModal) window.closeModal();
+        if (typeof window.loadCitaBotData === 'function') await window.loadCitaBotData();
+        else if (typeof window.load === 'function') await window.load();
+        toast('Cita guardada correctamente.');
+      } catch (e) {
+        console.error('CITABOT_INTERNAL_SAVE_GUARD_ERROR', e);
+        toast(e?.message || 'No se pudo guardar la cita.');
+      } finally {
+        button.disabled = false;
+      }
+    }, true);
+  }
+  // CITABOT_INTERNAL_SAVE_GUARD_V1
+"""
               needle = '\n  function bootClosure() {'
               if needle not in s:
                   raise SystemExit('No se encontró bootClosure para insertar el guard.')
