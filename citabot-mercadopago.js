@@ -23,7 +23,7 @@
   }
 
   function statusLabel(status) {
-    return ({trialing:'Pendiente de activación',active:'Activa',past_due:'Pago pendiente',paused:'Pausada',cancelled:'Cancelada'})[status] || 'Sin suscripción';
+    return ({pending:'Pago pendiente de activación',trialing:'Pendiente de activación',active:'Activa',past_due:'Pago pendiente',paused:'Pausada',cancelled:'Cancelada'})[status] || 'Sin suscripción';
   }
 
   async function loadBilling() {
@@ -39,13 +39,14 @@
       if (pe) throw pe;
 
       const active = subscription?.status === 'active';
+      const pending = subscription?.status === 'pending';
       const paymentRows = (payments || []).map(p => `<tr><td>${esc(new Date(p.created_at).toLocaleString('es-CO'))}</td><td>${esc(p.concept || 'Pago')}</td><td>${money(p.amount)}</td><td><span class="badge ${p.status==='paid'?'confirmed':p.status==='failed'?'cancelled':'pending'}">${esc(p.status)}</span></td></tr>`).join('');
       const period = subscription?.current_period_end ? new Date(subscription.current_period_end).toLocaleDateString('es-CO') : '—';
 
       view.innerHTML = `<div class="page-head"><div><h1>Ingresos</h1><p>Suscripción y cobros reales de ${esc(business.name)}.</p></div></div>
         <div class="grid2">
-          <div class="card"><small style="color:var(--muted)">Plan actual</small><h2 style="margin:8px 0">${subscription?.plan === 'professional' ? 'Profesional' : subscription?.plan || 'Sin plan'}</h2><p style="font-size:12px;color:var(--muted)">${active ? 'Suscripción activa en Mercado Pago.' : 'La suscripción todavía no está activa.'}</p><span class="badge ${active?'confirmed':'pending'}">${statusLabel(subscription?.status)}</span><p style="font-size:11px;color:var(--muted)">Próximo período: ${period}</p></div>
-          <div class="card"><b style="font-size:14px">CitaBot Profesional</b><p style="font-size:12px;color:var(--muted)">Suscripción mensual de ${money(59900)}. El checkout y los cobros recurrentes se procesan en Mercado Pago.</p><button id="cbMpSubscribe" class="btn primary" ${active?'disabled':''}>${active?'Suscripción activa':'Activar con Mercado Pago'}</button><div id="cbMpMsg" style="margin-top:10px;font-size:11px;color:var(--muted)"></div></div>
+          <div class="card"><small style="color:var(--muted)">Plan actual</small><h2 style="margin:8px 0">${subscription?.plan === 'professional' ? 'Profesional' : subscription?.plan || 'Sin plan'}</h2><p style="font-size:12px;color:var(--muted)">${active ? 'Suscripción activa en Mercado Pago.' : pending ? 'Hay un checkout de Mercado Pago pendiente de activación.' : 'La suscripción todavía no está activa.'}</p><span class="badge ${active?'confirmed':'pending'}">${statusLabel(subscription?.status)}</span><p style="font-size:11px;color:var(--muted)">Próximo período: ${period}</p></div>
+          <div class="card"><b style="font-size:14px">CitaBot Profesional</b><p style="font-size:12px;color:var(--muted)">Suscripción mensual de ${money(59900)}. El checkout y los cobros recurrentes se procesan en Mercado Pago.</p><button id="cbMpSubscribe" class="btn primary" ${active||pending?'disabled':''}>${active?'Suscripción activa':pending?'Checkout pendiente':'Activar con Mercado Pago'}</button><div id="cbMpMsg" style="margin-top:10px;font-size:11px;color:var(--muted)"></div></div>
         </div>
         <div class="section-title"><h2>Pagos registrados</h2><span>Datos reales</span></div>
         <div class="card"><div style="overflow:auto"><table class="table"><thead><tr><th>Fecha</th><th>Concepto</th><th>Valor</th><th>Estado</th></tr></thead><tbody>${paymentRows || '<tr><td colspan="4" class="empty">Todavía no hay pagos registrados.</td></tr>'}</tbody></table></div></div>`;
@@ -60,6 +61,7 @@
           if (!session?.access_token) throw new Error('Tu sesión expiró. Inicia sesión nuevamente.');
           const { data, error } = await sb.functions.invoke('citabot-mercadopago-subscribe', { body: { business_id: business.id, plan: 'professional' }, headers: { Authorization: `Bearer ${session.access_token}` } });
           if (error) throw error;
+          if (data?.already_pending) { msg.textContent = 'Ya existe un checkout de Mercado Pago pendiente. Finalízalo desde el enlace recibido antes de iniciar otro.'; toast(msg.textContent); await loadBilling(); return; }
           if (!data?.ok) throw new Error(data?.error || 'Mercado Pago no pudo preparar la suscripción.');
           if (data.already_active) { toast('La suscripción ya está activa.'); await loadBilling(); return; }
           if (!data.init_point) throw new Error('Mercado Pago no devolvió el enlace de checkout.');
