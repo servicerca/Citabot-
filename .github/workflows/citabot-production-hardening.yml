@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Apply internal appointment save guard
+      - name: Apply and repair internal appointment save guard
         shell: python
         run: |
           from pathlib import Path
@@ -86,7 +86,14 @@ jobs:
               p.write_text(s, encoding='utf-8')
               print('Internal save guard applied.')
           else:
-              print('Internal save guard already present; no change.')
+              start = s.find('  function installInternalSaveGuard()')
+              end = s.find('\n  function bootClosure()', start)
+              if start < 0 or end < 0:
+                  raise SystemExit('No se encontró el bloque del guard para reparar.')
+              block = s[start:end].replace('\\n', '\n')
+              s = s[:start] + block + s[end:]
+              p.write_text(s, encoding='utf-8')
+              print('Internal save guard repaired.')
       - name: Validate production markers and no demo surface
         shell: python
         run: |
@@ -100,6 +107,12 @@ jobs:
           assert 'citabot-whatsapp-send' in closure, 'La mensajería no usa la Edge Function real'
           assert 'citabot-meta-sync' in closure, 'La verificación Meta no está integrada'
           assert 'CITABOT_INTERNAL_SAVE_GUARD_V1' in closure, 'El guard de Guardar cita no está integrado'
+          start = closure.find('  function installInternalSaveGuard()')
+          end = closure.find('\n  function bootClosure()', start)
+          assert start >= 0 and end >= 0, 'Bloque del guard no encontrado'
+          assert '\\n' not in closure[start:end], 'El guard contiene escapes de salto de línea literales'
+          assert "document.addEventListener('click'" in closure[start:end], 'El guard de clic no está integrado'
+          assert 'citabot-public-booking' in closure[start:end], 'El guard no usa la reserva segura'
           assert 'CitaBot — MVP Premium' not in index, 'Quedó título MVP en producción'
           assert '.demo-hero{display:none!important;' in index, 'El bloque demo no está oculto en la fuente'
           print('CitaBot production hardening validation: OK')
