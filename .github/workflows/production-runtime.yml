@@ -48,6 +48,14 @@ jobs:
               print('Cierre de producción integrado en index.html')
           else:
               print('Cierre de producción ya integrado')
+
+          billing_marker = 'CITABOT_MERCADOPAGO_V1'
+          billing = '\n<!-- CITABOT_MERCADOPAGO_V1 -->\n<script src="./citabot-mercadopago.js"></script>\n'
+          if billing_marker not in text:
+              text = text.replace('</body>', billing + '</body>', 1)
+              print('Mercado Pago integrado en index.html')
+          else:
+              print('Mercado Pago ya integrado')
           p.write_text(text, encoding='utf-8')
 
       - name: Commit automático
