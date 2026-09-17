@@ -10,7 +10,7 @@
   let business = null;
   let data = { services: [], staff: [], customers: [], appointments: [], messages: [], campaigns: [], payments: [], subscription: null };
 
-  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  const esc = (v) => String(v ?? '').replace(/[&<>\"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#039;'}[m]));
   const money = (v) => '$' + Math.round(Number(v || 0)).toLocaleString('es-CO') + ' COP';
   const toast = (m) => window.showToast ? window.showToast(m) : console.log(m);
 
@@ -59,6 +59,7 @@
       services: services.data || [], staff: staff.data || [], customers: customers.data || [], appointments: appointments.data || [],
       messages: messages.data || [], campaigns: campaigns.data || [], payments: payments.data || [], subscription: subscription.data || null
     };
+    window.__citabotRuntimeData = data;
     renderAll();
   }
 
@@ -214,7 +215,29 @@
     const {error}=await client.from('businesses').update({name,phone:document.querySelector('#view-settings input[value="+57 300 000 0000"]')?.value?.trim()||business.phone}).eq('id',business.id);
     if(error) return toast(error.message); business.name=name; $('businessName').textContent=name; toast('Cambios guardados.');
   };
-\n\n  // CITABOT_REAL_WHATSAPP_SEND_V1\n  window.sendMessage = async () => {\n    try {\n      if (!business) throw new Error('Primero inicia sesión.');\n      const composer = document.querySelector('#view-conversations .composer');\n      const input = composer?.querySelector('input,textarea');\n      const body = input?.value?.trim();\n      const selected = document.querySelector('#view-conversations .chat-item.selected');\n      const customerId = selected?.dataset?.customer;\n      if (!body) throw new Error('Escribe un mensaje.');\n      if (!customerId) throw new Error('Selecciona un cliente.');\n      const { data: result, error } = await client.functions.invoke('citabot-whatsapp-send', { body: { customer_id: customerId, body } });\n      if (error) throw error;\n      if (!result?.ok) throw new Error(result?.error || 'WhatsApp no confirmó el envío.');\n      if (input) input.value = '';\n      await load();\n      toast('Mensaje enviado por WhatsApp.');\n    } catch (e) {\n      console.error('CITABOT_WHATSAPP_SEND_ERROR', e);\n      toast(e?.message || 'No se pudo enviar el mensaje.');\n    }\n  };\n
+
+  window.sendMessage = async () => {
+    try {
+      if (!business) throw new Error('Primero inicia sesión.');
+      const composer = document.querySelector('#view-conversations .composer');
+      const input = composer?.querySelector('input,textarea');
+      const body = input?.value?.trim();
+      const selected = document.querySelector('#view-conversations .chat-item.selected');
+      const customerId = selected?.dataset?.customer;
+      if (!body) throw new Error('Escribe un mensaje.');
+      if (!customerId) throw new Error('Selecciona un cliente.');
+      const { data: result, error } = await client.functions.invoke('citabot-whatsapp-send', { body: { customer_id: customerId, body } });
+      if (error) throw error;
+      if (!result?.ok) throw new Error(result?.error || 'WhatsApp no confirmó el envío.');
+      if (input) input.value = '';
+      await load();
+      toast('Mensaje enviado por WhatsApp.');
+    } catch (e) {
+      console.error('CITABOT_WHATSAPP_SEND_ERROR', e);
+      toast(e?.message || 'No se pudo enviar el mensaje.');
+    }
+  };
+
   async function boot(){
     removeDemoSurface();
     try {
