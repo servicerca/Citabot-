@@ -15,9 +15,7 @@
     if (!user) throw new Error('Inicia sesión para gestionar tu suscripción.');
     const { data: members, error: me } = await sb.from('business_members').select('business_id,role').eq('user_id', user.id);
     if (me) throw me;
-    const member = (members || []).find(x => ['owner','admin'].includes(x.role));
-    if (!member) throw new Error('No tienes permisos para gestionar la suscripción.');
-    const { data: business, error: be } = await sb.from('businesses').select('id,name').eq('id', member.business_id).eq('is_active', true).single();
+    const eligible=(members||[]).filter(x=>['owner','admin'].includes(x.role));if(!eligible.length)throw new Error('No tienes permisos para gestionar la suscripción.');const saved=localStorage.getItem('citabot.business_id');const member=eligible.find(x=>x.business_id===saved)||eligible[0];const {data:business,error:be}=await sb.from('businesses').select('id,name').eq('id',member.business_id).eq('is_active',true).single();
     if (be) throw be;
     return business;
   }
