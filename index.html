@@ -89,10 +89,7 @@
 
     <section id="view-clients" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
-    <section id="view-conversations" class="view">
-      <div class="page-head"><div><h1>Conversaciones</h1><p>Centraliza la atención y responde más rápido.</p></div><button class="btn primary" onclick="showToast('La conexión de WhatsApp se configura en Integraciones')">Conectar canal</button></div>
-      <div class="card chat"><div class="chat-list"><div class="chat-item selected"><b>Laura Gómez</b><small style="display:block;color:var(--muted)">¿Tienes disponibilidad mañana?</small></div><div class="chat-item"><b>Andrés Ruiz</b><small style="display:block;color:var(--muted)">Perfecto, confirmado.</small></div><div class="chat-item"><b>Camila Torres</b><small style="display:block;color:var(--muted)">Quisiera volver a reservar.</small></div></div><div class="chat-main"><div style="padding:13px;border-bottom:1px solid var(--line)"><b style="font-size:12px">Laura Gómez</b><small style="display:block;color:var(--muted);font-size:9px">WhatsApp · Cliente frecuente</small></div><div class="messages"><div class="bubble in">Hola, ¿tienes disponibilidad mañana en la mañana?</div><div class="bubble out">¡Hola Laura! Sí. Tengo 10:00 y 11:30 disponibles. ¿Cuál prefieres?</div><div class="bubble in">11:30 me sirve 😊</div><div class="bubble out">Perfecto. Te reservé para mañana a las 11:30.</div></div><div class="composer"><input id="msgInput" placeholder="Escribe una respuesta…" onkeydown="if(event.key==='Enter')sendMessage()"><button class="btn primary" onclick="sendMessage()">Enviar</button></div></div></div>
-    </section>
+    <section id="view-conversations" class="view"><div class="page-head"><div><h1>Conversaciones</h1><p>Mensajes reales de tus clientes.</p></div></div><div class="card chat"><div class="chat-list"></div><div class="chat-main"><div style="padding:14px;border-bottom:1px solid var(--line)"><b style="font-size:12px">Sin conversaciones</b></div><div class="messages"><div class="empty">Aún no hay mensajes reales.</div></div><div class="composer"><input id="msgInput" placeholder="Escribe un mensaje…"><button class="btn primary" onclick="sendMessage()">Enviar</button></div></div></div></section>
 
     <section id="view-ai" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
@@ -216,23 +213,20 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();docume
     if(type==='Nuevo cliente'){
       const name=$('mName').value.trim(); if(!name) throw Error('El nombre es obligatorio');
       const customer={name,phone:$('mPhone').value.trim()||null,email:$('mEmail').value.trim()||null};
-      if(isDemo) currentData.customers.unshift({id:newDemoId('demo-customer'),...customer});
-      else {const {error}=await sb.from('customers').insert({business_id:bid,...customer});if(error) throw error;}
+      {const {error}=await sb.from('customers').insert({business_id:bid,...customer});if(error) throw error;}
     }else if(type==='Nuevo servicio'||type==='+ Servicio'){
       const name=$('mName').value.trim(), duration=Number($('mDuration').value), price=Number($('mPrice').value);
       if(!name) throw Error('El nombre del servicio es obligatorio');
       if(!Number.isFinite(duration)||duration<5||duration>1440) throw Error('La duración debe estar entre 5 y 1440 minutos');
       if(!Number.isFinite(price)||price<0) throw Error('El precio no es válido');
-      if(isDemo) currentData.services.push({id:newDemoId('demo-service'),name,duration_minutes:duration,price,active:true});
-      else {const {error}=await sb.from('services').insert({business_id:bid,name,duration_minutes:duration,price});if(error) throw error;}
+      {const {error}=await sb.from('services').insert({business_id:bid,name,duration_minutes:duration,price});if(error) throw error;}
     }else if(type==='Nueva cita'||type==='Nueva reserva'){
       const c=$('mCustomer').value,s=$('mService').value,st=$('mStaff').value,start=$('mStart').value;
       if(!c||!s||!st||!start) throw Error('Completa todos los campos');
       const service=currentData.services.find(x=>x.id===s); if(!service) throw Error('Servicio no encontrado');
       const localStart=new Date(start); if(Number.isNaN(localStart.getTime())||localStart<=new Date()) throw Error('La fecha y hora deben ser futuras');
       const starts=localStart.toISOString(),ends=new Date(localStart.getTime()+service.duration_minutes*60000).toISOString();
-      if(isDemo) currentData.appointments.push({id:newDemoId('demo-appointment'),customer_id:c,service_id:s,staff_id:st,starts_at:starts,ends_at:ends,status:'confirmed',customer_notes:$('mNote').value.trim()||null});
-      else {const {error}=await sb.from('appointments').insert({business_id:bid,service_id:s,staff_id:st,customer_id:c,starts_at:starts,ends_at:ends,status:'confirmed',customer_notes:$('mNote').value.trim()||null});if(error){if(error.code==='23P01')throw Error('Ese profesional ya tiene una cita en ese horario.');throw error;}}
+      {const {error}=await sb.from('appointments').insert({business_id:bid,service_id:s,staff_id:st,customer_id:c,starts_at:starts,ends_at:ends,status:'confirmed',customer_notes:$('mNote').value.trim()||null});if(error){if(error.code==='23P01')throw Error('Ese profesional ya tiene una cita en ese horario.');throw error;}}
     }else if(type==='Nueva campaña'){
       const name=$('mCampaignName').value.trim(),channel=$('mCampaignChannel').value,segment=$('mCampaignSegment').value,message=$('mCampaignMessage').value.trim();
       if(!name||!message) throw Error('El nombre y el mensaje de la campaña son obligatorios');
