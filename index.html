@@ -83,122 +83,27 @@
   <header class="topbar"><div class="crumb" id="crumb">Inicio</div><div class="top-actions"><button onclick="showToast('Centro de ayuda disponible en la versión conectada')">Ayuda</button><button onclick="showToast('No tienes notificaciones nuevas')">🔔</button><span class="avatar">CB</span></div></header>
   <div class="content">
 
-    <section id="view-dashboard" class="view active">
-      <div class="page-head"><div><h1>Resumen</h1><p>Todo lo importante de tu negocio, de un vistazo.</p></div><div class="actions"><button class="btn secondary" onclick="openModal('Nueva cita')">+ Nueva cita</button><button class="btn primary" onclick="openModal('Nueva reserva')">+ Nueva reserva</button></div></div>
-      <div class="grid4">
-        <div class="card metric"><small>Citas hoy</small><strong>12</strong><span class="trend">↑ 18% vs. semana anterior</span></div>
-        <div class="card metric"><small>Clientes activos</small><strong>248</strong><span class="trend">↑ 12 nuevos</span></div>
-        <div class="card metric"><small>Ingresos estimados</small><strong>$480k</strong><span class="trend">↑ 9% este mes</span></div>
-        <div class="card metric"><small>Oportunidades</small><strong>7</strong><span class="trend">Clientes por recuperar</span></div>
-      </div>
-      <div class="section-title"><h2>Actividad de hoy</h2><span onclick="go('agenda')">Ver agenda →</span></div>
-      <div class="grid2">
-        <div class="card"><table class="table"><thead><tr><th>Hora</th><th>Cliente</th><th>Servicio</th><th>Estado</th></tr></thead><tbody>
-          <tr><td>10:00</td><td>Laura Gómez</td><td>Corte + barba</td><td><span class="badge confirmed">Confirmada</span></td></tr>
-          <tr><td>11:30</td><td>Andrés Ruiz</td><td>Corte</td><td><span class="badge pending">Pendiente</span></td></tr>
-          <tr><td>13:00</td><td>Sofía Pérez</td><td>Color</td><td><span class="badge confirmed">Confirmada</span></td></tr>
-          <tr><td>15:30</td><td>Mateo Díaz</td><td>Barba</td><td><span class="badge confirmed">Confirmada</span></td></tr>
-        </tbody></table></div>
-        <div class="card ai-card"><div class="ai-head"><span class="ai-icon">✦</span><div><small style="color:#a9a3ff">CitaBot IA</small><b style="display:block;font-size:15px">Una oportunidad para ti</b></div></div><p>CitaBot analizará tus clientes reales y señalará oportunidades de recuperación. Una campaña de recuperación podría ayudarte a llenar huecos esta semana.</p><button class="btn soft" onclick="go('marketing')">Preparar campaña</button></div>
-      </div>
-      <div class="section-title"><h2>Control del negocio</h2><span>Funciones fundamentales</span></div>
-<div class="grid3">
-  <div class="card"><b>🔔 Recordatorios</b><p style="font-size:11px;color:var(--muted)">Preparados para automatizar confirmaciones, recordatorios y cancelaciones.</p><button class="btn soft" onclick="showToast('Recordatorios listos para configurar')">Configurar</button></div>
-  <div class="card"><b>💳 Cobros</b><p style="font-size:11px;color:var(--muted)">Espacio para registrar pagos, anticipos, saldos y métodos de pago.</p><button class="btn soft" onclick="go('reports')">Ver métricas</button></div>
-  <div class="card"><b>👤 Equipo</b><p style="font-size:11px;color:var(--muted)">Gestiona profesionales, permisos, horarios y disponibilidad.</p><button class="btn soft" onclick="go('settings')">Gestionar</button></div>
-</div>
-<div class="section-title"><h2>Rendimiento</h2><span>Últimos 30 días</span></div>
-      <div class="card"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:18px"><b>Reservas confirmadas</b><span style="color:var(--muted)">+24%</span></div><div class="statbar"><i style="width:76%"></i></div><div style="display:flex;justify-content:space-between;color:var(--muted);font-size:9px;margin-top:7px"><span>0</span><span>Meta mensual: 180</span><span>142</span></div></div>
-    </section>
+    <section id="view-dashboard" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
-    <section id="view-agenda" class="view">
-      <div class="page-head"><div><h1>Agenda</h1><p>Gestiona citas y reservas sin complicaciones.</p></div><div class="actions"><button class="btn secondary" onclick="openModal('Nuevo servicio')">+ Servicio</button><button class="btn primary" onclick="openModal('Nueva cita')">+ Nueva cita</button></div></div>
-      <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><b>Agosto 2026</b><div class="actions"><button class="btn secondary" onclick="showToast('Semana anterior')">←</button><button class="btn secondary" onclick="showToast('Hoy seleccionado')">Hoy</button><button class="btn secondary" onclick="showToast('Semana siguiente')">→</button></div></div>
-      <div class="calendar-wrap"><div class="calendar"><div class="cal-cell cal-head"></div><div class="cal-cell cal-head">Lun 24</div><div class="cal-cell cal-head">Mar 25</div><div class="cal-cell cal-head">Mié 26</div><div class="cal-cell cal-head">Jue 27</div><div class="cal-cell cal-head">Vie 28</div><div class="cal-cell cal-head">Sáb 29</div><div class="cal-cell cal-head">Dom 30</div>
-      <div class="cal-cell timecell">09:00</div><div class="cal-cell"></div><div class="cal-cell"><div class="event">Laura · Corte</div></div><div class="cal-cell"></div><div class="cal-cell"><div class="event green">Andrés · Reserva</div></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div>
-      <div class="cal-cell timecell">11:00</div><div class="cal-cell"><div class="event">Sofía · Color</div></div><div class="cal-cell"></div><div class="cal-cell"><div class="event">Mateo · Barba</div></div><div class="cal-cell"></div><div class="cal-cell"><div class="event green">Mesa 4 · 3p</div></div><div class="cal-cell"></div><div class="cal-cell"></div>
-      <div class="cal-cell timecell">13:00</div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"><div class="event">Laura · Corte</div></div><div class="cal-cell"></div><div class="cal-cell"><div class="event green">Mesa 2 · 4p</div></div><div class="cal-cell"></div>
-      <div class="cal-cell timecell">15:00</div><div class="cal-cell"><div class="event green">Mesa 1 · 2p</div></div><div class="cal-cell"></div><div class="cal-cell"><div class="event">Andrés · Corte</div></div><div class="cal-cell"></div><div class="cal-cell"></div><div class="cal-cell"><div class="event">Sofía · Color</div></div><div class="cal-cell"></div>
-      </div></div></div>
-    </section>
+    <section id="view-agenda" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
-    <section id="view-clients" class="view">
-      <div class="page-head"><div><h1>Clientes</h1><p>Tu base de clientes y sus oportunidades de regreso.</p></div><div class="actions"><button class="btn secondary" onclick="showToast('Importación preparada para la versión conectada')">Importar</button><button class="btn primary" onclick="openModal('Nuevo cliente')">+ Nuevo cliente</button></div></div>
-      <div class="grid3"><div class="card metric"><small>Total clientes</small><strong>248</strong><span class="trend">↑ 12 este mes</span></div><div class="card metric"><small>Clientes frecuentes</small><strong>96</strong><span class="trend">38.7% de la base</span></div><div class="card metric"><small>Por recuperar</small><strong>7</strong><span class="trend">Oportunidad activa</span></div></div>
-      <div class="section-title"><h2>Base de clientes</h2></div><div class="card"><input class="search" id="clientSearch" oninput="filterClients()" placeholder="Buscar por nombre o teléfono…"><div style="overflow:auto"><table class="table" id="clientTable"><thead><tr><th>Cliente</th><th>Última visita</th><th>Visitas</th><th>Valor</th><th>Estado</th></tr></thead><tbody>
-      <tr><td><b>Laura Gómez</b><br><small>300 555 0181</small></td><td>Hoy</td><td>18</td><td>$720k</td><td><span class="badge confirmed">Frecuente</span></td></tr>
-      <tr><td><b>Andrés Ruiz</b><br><small>300 555 0192</small></td><td>Ayer</td><td>11</td><td>$410k</td><td><span class="badge confirmed">Activo</span></td></tr>
-      <tr><td><b>Sofía Pérez</b><br><small>300 555 0115</small></td><td>12 ago</td><td>8</td><td>$360k</td><td><span class="badge pending">Pendiente</span></td></tr>
-      <tr><td><b>Mateo Díaz</b><br><small>300 555 0144</small></td><td>2 jul</td><td>5</td><td>$180k</td><td><span class="badge inactive">Por recuperar</span></td></tr>
-      <tr><td><b>Camila Torres</b><br><small>300 555 0160</small></td><td>27 jun</td><td>3</td><td>$95k</td><td><span class="badge inactive">Por recuperar</span></td></tr>
-      </tbody></table></div></div>
-    </section>
+    <section id="view-clients" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
     <section id="view-conversations" class="view">
       <div class="page-head"><div><h1>Conversaciones</h1><p>Centraliza la atención y responde más rápido.</p></div><button class="btn primary" onclick="showToast('La conexión de WhatsApp se configura en Integraciones')">Conectar canal</button></div>
       <div class="card chat"><div class="chat-list"><div class="chat-item selected"><b>Laura Gómez</b><small style="display:block;color:var(--muted)">¿Tienes disponibilidad mañana?</small></div><div class="chat-item"><b>Andrés Ruiz</b><small style="display:block;color:var(--muted)">Perfecto, confirmado.</small></div><div class="chat-item"><b>Camila Torres</b><small style="display:block;color:var(--muted)">Quisiera volver a reservar.</small></div></div><div class="chat-main"><div style="padding:13px;border-bottom:1px solid var(--line)"><b style="font-size:12px">Laura Gómez</b><small style="display:block;color:var(--muted);font-size:9px">WhatsApp · Cliente frecuente</small></div><div class="messages"><div class="bubble in">Hola, ¿tienes disponibilidad mañana en la mañana?</div><div class="bubble out">¡Hola Laura! Sí. Tengo 10:00 y 11:30 disponibles. ¿Cuál prefieres?</div><div class="bubble in">11:30 me sirve 😊</div><div class="bubble out">Perfecto. Te reservé para mañana a las 11:30.</div></div><div class="composer"><input id="msgInput" placeholder="Escribe una respuesta…" onkeydown="if(event.key==='Enter')sendMessage()"><button class="btn primary" onclick="sendMessage()">Enviar</button></div></div></div>
     </section>
 
-    <section id="view-ai" class="view">
-      <div class="page-head"><div><h1>CitaBot IA</h1><p>Pregunta, analiza y prepara acciones para tu negocio.</p></div><button class="btn primary" onclick="runAI()">Analizar mi negocio</button></div>
-      <div class="grid2"><div class="card ai-card"><div class="ai-head"><span class="ai-icon">✦</span><div><small style="color:#aaa4ff">RECOMENDACIÓN</small><b style="display:block">Recupera 7 clientes</b></div></div><p>Tu mejor oportunidad inmediata está en clientes que dejaron de venir hace 30–60 días.</p><button class="btn soft" onclick="go('marketing')">Crear campaña</button></div>
-      <div class="card"><b style="font-size:14px">Pregúntale a CitaBot</b><p style="font-size:11px;color:var(--muted)">Ejemplos: “¿Qué días tengo menos ocupación?” o “¿Qué clientes debería recuperar primero?”</p><div style="display:flex;gap:7px"><input id="aiInput" class="search" placeholder="Escribe una pregunta…"><button class="btn primary" onclick="askAI()">Preguntar</button></div><div id="aiAnswer" style="margin-top:14px;font-size:11px;color:var(--muted)"></div></div></div>
-      <div class="card" style="margin-top:16px;border-left:4px solid var(--warning)"><b style="font-size:12px">Estado del MVP</b><p style="font-size:11px;color:var(--muted);margin-bottom:0">El núcleo operativo está conectado a Supabase. WhatsApp, pagos, correo y dominio propio requieren proveedores externos y se activan después.</p></div>
-<div class="section-title"><h2>Automatizaciones recomendadas</h2></div><div class="grid3"><div class="card"><b>Confirmar citas</b><p style="font-size:11px;color:var(--muted)">Enviar recordatorio antes de la cita.</p><button class="btn soft" onclick="toggleAutomation(this)">Activar</button></div><div class="card"><b>Recuperar clientes</b><p style="font-size:11px;color:var(--muted)">Detectar inactividad y preparar mensaje.</p><button class="btn soft" onclick="toggleAutomation(this)">Activar</button></div><div class="card"><b>Solicitar reseña</b><p style="font-size:11px;color:var(--muted)">Pedir valoración después del servicio.</p><button class="btn soft" onclick="toggleAutomation(this)">Activar</button></div></div>
-    </section>
+    <section id="view-ai" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
-    <section id="view-marketing" class="view">
-      <div class="page-head"><div><h1>Marketing</h1><p>Convierte datos de clientes en acciones sencillas.</p></div><button class="btn primary" onclick="openModal('Nueva campaña')">+ Nueva campaña</button></div>
-      <div class="grid3"><div class="card metric"><small>Campañas activas</small><strong>3</strong><span class="trend">En ejecución</span></div><div class="card metric"><small>Clientes alcanzados</small><strong>184</strong><span class="trend">Este mes</span></div><div class="card metric"><small>Recuperados</small><strong>21</strong><span class="trend">↑ 14% vs. anterior</span></div></div>
-      <div class="section-title"><h2>Campañas</h2></div><div class="card"><div class="campaign"><div><b>Clientes inactivos 30 días</b><small>WhatsApp · 7 destinatarios</small></div><span class="badge confirmed">Activa</span></div><div class="campaign"><div><b>Recordatorio de cita</b><small>Automática · 42 envíos</small></div><span class="badge confirmed">Activa</span></div><div class="campaign"><div><b>Clientes frecuentes</b><small>Promoción mensual · 38 destinatarios</small></div><span class="badge pending">Programada</span></div></div>
-    </section>
+    <section id="view-marketing" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
-    <section id="view-reports" class="view">
-      <div class="page-head"><div><h1>Reportes</h1><p>Métricas claras para tomar mejores decisiones.</p></div><button class="btn secondary" onclick="showToast('Exportación disponible al conectar el backend')">Exportar</button></div>
-      <div class="grid4"><div class="card metric"><small>Ingresos</small><strong>$8.4M</strong><span class="trend">↑ 12.4%</span></div><div class="card metric"><small>Citas</small><strong>186</strong><span class="trend">↑ 18.2%</span></div><div class="card metric"><small>Ocupación</small><strong>78%</strong><span class="trend">↑ 6.1%</span></div><div class="card metric"><small>Retención</small><strong>64%</strong><span class="trend">↑ 4.8%</span></div></div>
-      <div class="section-title"><h2>Resumen de rendimiento</h2></div><div class="grid2"><div class="card"><b style="font-size:13px">Ocupación por día</b><div style="margin-top:20px;display:grid;gap:12px"><div><small>Lunes · 82%</small><div class="statbar"><i style="width:82%"></i></div></div><div><small>Martes · 76%</small><div class="statbar"><i style="width:76%"></i></div></div><div><small>Miércoles · 91%</small><div class="statbar"><i style="width:91%"></i></div></div><div><small>Jueves · 68%</small><div class="statbar"><i style="width:68%"></i></div></div><div><small>Viernes · 88%</small><div class="statbar"><i style="width:88%"></i></div></div></div></div><div class="card"><b style="font-size:13px">Servicios más vendidos</b><table class="table"><tbody><tr><td>Corte + barba</td><td>42%</td></tr><tr><td>Corte</td><td>31%</td></tr><tr><td>Color</td><td>17%</td></tr><tr><td>Barba</td><td>10%</td></tr></tbody></table></div></div>
-    </section>
+    <section id="view-reports" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
     
-<section id="view-revenue" class="view">
-  <div class="page-head"><div><h1>Ingresos</h1><p>Controla suscripciones, facturación y oportunidades comerciales.</p></div><div class="actions"><button class="btn secondary" onclick="showToast('Factura de prueba preparada')">Vista previa factura</button><button class="btn primary" onclick="openModal('Nuevo cobro')">+ Registrar cobro</button></div></div>
-  <div class="grid4">
-    <div class="card metric"><small>MRR</small><strong>$1.8M</strong><span class="trend">↑ 11.6%</span></div>
-    <div class="card metric"><small>Clientes de pago</small><strong>31</strong><span class="trend">+5 este mes</span></div>
-    <div class="card metric"><small>Ticket medio</small><strong>$59.900</strong><span class="trend">Plan Profesional</span></div>
-    <div class="card metric"><small>Conversión</small><strong>8.4%</strong><span class="trend">De prueba a pago</span></div>
-  </div>
-  <div class="section-title"><h2>Suscripciones</h2><span>Operación</span></div>
-  <div class="card"><table class="table"><thead><tr><th>Negocio</th><th>Plan</th><th>Próximo cobro</th><th>Estado</th></tr></thead><tbody>
-    <tr><td>Studio Laura</td><td>Profesional</td><td>02 sep 2026</td><td><span class="badge confirmed">Activa</span></td></tr>
-    <tr><td>Barber House</td><td>Profesional</td><td>04 sep 2026</td><td><span class="badge confirmed">Activa</span></td></tr>
-    <tr><td>Casa Verde</td><td>Prueba</td><td>—</td><td><span class="badge pending">7 días</span></td></tr>
-  </tbody></table></div>
-  <div class="section-title"><h2>Embudo comercial</h2></div>
-  <div class="grid3">
-    <div class="card"><small style="color:var(--muted)">Prospectos</small><strong style="font-size:25px;display:block;margin:7px 0">126</strong><div class="statbar"><i style="width:100%"></i></div></div>
-    <div class="card"><small style="color:var(--muted)">Pruebas activas</small><strong style="font-size:25px;display:block;margin:7px 0">43</strong><div class="statbar"><i style="width:55%"></i></div></div>
-    <div class="card"><small style="color:var(--muted)">Pagando</small><strong style="font-size:25px;display:block;margin:7px 0">31</strong><div class="statbar"><i style="width:39%"></i></div></div>
-  </div>
-</section>
+<section id="view-revenue" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
-<section id="view-settings" class="view">
-      <div class="page-head"><div><h1>Configuración</h1><p>Personaliza tu negocio y sus preferencias.</p></div><button class="btn primary" onclick="saveSettings()">Guardar cambios</button></div>
-      <div class="card"><div class="form-grid"><div class="field"><label>Nombre del negocio</label><input id="setBusiness" value="Mi negocio"></div><div class="field"><label>Tipo de negocio</label><select><option>Barbería / Peluquería / Spa</option><option>Restaurante / Cafetería</option></select></div><div class="field"><label>Teléfono</label><input value="+57 300 000 0000"></div><div class="field"><label>Zona horaria</label><select><option>America/Bogota</option></select></div><div class="field full"><label>Mensaje de bienvenida</label><textarea>Hola 👋 Soy CitaBot. ¿En qué puedo ayudarte?</textarea></div></div></div>
-      <div class="section-title"><h2>Producción</h2><span>Checklist</span></div>
-<div class="grid3">
- <div class="card"><b>🌐 Dominio + HTTPS</b><p style="font-size:11px;color:var(--muted)">Publicar con dominio propio y TLS.</p><span class="badge pending">Pendiente de despliegue</span></div>
- <div class="card"><b>🗄️ Backend + BD</b><p style="font-size:11px;color:var(--muted)">Persistencia real de usuarios, citas, clientes y pagos.</p><span class="badge pending">Pendiente de conexión</span></div>
- <div class="card"><b>💬 WhatsApp + pagos</b><p style="font-size:11px;color:var(--muted)">Integraciones con credenciales y webhooks reales.</p><span class="badge pending">Pendiente de conexión</span></div>
-</div>
-<div class="section-title"><h2>Seguridad y operación</h2></div>
-<div class="grid3">
-  <div class="card"><b>🔐 Acceso seguro</b><p style="font-size:11px;color:var(--muted)">En producción: autenticación, recuperación de contraseña y sesiones seguras.</p><button class="btn soft" onclick="showToast('Configuración de acceso')">Configurar</button></div>
-  <div class="card"><b>👥 Roles y permisos</b><p style="font-size:11px;color:var(--muted)">Propietario, administrador y equipo con permisos separados.</p><button class="btn soft" onclick="showToast('Gestión de equipo')">Gestionar</button></div>
-  <div class="card"><b>💾 Datos y respaldos</b><p style="font-size:11px;color:var(--muted)">En producción: base de datos, respaldos y auditoría de cambios.</p><button class="btn soft" onclick="showToast('Panel de datos')">Revisar</button></div>
-</div>
-<div class="section-title"><h2>Plan</h2></div><div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><b>Profesional</b><p style="font-size:11px;color:var(--muted);margin:4px 0">$59.900 COP / mes · IA y automatizaciones</p></div><button class="btn soft" onclick="showToast('Gestión de suscripción lista para conectar')">Administrar</button></div>
-    </section>
+<section id="view-settings" class="view"><div class="card empty">Cargando datos reales…</div></section>
   </div>
 </main>
 </div>
@@ -253,15 +158,7 @@ function saveSettings(){state.business=document.getElementById("setBusiness").va
 document.getElementById("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();document.getElementById("onboarding").classList.remove("open")}});
 
-// Self-checks executed in browser console.
-(function selfCheck(){
- const required=["landing","onboarding","app","view-dashboard","view-agenda","view-clients","view-conversations","view-ai","view-marketing","view-reports","view-revenue","view-settings","modal","toast","businessName","setBusiness","clientSearch","clientTable","msgInput","aiInput"];
- const missing=required.filter(id=>!document.getElementById(id));
- if(missing.length) console.error("CitaBot self-check: faltan elementos",missing);
- else console.info("CitaBot self-check OK: estructura principal encontrada.");
-})();
-
-/* The interactive demo is handled by the Supabase-aware runtime below. */
+/* Production UI is rendered by the Supabase-aware runtime below. */
 
 </script>
 
@@ -279,13 +176,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeModal();docume
   const SUPABASE_KEY='sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH';
   const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   let authMode='signup', currentBusiness=null, isDemo=false;
-  const demoData=()=>({
-    services:[{id:'demo-service-1',name:'Corte + barba',duration_minutes:60,price:45000,active:true},{id:'demo-service-2',name:'Corte',duration_minutes:30,price:30000,active:true}],
-    staff:[{id:'demo-staff-1',name:'Profesional demo',active:true}],
-    customers:[{id:'demo-customer-1',name:'Laura Gómez',phone:'300 555 0181',email:'laura@example.com'},{id:'demo-customer-2',name:'Andrés Ruiz',phone:'300 555 0192',email:'andres@example.com'}],
-    appointments:[]
-  });
-  let currentData=demoData();
+  let currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null};
   const newDemoId=prefix=>`${prefix}-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
   const $=id=>document.getElementById(id);
   const msg=(t,ok=false)=>{const el=$('cbAuthMsg');if(el){el.textContent=t;el.style.color=ok?'#126a3a':'#b42318'}};
