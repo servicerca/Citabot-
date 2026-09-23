@@ -101,7 +101,9 @@ jobs:
               actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["commit"])' "$tmp")"
               if [ "$actual" = "$EXPECTED_COMMIT" ]; then
                 echo "GitHub Pages verificado: $actual"
-                curl --fail --silent --show-error --location --max-time 20 "$base/index.html?cb=${EXPECTED_COMMIT}" | grep -q "CitaBot"
+                curl --fail --silent --show-error --location --max-time 20 "$base/index.html?cb=${EXPECTED_COMMIT}" -o /tmp/citabot-pages-index.html
+                grep -q "CitaBot" /tmp/citabot-pages-index.html
+                rm -f /tmp/citabot-pages-index.html
                 exit 0
               fi
             fi
