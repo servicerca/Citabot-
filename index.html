@@ -24,6 +24,20 @@
 @media(max-width:1050px){.app{grid-template-columns:78px 1fr}.sidebar{padding:18px 9px}.brand span:last-child,.workspace,.nav button span:not(.nav-icon),.side-bottom{display:none}.brand{justify-content:center}.nav button{text-align:center}.grid4{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr}.landing-features{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){#view-conversations .chat{height:calc(100dvh - 215px);max-height:calc(100dvh - 215px);min-height:460px;margin-bottom:0}#view-conversations .chat-main{height:100%;min-height:0;overflow:hidden}#view-conversations .messages{height:0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}#view-conversations .composer{position:relative;z-index:2;flex-shrink:0}.app{grid-template-columns:1fr}.sidebar{position:fixed;bottom:0;top:auto;height:112px;width:100%;z-index:40;padding:8px 6px;background:var(--dark)}.brand,.workspace,.side-bottom{display:none}.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:1fr 1fr;gap:4px;width:100%;height:100%;align-items:stretch}.nav button{min-width:0;padding:5px 2px;font-size:9px;line-height:1.1;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.nav .nav-icon{display:block;width:auto;font-size:18px;line-height:1}.nav button span:last-child{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.nav button[data-view="ai"]{margin-top:0;border-top:1px solid #333745;padding-top:5px}.quick-actions{grid-template-columns:1fr 1fr}.recovery-item{align-items:flex-start}.plan-grid{grid-template-columns:1fr}.topbar{padding:0 15px;height:62px}.content{padding:20px 15px 125px}.grid4,.grid3,.grid2,.form-grid{grid-template-columns:1fr}.page-head{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions .btn{flex:1}.calendar{min-width:760px}.calendar-wrap{overflow:auto}.chat{grid-template-columns:1fr;height:min(700px,calc(100dvh - 215px));min-height:420px}.chat-list{display:none}.hero{padding:60px 18px}.hero h1{font-size:52px}.landing-features{grid-template-columns:1fr;padding-bottom:70px}.hero-actions{flex-direction:column}.choice-grid{grid-template-columns:1fr}}
 </style>
+<style>
+/* Accesibilidad y legibilidad CitaBot: conserva el diseño, mejora lectura y toque en móvil. */
+body{font-size:15px}
+button,.btn,input,select,textarea{min-height:42px}
+.page-head p,.feature-note,.growth-card p,.directory-head p,.directory-meta,.directory-card p,.campaign small,.client-info small,.recovery-item small,.growth-inline small{font-size:12px}
+.metric small,.section-title span,.trend,.badge,.plan-label{font-size:11px}
+.table th,.table td{font-size:12px}
+.event,.cal-cell{font-size:10px}
+.bubble{font-size:12px;line-height:1.45}
+.field label{font-size:12px}
+.field input,.field select,.field textarea,.search,.recovery-message{font-size:14px}
+.nav button{font-size:14px}
+@media(max-width:700px){.nav button{font-size:10px}.nav .nav-icon{font-size:18px}.content{padding-top:18px}.page-head h1{font-size:28px}.btn{font-size:13px;padding:10px 14px}.directory-filters input,.directory-filters select{font-size:14px}.directory-card h3{font-size:16px}.directory-card p{font-size:12px}}
+</style>
 </head>
 <body>
 
