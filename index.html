@@ -322,6 +322,38 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
 #directoryModal .directory-head h2{font-size:28px}#directoryModal .directory-head p{font-size:15px}#directoryModal .directory-card h3{font-size:18px}#directoryModal .directory-meta{font-size:14px}#directoryModal .directory-card p{font-size:14px !important;line-height:1.6}
 @media(max-width:700px){.sidebar{height:122px;padding:9px 6px}.nav button,.nav button span:last-child{font-size:13px !important;line-height:1.2}.nav .nav-icon{font-size:21px}.topbar .crumb{font-size:15px !important}.content{padding-bottom:138px}.page-head h1{font-size:31px}.page-head p{font-size:15px !important}.section-title h2{font-size:19px}.btn{font-size:15px !important}.table th,.table td{font-size:14px !important}.cal-cell,.event{font-size:13px !important}.growth-inline b{font-size:17px !important}.growth-inline small{font-size:15px !important}.commercial-point{font-size:16px !important}.commercial-point small{font-size:15px !important}.hero p{font-size:18px}#view-revenue .page-head h1{font-size:30px}#view-revenue .page-head p{font-size:15px !important}#view-revenue .revenue-section-title h2{font-size:26px !important}#view-revenue .revenue-section-title span{font-size:15px !important}#view-revenue .plan-card h3{font-size:22px}#view-revenue .plan-card ul{font-size:15px !important}#view-revenue .boost-intro{font-size:15px}#view-revenue .boost-card>b{font-size:21px !important}#view-revenue .boost-card .plan-price{font-size:30px}#view-revenue .boost-card .feature-note{font-size:15px !important}#directoryModal .directory-head p{font-size:14px}}
 </style>
+<style>
+/* CitaBot v3.7 — directorio público claro y jerarquía de información */
+.public-directory-section{background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.public-directory-wrap{max-width:1120px;margin:0 auto;padding:42px 24px 52px}
+.public-directory-head h2{margin:12px 0 6px;font-size:34px;letter-spacing:-.04em}
+.public-directory-head p{margin:0;max-width:820px;color:var(--muted);font-size:17px;line-height:1.6}
+.public-directory-filters{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:10px;align-items:end;margin-top:24px}
+.public-directory-filters>div{display:grid;gap:7px}
+.public-directory-filters label{font-size:14px;font-weight:800}
+.public-directory-filters input,.public-directory-filters select{width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;font-size:16px;min-height:46px}
+.public-directory-filters .btn{min-height:46px}
+.public-directory-results{margin-top:18px}
+.public-directory-all{margin-top:16px}
+.trial-wide-note{display:flex;align-items:center;gap:12px;padding:14px 16px;margin:0 0 16px;background:#f7f6ff;border:1px solid #e1defd;border-radius:14px}
+.trial-wide-note b{font-size:17px}
+.trial-wide-note span{font-size:14px;color:var(--muted)}
+.explore-top{font-weight:800}
+.directory-promos{display:grid;gap:6px;margin:9px 0}
+.directory-promos>div{background:#f7f6ff;border-radius:9px;padding:8px;font-size:12px}
+@media(max-width:900px){.public-directory-filters{grid-template-columns:1fr 1fr}.public-directory-filters>div:first-child{grid-column:1/-1}}
+@media(max-width:700px){
+  .public-directory-wrap{padding:34px 18px 44px}
+  .public-directory-head h2{font-size:29px}
+  .public-directory-head p{font-size:16px}
+  .public-directory-filters{grid-template-columns:1fr}
+  .public-directory-filters>div:first-child{grid-column:auto}
+  .trial-wide-note{display:grid;gap:4px}
+  .trial-wide-note b{font-size:16px}
+  .trial-wide-note span{font-size:14px}
+  .explore-top{display:none}
+}
+</style>
 </head>
 <body>
 
@@ -355,12 +387,35 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
       </div>
     </div>
   </div>
-  <div id="pricingAnchor" class="price-band">
+  <section id="publicDirectorySection" class="public-directory-section">
+  <div class="public-directory-wrap">
+    <div class="public-directory-head">
+      <div>
+        <span class="commercial-kicker">DIRECTORIO PÚBLICO · GRATIS PARA CLIENTES</span>
+        <h2>Explora negocios en CitaBot</h2>
+        <p>Busca por nombre, servicio, ciudad o categoría. Cualquier persona puede explorar los negocios y reservar sin pagar por usar CitaBot.</p>
+      </div>
+    </div>
+    <div class="public-directory-filters">
+      <div><label for="publicDirectorySearch">¿Qué buscas?</label><input id="publicDirectorySearch" placeholder="Negocio o servicio…"></div>
+      <div><label for="publicDirectoryCity">Ciudad</label><input id="publicDirectoryCity" placeholder="Ej. Santa Marta"></div>
+      <div><label for="publicDirectoryCategory">Categoría</label><select id="publicDirectoryCategory"><option value="">Todas las categorías</option><option value="service">Servicios</option><option value="restaurant">Restaurantes</option></select></div>
+      <button class="btn primary" onclick="loadDirectory('publicDirectorySearch','publicDirectoryCity','publicDirectoryCategory','publicDirectoryResults')">Buscar negocios</button>
+    </div>
+    <div id="publicDirectoryResults" class="directory-grid public-directory-results">
+      <div class="empty">Busca un negocio o selecciona una ciudad para ver resultados reales.</div>
+    </div>
+    <button class="btn secondary public-directory-all" onclick="openDirectory()">Ver todos los negocios</button>
+  </div>
+</section>
+
+<div id="pricingAnchor" class="price-band">
     <div class="price-band-head"><div><h2>Planes para crecer con CitaBot</h2><p>Empieza sin costo y escala cuando CitaBot empiece a aportar más valor a tu negocio.</p></div><button class="btn secondary" onclick="showOnboarding()">Crear cuenta gratis</button></div>
+    <div class="trial-wide-note"><b>7 días de acceso completo GRATIS para negocios nuevos</b><span>Sin tarjeta. Al terminar la prueba, tu cuenta pasa a Gratis sin cobro automático.</span></div>
     <div class="price-strip">
       <div class="plan-card"><div class="plan-label">PARA EMPEZAR</div><h3>Gratis</h3><div class="plan-price">$0 <small>/ mes</small></div><ul><li>Agenda y clientes</li><li>Reserva online</li><li>Seguimiento e ingresos básicos</li></ul><button class="btn secondary" onclick="showOnboarding()">Empezar gratis</button></div>
       <div class="plan-card"><span class="badge confirmed plan-badge">Más elegido</span><div class="plan-label">PARA NEGOCIOS ACTIVOS</div><h3>Profesional</h3><div class="plan-price">$59.900 <small>/ mes</small></div><ul><li>Todo lo de Gratis</li><li>Recuperación de clientes</li><li>WhatsApp conectado</li><li>IA y acciones automáticas</li></ul><button class="btn primary" onclick="showOnboarding()">Probar CitaBot</button></div>
-      <div class="plan-card"><div class="plan-label">PARA CRECER</div><h3>Premium</h3><div class="plan-price">$69.900 <small>/ mes</small></div><ul><li>Todo lo de Profesional</li><li>IA avanzada</li><li>Marketing y automatizaciones</li><li>Reportes y crecimiento</li></ul><span class="badge confirmed">7 días GRATIS · acceso completo · sin tarjeta</span></div>
+      <div class="plan-card"><div class="plan-label">PARA CRECER</div><h3>Premium</h3><div class="plan-price">$69.900 <small>/ mes</small></div><ul><li>Todo lo de Profesional</li><li>IA avanzada</li><li>Marketing y automatizaciones</li><li>Reportes y crecimiento</li></ul><span class="badge confirmed">Plan Premium</span></div>
     </div>
 
   <div class="growth-grid">
@@ -396,7 +451,7 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
   <div class="side-bottom"><button onclick="logout()">Cerrar sesión</button></div>
 </aside>
 <main class="main">
-  <header class="topbar"><div class="crumb" id="crumb">Inicio</div><div class="top-actions"><button onclick="showToast('Centro de ayuda disponible en la versión conectada')">Ayuda</button><button onclick="showToast('No tienes notificaciones nuevas')">🔔</button><span class="avatar">CB</span></div></header>
+  <header class="topbar"><div class="crumb" id="crumb">Inicio</div><div class="top-actions"><button class="explore-top" onclick="openDirectory()">Explorar</button><button onclick="showToast('Centro de ayuda disponible en la versión conectada')">Ayuda</button><button onclick="showToast('No tienes notificaciones nuevas')">🔔</button><span class="avatar">CB</span></div></header>
   <div class="content">
 
     <section id="view-dashboard" class="view"><div class="card empty">Cargando datos reales…</div></section>
@@ -493,8 +548,30 @@ async function cbRefresh(){if(!currentBusiness)return;const bid=currentBusiness.
   window.openPromotionInfo=()=>go('marketing');
   window.openDirectory=async()=>{const modal=document.getElementById('directoryModal');if(!modal)return;modal.classList.add('open');const body=document.getElementById('directoryResults');if(body)body.innerHTML='<div class="empty">Cargando negocios reales…</div>';await loadDirectory();};
   window.closeDirectory=()=>document.getElementById('directoryModal')?.classList.remove('open');
-  async function loadDirectory(){const body=document.getElementById('directoryResults');if(!body)return;const q=(document.getElementById('directorySearch')?.value||'').trim(),city=(document.getElementById('directoryCity')?.value||'').trim(),category=(document.getElementById('directoryCategory')?.value||'').trim();try{let query=sb.from('business_directory').select('business_id,name,description,category,city,logo_url,slug,whatsapp,address,featured,featured_until').eq('is_active',true).eq('is_listed',true).order('featured',{ascending:false}).order('name',{ascending:true}).limit(48);if(q)query=query.or('name.ilike.%'+q+'%,description.ilike.%'+q+'%,city.ilike.%'+q+'%');if(city)query=query.ilike('city','%'+city+'%');if(category)query=query.eq('category',category);const {data,error}=await query;if(error)throw error;const rows=data||[];const ids=rows.map(b=>b.business_id);let promos=[];if(ids.length){const pr=await sb.from('business_promotions').select('business_id,title,description,discount_percent,promo_price').in('business_id',ids).eq('active',true);if(pr.error)throw pr.error;promos=pr.data||[];}if(!rows.length){body.innerHTML='<div class="empty">Todavía no hay negocios publicados con esos filtros. Los negocios aparecen cuando activan su publicación en CitaBot.</div>';return;}body.innerHTML=rows.map(b=>{const bp=promos.filter(p=>p.business_id===b.business_id).slice(0,2);const featured=Boolean(b.featured&&(!b.featured_until||new Date(b.featured_until)>new Date()));return '<article class="directory-card"><div class="directory-cover">'+(b.logo_url?'<img src="'+esc(b.logo_url)+'" alt="" style="width:100%;height:100%;object-fit:cover">':'✦')+'</div><div class="directory-body">'+(featured?'<span class="badge confirmed">Destacado</span> ':'')+'<h3>'+esc(b.name)+'</h3><div class="directory-meta">'+esc(b.category||'Negocio')+' · '+esc(b.city||'Colombia')+'</div><p>'+esc((b.description||'Encuentra servicios y reserva directamente con este negocio.').slice(0,120))+'</p>'+(bp.length?'<div style="display:grid;gap:5px;margin:8px 0">'+bp.map(p=>'<div style="background:#f7f6ff;border-radius:9px;padding:7px;font-size:9px"><b>'+esc(p.title)+'</b>'+(p.discount_percent?' · '+Number(p.discount_percent)+'%':'')+(p.promo_price?' · '+cbMoney(p.promo_price):'')+'</div>').join('')+'</div>':'')+'<div class="directory-actions"><button class="btn primary" onclick="publicBooking(\''+esc(b.slug)+'\')">Ver y reservar</button>'+(b.whatsapp?'<a class="btn secondary" href="https://wa.me/'+String(b.whatsapp).replace(/\\D/g,'')+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'</div></div></article>';}).join('');}catch(e){body.innerHTML='<div class="empty">No fue posible cargar el directorio ahora. '+esc(e.message||'Error')+'</div>';}}
-  function cbRenderDashboard(){const sec=document.getElementById('view-dashboard');if(!sec||!currentBusiness)return;const as=currentData.appointments||[],today=new Intl.DateTimeFormat('en-CA',{timeZone:currentBusiness.timezone||'America/Bogota'}).format(new Date()),todayA=as.filter(a=>a.starts_at?.slice(0,10)===today&&!['cancelled','no_show'].includes(a.status)).sort((a,b)=>new Date(a.starts_at)-new Date(b.starts_at)),revenue=as.filter(a=>a.status==='completed').reduce((n,a)=>n+Number(currentData.services.find(s=>s.id===a.service_id)?.price||0),0),opp=currentData.customers.filter(c=>!hasRecentValidAppointment(c.id)),rows=todayA.slice(0,8).map(a=>'<tr><td>'+new Date(a.starts_at).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})+'</td><td>'+esc(a.customers?.name||'Cliente')+'</td><td>'+esc(a.services?.name||'Servicio')+'</td><td><span class="badge '+(a.status==='confirmed'?'confirmed':'pending')+'">'+esc(a.status)+'</span></td></tr>').join('')||'<tr><td colspan="4">No hay citas para hoy.</td></tr>';const currentPlan=cbEffectivePlan();const trialCta=cbTrialActive()?'<div class="card commercial-banner" style="margin-top:16px"><b>Tu prueba completa está activa · '+cbTrialDaysLeft()+' día(s) restantes</b><p>Durante la prueba tienes acceso a las funciones de crecimiento. Al terminar volverás a Gratis, sin cobros automáticos.</p><button class="btn primary" onclick="go(\'revenue\')">Ver planes y continuar →</button></div>':'';const growthCta=currentPlan==='free'?'<div class="card commercial-banner" style="margin-top:16px"><b>Haz crecer este negocio con CitaBot</b><p>Profesional cuesta $59.900/mes e incluye recuperación, WhatsApp conectado, IA y acciones automáticas.</p><button class="btn primary" onclick="go(\'revenue\')">Ver Profesional →</button></div>':'<div class="card" style="margin-top:16px"><b>Motor de crecimiento</b><div class="growth-inline"><div><b>Recuperación</b><small>Clientes sin volver</small></div><div><b>Marketing</b><small>Campañas y seguimiento</small></div><div><b>Ingresos</b><small>Ventas y suscripción</small></div></div></div>';sec.innerHTML='<div class="page-head"><div><h1>Resumen</h1><p>Datos reales de '+esc(currentBusiness.name||'tu negocio')+'.</p></div></div><div class="quick-actions"><button class="btn primary" onclick="openModal(\'Nueva cita\')">+ Nueva cita</button><button class="btn secondary" onclick="go(\'clients\')">Recuperar clientes</button><button class="btn secondary" onclick="go(\'conversations\')">WhatsApp</button><button class="btn secondary" onclick="go(\'revenue\')">Ingresos</button></div><div class="grid4"><div class="card metric"><small>Citas hoy</small><strong>'+todayA.length+'</strong></div><div class="card metric"><small>Clientes</small><strong>'+currentData.customers.length+'</strong></div><div class="card metric"><small>Valor de citas completadas</small><strong>'+cbMoney(revenue)+'</strong></div><div class="card metric"><small>Por recuperar</small><strong>'+opp.length+'</strong></div></div><div class="section-title"><h2>Actividad de hoy</h2><span onclick="go(\'agenda\')">Ver agenda →</span></div><div class="card"><table class="table"><thead><tr><th>Hora</th><th>Cliente</th><th>Servicio</th><th>Estado</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="section-title"><h2>Oportunidades</h2><span onclick="go(\'clients\')">Recuperar →</span></div><div class="card"><p style="margin:0">Clientes sin una cita válida en los últimos 30 días: <b>'+opp.length+'</b>.</p></div>'+trialCta+growthCta;}
+  async function loadDirectory(searchId='directorySearch',cityId='directoryCity',categoryId='directoryCategory',resultId='directoryResults'){
+    const body=document.getElementById(resultId);if(!body)return;
+    const q=(document.getElementById(searchId)?.value||'').trim(),city=(document.getElementById(cityId)?.value||'').trim(),category=(document.getElementById(categoryId)?.value||'').trim();
+    try{
+      let query=sb.from('business_directory').select('business_id,name,description,category,city,logo_url,slug,whatsapp,address,featured,featured_until').eq('is_active',true).eq('is_listed',true).order('featured',{ascending:false}).order('name',{ascending:true}).limit(48);
+      if(q)query=query.or('name.ilike.%'+q+'%,description.ilike.%'+q+'%,city.ilike.%'+q+'%');
+      if(city)query=query.ilike('city','%'+city+'%');
+      if(category)query=query.eq('category',category);
+      const {data,error}=await query;if(error)throw error;
+      const rows=data||[],ids=rows.map(b=>b.business_id);
+      let promos=[];
+      if(ids.length){
+        const pr=await sb.from('business_promotions').select('business_id,title,description,discount_percent,promo_price').in('business_id',ids).eq('active',true);
+        if(pr.error)throw pr.error;promos=pr.data||[];
+      }
+      if(!rows.length){body.innerHTML='<div class="empty">Todavía no hay negocios publicados con esos filtros. Prueba otra ciudad, categoría o término de búsqueda.</div>';return;}
+      body.innerHTML=rows.map(b=>{
+        const bp=promos.filter(p=>p.business_id===b.business_id).slice(0,2);
+        const featured=Boolean(b.featured&&(!b.featured_until||new Date(b.featured_until)>new Date()));
+        return '<article class="directory-card"><div class="directory-cover">'+(b.logo_url?'<img src="'+esc(b.logo_url)+'" alt="" style="width:100%;height:100%;object-fit:cover">':'✦')+'</div><div class="directory-body">'+(featured?'<span class="badge confirmed">Destacado</span> ':'')+'<h3>'+esc(b.name)+'</h3><div class="directory-meta">'+esc(b.category==='restaurant'?'Restaurantes':b.category==='service'?'Servicios':b.category||'Negocio')+' · '+esc(b.city||'Colombia')+'</div><p>'+esc((b.description||'Encuentra servicios y reserva directamente con este negocio.').slice(0,120))+'</p>'+(bp.length?'<div class="directory-promos">'+bp.map(p=>'<div><b>'+esc(p.title)+'</b>'+(p.discount_percent?' · '+Number(p.discount_percent)+'%':'')+(p.promo_price?' · '+cbMoney(p.promo_price):'')+'</div>').join('')+'</div>':'')+'<div class="directory-actions"><button class="btn primary" onclick="publicBooking(\''+esc(b.slug)+'\')">Ver y reservar</button>'+(b.whatsapp?'<a class="btn secondary" href="https://wa.me/'+String(b.whatsapp).replace(/\D/g,'')+'" target="_blank" rel="noopener">WhatsApp</a>':'')+'</div></div></article>';
+      }).join('');
+    }catch(e){body.innerHTML='<div class="empty">No fue posible cargar el directorio ahora. '+esc(e.message||'Error')+'</div>';}
+  }
+  function cbRenderDashboard(){const sec=document.getElementById('view-dashboard');if(!sec||!currentBusiness)return;const as=currentData.appointments||[],today=new Intl.DateTimeFormat('en-CA',{timeZone:currentBusiness.timezone||'America/Bogota'}).format(new Date()),todayA=as.filter(a=>a.starts_at?.slice(0,10)===today&&!['cancelled','no_show'].includes(a.status)).sort((a,b)=>new Date(a.starts_at)-new Date(b.starts_at)),revenue=as.filter(a=>a.status==='completed').reduce((n,a)=>n+Number(currentData.services.find(s=>s.id===a.service_id)?.price||0),0),opp=currentData.customers.filter(c=>!hasRecentValidAppointment(c.id)),rows=todayA.slice(0,8).map(a=>'<tr><td>'+new Date(a.starts_at).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})+'</td><td>'+esc(a.customers?.name||'Cliente')+'</td><td>'+esc(a.services?.name||'Servicio')+'</td><td><span class="badge '+(a.status==='confirmed'?'confirmed':'pending')+'">'+esc(a.status)+'</span></td></tr>').join('')||'<tr><td colspan="4">No hay citas para hoy.</td></tr>';const currentPlan=cbEffectivePlan();const trialCta=cbTrialActive()?'<div class="card commercial-banner" style="margin-top:16px"><b>Tu prueba completa está activa · '+cbTrialDaysLeft()+' día(s) restantes</b><p>Durante la prueba tienes acceso a las funciones de crecimiento. Al terminar volverás a Gratis, sin cobros automáticos.</p><button class="btn primary" onclick="go(\'revenue\')">Ver planes y continuar →</button></div>':'';const growthCta=currentPlan==='free'?'<div class="card commercial-banner" style="margin-top:16px"><b>Haz crecer este negocio con CitaBot</b><p>Profesional cuesta $59.900/mes e incluye recuperación, WhatsApp conectado, IA y acciones automáticas.</p><button class="btn primary" onclick="go(\'revenue\')">Ver Profesional →</button></div>':'<div class="card" style="margin-top:16px"><b>Motor de crecimiento</b><div class="growth-inline"><div><b>Recuperación</b><small>Clientes sin volver</small></div><div><b>Marketing</b><small>Campañas y seguimiento</small></div><div><b>Ingresos</b><small>Ventas y suscripción</small></div></div></div>';sec.innerHTML='<div class="page-head"><div><h1>Resumen</h1><p>Datos reales de '+esc(currentBusiness.name||'tu negocio')+'.</p></div></div>'+trialCta+growthCta+'<div class="quick-actions"><button class="btn primary" onclick="openModal(\'Nueva cita\')">+ Nueva cita</button><button class="btn secondary" onclick="go(\'clients\')">Recuperar clientes</button><button class="btn secondary" onclick="go(\'conversations\')">WhatsApp</button><button class="btn secondary" onclick="go(\'revenue\')">Ingresos</button></div><div class="grid4"><div class="card metric"><small>Citas hoy</small><strong>'+todayA.length+'</strong></div><div class="card metric"><small>Clientes</small><strong>'+currentData.customers.length+'</strong></div><div class="card metric"><small>Valor de citas completadas</small><strong>'+cbMoney(revenue)+'</strong></div><div class="card metric"><small>Por recuperar</small><strong>'+opp.length+'</strong></div></div><div class="section-title"><h2>Actividad de hoy</h2><span onclick="go(\'agenda\')">Ver agenda →</span></div><div class="card"><table class="table"><thead><tr><th>Hora</th><th>Cliente</th><th>Servicio</th><th>Estado</th></tr></thead><tbody>'+rows+'</tbody></table></div><div class="section-title"><h2>Oportunidades</h2><span onclick="go(\'clients\')">Recuperar →</span></div><div class="card"><p style="margin:0">Clientes sin una cita válida en los últimos 30 días: <b>'+opp.length+'</b>.</p></div>';}
 function cbRenderAI(){const sec=document.getElementById('view-ai');if(!sec)return;const as=currentData.appointments||[],opp=currentData.customers.filter(c=>!hasRecentValidAppointment(c.id));sec.querySelectorAll('.ai-card').forEach(x=>{x.innerHTML='<div class="ai-head"><span class="ai-icon">✦</span><div><small style="color:#aaa4ff">OPORTUNIDADES REALES</small><b style="display:block">Clientes por recuperar</b></div></div><p>Se detectaron <b>'+opp.length+'</b> clientes sin una cita en los últimos 30 días, según los datos disponibles.</p><button class="btn soft" onclick="go(\'marketing\')">Crear campaña</button>';});const status=sec.querySelector('.cb-ai-status');if(status)status.textContent='Datos cargados desde Supabase para este negocio.';}
   function cbRenderMetrics(){
     if(!currentBusiness)return;
