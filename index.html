@@ -354,6 +354,11 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
   .explore-top{display:none}
 }
 </style>
+<style>
+/* CitaBot v3.8 — navegación sin pérdida de posición */
+.view{scroll-margin-top:84px}
+@media(max-width:700px){.view{scroll-margin-top:70px}}
+</style>
 </head>
 <body>
 
@@ -481,13 +486,13 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
 <div id="toast" class="toast"></div>
 
 <script>
-const state={business:"Mi negocio",type:"service",view:"dashboard",onboardStep:1,modalType:""};
+const state={business:"Mi negocio",type:"service",view:"dashboard",onboardStep:1,modalType:"",scrollPositions:{}};
 const labels={dashboard:"Inicio",agenda:"Agenda",clients:"Clientes",conversations:"Conversaciones",ai:"IA",marketing:"Marketing",reports:"Reportes",revenue:"Ingresos",settings:"Configuración"};
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function showToast(message){const t=document.getElementById("toast");if(!t)return;t.textContent=message;t.classList.add("show");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove("show"),2400)}
 function closeModal(){const modal=document.getElementById("modal");if(!modal)return;modal.classList.remove("open");state.modalType="";const body=document.getElementById("modalBody");if(body)body.innerHTML=""}
-function go(view){state.view=view;document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));const target=document.getElementById("view-"+view);if(target)target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));const crumb=document.getElementById("crumb");if(crumb)crumb.textContent=labels[view]||view;window.scrollTo({top:0,behavior:"smooth"})}
-document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.view)));
+function go(view,rememberPosition=false){if(rememberPosition&&state.view)state.scrollPositions[state.view]=window.scrollY;state.view=view;document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));const target=document.getElementById("view-"+view);if(target)target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));const crumb=document.getElementById("crumb");if(crumb)crumb.textContent=labels[view]||view;requestAnimationFrame(()=>{const saved=rememberPosition?state.scrollPositions[view]:null;if(Number.isFinite(saved)){window.scrollTo({top:saved,behavior:"auto"});return;}const topbarH=document.querySelector(".topbar")?.offsetHeight||72;const y=Math.max(0,target?target.getBoundingClientRect().top+window.scrollY-topbarH:0);window.scrollTo({top:y,behavior:"smooth"});});}
+document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.view,true)));
 function renderOnboarding(){
  const s=document.getElementById("onboardStep"),bar=document.getElementById("progressBar");if(!s||!bar)return;bar.style.width=(state.onboardStep/3*100)+"%";
  if(state.onboardStep===1)s.innerHTML=`<span style="font-size:11px;color:var(--primary);font-weight:850">PASO 1 DE 3</span><h1 style="font-size:38px;letter-spacing:-.04em;margin:10px 0">¿Qué tipo de negocio tienes?</h1><p style="color:var(--muted);font-size:13px">CitaBot adaptará la agenda y las herramientas a tu negocio.</p><div class="choice-grid"><button class="choice ${state.type==="service"?"selected":""}" onclick="state.type='service';renderOnboarding()"><b>✂️ Servicios</b><span>Barbería, peluquería, spa, estética y más.</span></button><button class="choice ${state.type==="restaurant"?"selected":""}" onclick="state.type='restaurant';renderOnboarding()"><b>🍽️ Restaurante</b><span>Reservas, mesas, clientes y atención.</span></button></div><div style="margin-top:25px;text-align:right"><button class="btn primary" onclick="nextOnboard()">Continuar →</button></div>`;
