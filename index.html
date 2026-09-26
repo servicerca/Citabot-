@@ -420,7 +420,7 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
     </div>
     <button class="btn secondary public-directory-all" onclick="openDirectory()">Ver todos los negocios</button>
   </div>
-</section>
+</section><div style="max-width:1120px;margin:0 auto;padding:0 24px 35px;display:flex;justify-content:center;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--muted)"><button class="cb-auth-link" type="button" onclick="openLegal(&apos;privacy&apos;)">Política de privacidad</button><button class="cb-auth-link" type="button" onclick="openLegal(&apos;terms&apos;)">Términos de servicio</button></div>
 
 <div id="pricingAnchor" class="price-band">
     <div class="price-band-head"><div><h2>Planes para crecer con CitaBot</h2><p>Empieza sin costo y escala cuando CitaBot empiece a aportar más valor a tu negocio.</p></div><button class="btn secondary" onclick="showOnboarding()">Crear cuenta gratis</button></div>
@@ -490,6 +490,7 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
 </div>
 
 <div id="directoryModal" class="directory-modal" onclick="if(event.target===this)closeDirectory()"><div class="directory-box"><div class="directory-head"><div><h2>Descubre negocios en CitaBot</h2><p>Explora negocios reales y reserva gratis. Los clientes no pagan por usar el directorio ni por encontrar un negocio.</p></div><button class="close" onclick="closeDirectory()">×</button></div><div class="directory-filters"><input id="directorySearch" placeholder="Buscar negocio o servicio…" onkeydown="if(event.key===\\'Enter\\')loadDirectory()"><input id="directoryCity" placeholder="Ciudad"><select id="directoryCategory"><option value="">Todas las categorías</option><option value="service">Servicios</option><option value="restaurant">Restaurantes</option></select><button class="btn primary" onclick="loadDirectory()">Buscar</button></div><div id="directoryResults" class="directory-grid"><div class="empty">Abre el directorio para cargar negocios reales.</div></div></div></div>
+<div id="legalModal" class="modal" onclick="if(event.target===this)closeLegal()"><div class="modal-box" style="max-width:760px;max-height:88vh;overflow:auto"><button class="close" onclick="closeLegal()">×</button><div id="legalBody"></div><div class="modal-actions"><button class="btn primary" onclick="closeLegal()">Cerrar</button></div></div></div>
 <div id="modal" class="modal"><div class="modal-box"><button class="close" onclick="closeModal()">×</button><h2 id="modalTitle">Nueva acción</h2><p id="modalDesc">Completa los datos.</p><div id="modalBody"></div><div class="modal-actions"><button class="btn secondary" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="confirmModal()">Guardar</button></div></div></div>
 <div id="toast" class="toast"></div>
 
