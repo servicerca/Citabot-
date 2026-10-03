@@ -59,3 +59,93 @@ test.describe('CitaBot production browser smoke', () => {
     expect(consoleErrors).toEqual([]);
   });
 });
+
+
+  test('public booking captures payment method', async ({ page }) => {
+    let submittedBody = null;
+
+    await page.route('**/functions/v1/citabot-public-booking**', async route => {
+      const request = route.request();
+      if (request.method() === 'GET') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            data: {
+              business: {
+                id: '00000000-0000-4000-8000-000000000001',
+                name: 'Negocio E2E',
+                slug: 'negocio-e2e',
+                city: 'Santa Marta',
+                address: 'Calle 1',
+                timezone: 'America/Bogota',
+                whatsapp: '+573000000000',
+                latitude: null,
+                longitude: null,
+                description: 'Agenda E2E',
+              },
+              services: [{
+                id: '00000000-0000-4000-8000-000000000002',
+                name: 'Servicio E2E',
+                description: '',
+                duration_minutes: 30,
+                price: 50000,
+              }],
+              staff: [{
+                id: '00000000-0000-4000-8000-000000000003',
+                name: 'Profesional E2E',
+              }],
+              hours: [{
+                day_of_week: 0,
+                opens_at: '09:00:00',
+                closes_at: '18:00:00',
+                closed: false,
+              }],
+            },
+          }),
+        });
+      }
+
+      submittedBody = request.postDataJSON();
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, appointment_id: '00000000-0000-4000-8000-000000000004' }),
+      });
+    });
+
+    const response = await page.goto(BASE_URL + '?book=negocio-e2e', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+    expect(response && response.ok()).toBeTruthy();
+
+    await expect(page.locator('#pbPaymentMethod')).toBeVisible();
+    await expect(page.locator('#pbPaymentMethod option')).toHaveCount(4);
+    await expect(page.locator('#pbPaymentMethod option[value="cash"]')).toHaveText('Efectivo');
+    await expect(page.locator('#pbPaymentMethod option[value="transfer"]')).toHaveText('Transferencia');
+    await expect(page.locator('#pbPaymentMethod option[value="other"]')).toHaveText('Otro');
+
+    const tomorrow = await page.evaluate(() => {
+      const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      return d.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+    });
+    await page.locator('#pbPaymentMethod').selectOption('transfer');
+    await page.locator('#pbDate').fill(tomorrow);
+    await page.locator('#pbTime').fill('10:00');
+    await page.locator('#pbName').fill('Cliente E2E');
+    await page.locator('#pbPhone').fill('+573001112233');
+    await page.locator('#pbEmail').fill('cliente-e2e@example.invalid');
+    await page.locator('#pbPrivacy').check();
+    await page.locator('#pbWhatsapp').check();
+    await page.locator('#pbSubmit').click();
+
+    await expect(page.locator('#pbMsg')).toContainText(/reserva confirmada/i);
+    expect(submittedBody).toBeTruthy();
+    expect(submittedBody.payment_method).toBe('transfer');
+    expect(submittedBody.business_slug).toBe('negocio-e2e');
+    expect(submittedBody.privacy_consent).toBe(true);
+    expect(submittedBody.whatsapp_consent).toBe(true);
+  });
+\n}\n
