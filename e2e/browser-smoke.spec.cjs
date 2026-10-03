@@ -119,6 +119,7 @@ test.describe('CitaBot production browser smoke', () => {
     });
     expect(response && response.ok()).toBeTruthy();
 
+    await expect(page.locator('#pbPaymentMethod')).toHaveCount(1);
     await expect(page.locator('#pbPaymentMethod')).toBeVisible();
     await expect(page.locator('#pbPaymentMethod option')).toHaveCount(4);
     await expect(page.locator('#pbPaymentMethod option[value="cash"]')).toHaveText('Efectivo');
