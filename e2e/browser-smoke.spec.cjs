@@ -58,8 +58,6 @@ test.describe('CitaBot production browser smoke', () => {
     expect(serverErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
-});
-
 
   test('public booking captures payment method', async ({ page }) => {
     let submittedBody = null;
