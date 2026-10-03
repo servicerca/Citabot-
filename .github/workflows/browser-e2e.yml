@@ -3,6 +3,13 @@ name: CitaBot production browser E2E
 on:
   push:
     branches: ["main"]
+    paths:
+      - "index.html"
+      - "politica-privacidad.html"
+      - "terminos-servicio.html"
+      - "eliminacion-datos.html"
+      - "e2e/**"
+      - ".github/workflows/browser-e2e.yml"
   workflow_dispatch:
 
 permissions:
