@@ -3,6 +3,12 @@ name: Publicar CitaBot en GitHub Pages
 on:
   push:
     branches: ["main"]
+    paths:
+      - "index.html"
+      - "politica-privacidad.html"
+      - "terminos-servicio.html"
+      - "eliminacion-datos.html"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
