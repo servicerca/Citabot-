@@ -3,7 +3,7 @@ const { test, expect } = require('playwright/test');
 const BASE_URL = process.env.BASE_URL || 'https://servicerca.github.io/Citabot-/';
 
 test.describe('CitaBot production browser smoke', () => {
-  test('landing, onboarding, legal, directory and auth UI', async ({ page }) => {
+  test('landing, directory, legal and auth UI', async ({ page }) => {
     const consoleErrors = [];
     const serverErrors = [];
 
@@ -36,29 +36,9 @@ test.describe('CitaBot production browser smoke', () => {
     await page.locator('#directoryModal .close').click();
 
     await page.getByRole('button', { name: /Comenzar gratis/i }).first().click();
-    await expect(page.locator('#onboarding')).toHaveClass(/open/);
-    await expect(page.locator('#onboardStep')).toContainText(/PASO 1 DE 3/i);
-
-    await page.getByRole('button', { name: /Restaurante/i }).click();
-    await expect(page.locator('#onboardStep .choice.selected')).toContainText(/Restaurante/i);
-
-    await page.getByRole('button', { name: /Continuar/i }).click();
-    await expect(page.locator('#onboardStep')).toContainText(/PASO 2 DE 3/i);
-    await page.locator('#obName').fill('Prueba E2E');
-    await page.locator('#obCity').fill('Santa Marta');
-    await page.getByRole('button', { name: /Atrás/i }).click();
-    await expect(page.locator('#onboardStep')).toContainText(/PASO 1 DE 3/i);
-
-    await page.getByRole('button', { name: /Continuar/i }).click();
-    await page.locator('#obName').fill('Prueba E2E');
-    await page.locator('#obCity').fill('Santa Marta');
-    await page.getByRole('button', { name: /Continuar/i }).click();
-    await expect(page.locator('#onboardStep')).toContainText(/PASO 3 DE 3/i);
-    await page.locator('#onboarding').press('Escape');
-    await expect(page.locator('#onboarding')).not.toHaveClass(/open/);
-
-    await page.getByRole('button', { name: /Comenzar gratis/i }).first().click();
     await expect(page.locator('#cbAuth')).toHaveClass(/open/);
+    await expect(page.locator('#cbAuthTitle')).toHaveText('Crear cuenta en CitaBot');
+    await expect(page.locator('#cbAuthName')).toBeVisible();
     await expect(page.locator('#cbAuthEmail')).toBeVisible();
     await expect(page.locator('#cbAuthPassword')).toBeVisible();
     await expect(page.locator('#cbAuthConsent')).toBeVisible();
@@ -71,9 +51,8 @@ test.describe('CitaBot production browser smoke', () => {
 
     await page.getByRole('button', { name: /Ya tengo una cuenta/i }).click();
     await expect(page.locator('#cbAuthTitle')).toHaveText('Iniciar sesión');
-    await page.locator('#cbAuthEmail').fill('browser-smoke@example.invalid');
     await page.getByRole('button', { name: /Olvidé mi contraseña/i }).click();
-    await expect(page.locator('#cbAuthMsg')).toContainText(/correo/i);
+    await expect(page.locator('#cbAuthMsg')).toContainText(/Escribe primero tu correo/i);
     await page.locator('#cbAuthEmail').fill('');
     await page.getByRole('button', { name: /Cancelar/i }).click();
 
