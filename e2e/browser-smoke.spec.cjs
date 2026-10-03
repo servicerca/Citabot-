@@ -42,8 +42,6 @@ test.describe('CitaBot production browser smoke', () => {
     await expect(page.locator('#cbAuthEmail')).toBeVisible();
     await expect(page.locator('#cbAuthPassword')).toBeVisible();
     await expect(page.locator('#cbAuthConsent')).toBeVisible();
-    await expect(page.locator('#cbAuthForgot')).toBeVisible();
-
     await page.getByRole('button', { name: /Términos de servicio/i }).click();
     await expect(page.locator('#legalModal')).toHaveClass(/open/);
     await expect(page.locator('#legalBody')).toContainText(/Términos de servicio/i);
@@ -51,6 +49,7 @@ test.describe('CitaBot production browser smoke', () => {
 
     await page.getByRole('button', { name: /Ya tengo una cuenta/i }).click();
     await expect(page.locator('#cbAuthTitle')).toHaveText('Iniciar sesión');
+    await expect(page.locator('#cbAuthForgot')).toBeVisible();
     await page.getByRole('button', { name: /Olvidé mi contraseña/i }).click();
     await expect(page.locator('#cbAuthMsg')).toContainText(/Escribe primero tu correo/i);
     await page.locator('#cbAuthEmail').fill('');
