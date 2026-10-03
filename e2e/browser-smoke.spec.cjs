@@ -42,7 +42,7 @@ test.describe('CitaBot production browser smoke', () => {
     await expect(page.locator('#cbAuthEmail')).toBeVisible();
     await expect(page.locator('#cbAuthPassword')).toBeVisible();
     await expect(page.locator('#cbAuthConsent')).toBeVisible();
-    await page.getByRole('button', { name: /Términos de servicio/i }).click();
+    await page.locator('#cbAuthConsentWrap').getByRole('button', { name: /Términos de servicio/i }).click();
     await expect(page.locator('#legalModal')).toHaveClass(/open/);
     await expect(page.locator('#legalBody')).toContainText(/Términos de servicio/i);
     await page.locator('#legalModal .close').click();
