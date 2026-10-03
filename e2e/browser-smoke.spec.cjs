@@ -147,4 +147,5 @@ test.describe('CitaBot production browser smoke', () => {
     expect(submittedBody.business_slug).toBe('negocio-e2e');
     expect(submittedBody.privacy_consent).toBe(true);
     expect(submittedBody.whatsapp_consent).toBe(true);
-  });}
+  });
+});
