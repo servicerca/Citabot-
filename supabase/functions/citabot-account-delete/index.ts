@@ -22,7 +22,7 @@ Deno.serve(async(req)=>{
   if(businessIds.length){
    const {error:le}=await admin.from("legal_acceptances").delete().in("business_id",businessIds);if(le)throw le;
    const {error:re}=await admin.from("platform_revenue").update({business_id:null}).in("business_id",businessIds);if(re)throw re;
-   for(const table of ["messages","campaigns","payments","subscriptions","appointments","business_integrations","business_hours","staff","services","customers","business_promotions","directory_boost_orders","business_members"]){
+   for(const table of ["business_directory","messages","campaigns","payments","subscriptions","appointments","business_integrations","business_hours","staff","services","customers","business_promotions","directory_boost_orders","business_members"]){
     const {error}=await admin.from(table).delete().in("business_id",businessIds);if(error)throw error;
    }
    const {error:be}=await admin.from("businesses").delete().in("id",businessIds);if(be)throw be;
