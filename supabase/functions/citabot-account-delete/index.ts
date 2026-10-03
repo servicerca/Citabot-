@@ -28,6 +28,8 @@ Deno.serve(async(req)=>{
    const {error:be}=await admin.from("businesses").delete().in("id",businessIds);if(be)throw be;
   }
   const {error:me}=await admin.from("business_members").delete().eq("user_id",user.id);if(me)throw me;
+  const {error:leu}=await admin.from("legal_acceptances").delete().eq("user_id",user.id);if(leu)throw leu;
+  const {error:acu}=await admin.from("appointments").update({client_id:null}).eq("client_id",user.id);if(acu)throw acu;
   const {error:pe}=await admin.from("profiles").delete().eq("id",user.id);if(pe)throw pe;
   const {error:ae}=await admin.auth.admin.deleteUser(user.id);if(ae)throw ae;
   return Response.json({ok:true,mode,message:"account_deleted"},{status:200,headers:cors});
