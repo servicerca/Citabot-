@@ -20,8 +20,9 @@ Deno.serve(async(req)=>{
   const {data:ownedBusinesses,error:oe}=await admin.from("businesses").select("id").eq("owner_id",user.id);if(oe)throw oe;
   const businessIds=(ownedBusinesses||[]).map((x)=>x.id);
   if(businessIds.length){
+   const {error:le}=await admin.from("legal_acceptances").delete().in("business_id",businessIds);if(le)throw le;
    const {error:re}=await admin.from("platform_revenue").update({business_id:null}).in("business_id",businessIds);if(re)throw re;
-   for(const table of ["messages","campaigns","payments","subscriptions","appointments","business_integrations","business_hours","staff","services","customers","business_members"]){
+   for(const table of ["messages","campaigns","payments","subscriptions","appointments","business_integrations","business_hours","staff","services","customers","business_promotions","directory_boost_orders","business_members"]){
     const {error}=await admin.from(table).delete().in("business_id",businessIds);if(error)throw error;
    }
    const {error:be}=await admin.from("businesses").delete().in("id",businessIds);if(be)throw be;
