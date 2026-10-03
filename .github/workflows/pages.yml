@@ -37,7 +37,7 @@ jobs:
           assert html.lower().count("</html>") == 1
           tail = html.lower().split("</html>", 1)[1].strip()
           assert not tail, "No debe existir contenido fuera de </html>."
-          ids = re.findall(r'\\bid="([^"]+)"', html, flags=re.I)
+          ids = re.findall(r'\bid="([^"]+)"', html, flags=re.I)
           duplicates = sorted({x for x in ids if ids.count(x) > 1})
           assert not duplicates, f"IDs HTML duplicados: {duplicates}"
 
