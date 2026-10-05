@@ -66,6 +66,7 @@ jobs:
           call 401 POST "citabot-mercadopago-subscribe" '{}'
           call 401 POST "citabot-commercial-sync" '{}'
           call 401 POST "citabot-plan-sync" '{}'
+          call 401 POST "citabot-platform-admin" '{}'
 
           call 200 POST "citabot-mercadopago-webhook" '{}'
 
