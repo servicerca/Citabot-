@@ -1,0 +1,9 @@
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Node / test artifacts
+node_modules/
+playwright-report/
+test-results/
