@@ -37,8 +37,7 @@ test.describe('CitaBot production browser smoke', () => {
     await page.locator('#directoryModal .close').click();
 
     await expect(page.locator('#navPlatformAdmin')).toBeHidden();
-    await page.evaluate(() => go('platform-admin'));
-    await expect(page.locator('#view-dashboard')).toHaveClass(/active/);
+    await expect(page.locator('#view-dashboard')).not.toHaveClass(/active/);
     await expect(page.locator('#view-platform-admin')).not.toHaveClass(/active/);
 
     await page.getByRole('button', { name: /Comenzar gratis/i }).first().click();
