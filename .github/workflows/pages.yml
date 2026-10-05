@@ -43,6 +43,10 @@ jobs:
           assert 'name="citabot-version" content="3.4.6-production"' in html
           assert len(re.findall(r'<button\b[^>]*>\s*Explorar negocios\s*</button>', html, flags=re.I)) == 1
           assert "contactCustomerPhone" in html and "contactCustomerTelegram" in html
+          assert 'id="navPlatformAdmin"' in html
+          assert 'id="view-platform-admin"' in html
+          assert "citabot-platform-admin" in html
+          assert "platform_admins" in html
           assert "Servicerca" not in html
           assert "DeseoVIP" not in html
           assert html.lower().count("</html>") == 1
