@@ -16,8 +16,7 @@ permissions:
   pages: write
   id-token: write
 
-# # Retrigger Pages after queued runner stall
-concurrency:
+# concurrency:
   group: "pages"
   cancel-in-progress: true
 
