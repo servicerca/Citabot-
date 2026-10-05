@@ -34,9 +34,9 @@ jobs:
             local url="${SUPABASE_URL}/functions/v1/${path}"
 
             if [ "$method" = "GET" ]; then
-              code="$(curl --fail-with-body -sS -o /tmp/contract-response -w "%{http_code}"                 -H "apikey: ${SUPABASE_KEY}" "${url}")"
+              code="$(curl -sS -o /tmp/contract-response -w "%{http_code}"                 -H "apikey: ${SUPABASE_KEY}" "${url}")"
             else
-              code="$(curl --fail-with-body -sS -o /tmp/contract-response -w "%{http_code}"                 -H "apikey: ${SUPABASE_KEY}"                 -H "Content-Type: application/json"                 -X "${method}"                 --data "${body}" "${url}")"
+              code="$(curl -sS -o /tmp/contract-response -w "%{http_code}"                 -H "apikey: ${SUPABASE_KEY}"                 -H "Content-Type: application/json"                 -X "${method}"                 --data "${body}" "${url}")"
             fi
 
             response="$(cat /tmp/contract-response)"
