@@ -36,7 +36,12 @@ test.describe('CitaBot production browser smoke', () => {
     await expect(page.locator('#directoryResults')).toContainText(/negocios|resultados|Cargando/i);
     await page.locator('#directoryModal .close').click();
 
-    await page.evaluate(() => go('platform-admin'));\n    await expect(page.locator('#view-dashboard')).toHaveClass(/active/);\n    await expect(page.locator('#view-platform-admin')).not.toHaveClass(/active/);\n\n    await page.getByRole('button', { name: /Comenzar gratis/i }).first().click();
+    await expect(page.locator('#navPlatformAdmin')).toBeHidden();
+    await page.evaluate(() => go('platform-admin'));
+    await expect(page.locator('#view-dashboard')).toHaveClass(/active/);
+    await expect(page.locator('#view-platform-admin')).not.toHaveClass(/active/);
+
+    await page.getByRole('button', { name: /Comenzar gratis/i }).first().click();
     await expect(page.locator('#cbAuth')).toHaveClass(/open/);
     await expect(page.locator('#cbAuthTitle')).toHaveText('Crear cuenta en CitaBot');
     await expect(page.locator('#cbAuthName')).toBeVisible();
