@@ -463,6 +463,7 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
     <button data-view="marketing"><span class="nav-icon">↗</span><span>Marketing</span></button>
     <button data-view="reports"><span class="nav-icon">▥</span><span>Reportes</span></button>
     <button data-view="settings"><span class="nav-icon">⚙</span><span>Configuración</span></button>
+    <button id="navPlatformAdmin" data-view="platform-admin" style="display:none"><span class="nav-icon">♜</span><span>Administración</span></button>
   </nav>
   <div class="side-bottom"><button onclick="logout()">Cerrar sesión</button></div>
 </aside>
@@ -488,6 +489,20 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
 <section id="view-revenue" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
 <section id="view-settings" class="view"><div class="card empty">Cargando datos reales…</div></section>
+
+    <section id="view-platform-admin" class="view">
+      <div class="page-head">
+        <div>
+          <h1>Administración de plataforma</h1>
+          <p>Vista global protegida de CitaBot. Esta primera versión es de solo lectura.</p>
+        </div>
+        <div class="actions">
+          <span class="badge confirmed" style="align-self:center">Acceso de plataforma</span>
+          <button class="btn secondary" type="button" onclick="cbLoadPlatformAdminPanel()">Actualizar</button>
+        </div>
+      </div>
+      <div id="platformAdminPanel" class="card empty">Cargando administración…</div>
+    </section>
   </div>
 </main>
 </div>
@@ -500,7 +515,7 @@ html{font-size:17px}body{font-size:17px}small{font-size:14px !important}p{font-s
 <script>
 const state={business:"Mi negocio",type:"service",view:"dashboard",onboardStep:1,modalType:"",scrollPositions:{}};
 const integrationStatus={whatsapp:"unknown",whatsappMessage:"",mercadopago:"unknown",mercadopagoMessage:""};
-const labels={dashboard:"Inicio",agenda:"Agenda",clients:"Clientes",conversations:"Conversaciones",ai:"IA",marketing:"Marketing",reports:"Reportes",revenue:"Ingresos",settings:"Configuración"};
+const labels={dashboard:"Inicio",agenda:"Agenda",clients:"Clientes",conversations:"Conversaciones",ai:"IA",marketing:"Marketing",reports:"Reportes",revenue:"Ingresos",settings:"Configuración","platform-admin":"Administración"};
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function showToast(message){const t=document.getElementById("toast");if(!t)return;t.textContent=message;t.classList.add("show");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove("show"),2400)}
 function closeModal(){const modal=document.getElementById("modal");if(!modal)return;modal.classList.remove("open");state.modalType="";const body=document.getElementById("modalBody");if(body)body.innerHTML=""}
@@ -538,7 +553,7 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(document.g
   const SUPABASE_URL='https://rphyhaoxwvaezulvhcrf.supabase.co';
   const SUPABASE_KEY='sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH';
   const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-  let authMode='signup', currentBusiness=null;
+  let authMode='signup', currentBusiness=null, isPlatformAdmin=false;
   let currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};
   const $=id=>document.getElementById(id);
   const cbBoot=(title,text)=>{const el=$("cbBoot");if(!el)return;el.style.display="flex";$("cbBootTitle").textContent=title;$("cbBootText").textContent=text;};
@@ -583,11 +598,76 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(document.g
   window.cbResetPassword=async()=>{const email=$('cbAuthEmail').value.trim();if(!email){msg('Escribe primero tu correo.');return;}try{const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('#')[0]});msg(error?'No fue posible enviar el correo de recuperación.':'Te enviamos un enlace para recuperar tu contraseña. Revisa tu correo y sigue el enlace.',!error)}catch(error){msg(error.message||'No fue posible enviar el correo de recuperación.')}};
   function cbChooseBusiness(biz){return new Promise(resolve=>{const old=document.getElementById('cbBusinessPicker');if(old)old.remove();const box=document.createElement('div');box.id='cbBusinessPicker';box.style='position:fixed;inset:0;z-index:10000;background:rgba(7,8,16,.72);display:flex;align-items:center;justify-content:center;padding:18px';box.innerHTML='<div class="cb-auth-box" style="max-width:460px"><h2>Selecciona tu negocio</h2><p>Tu cuenta tiene más de un negocio. Elige cuál quieres administrar.</p><div id="cbBusinessOptions" style="display:grid;gap:8px"></div></div>';document.body.appendChild(box);const list=box.querySelector('#cbBusinessOptions');biz.forEach(b=>{const btn=document.createElement('button');btn.className='btn secondary';btn.style='text-align:left;padding:14px';btn.innerHTML='<b>'+esc(b.name)+'</b><small style="display:block;color:#777;margin-top:3px">'+esc(b.city||'')+'</small>';btn.onclick=()=>{localStorage.setItem('citabot.business_id',b.id);box.remove();resolve(b)};list.appendChild(btn)});})}
   async function cbRecordLegalAcceptance(user){const userId=user?.id;const meta=user?.user_metadata||{};const hasPendingLocal=localStorage.getItem('citabot.pending_legal_v1')==='1';const hasPendingMetadata=meta.citabot_legal_accepted===true&&meta.citabot_legal_version==='2026-09-25-v1';if(!userId||(!hasPendingLocal&&!hasPendingMetadata))return;for(const document of ['terms','privacy']){const {data:existing,error:readError}=await sb.from('legal_acceptances').select('id').eq('user_id',userId).eq('document',document).eq('version','2026-09-25-v1').maybeSingle();if(readError){console.warn('Legal acceptance lookup',document,readError);continue;}if(!existing){const {error}=await sb.from('legal_acceptances').insert({user_id:userId,document,version:'2026-09-25-v1',context:'account_signup',metadata:{source:'account_signup',accepted_at:meta.citabot_legal_accepted_at||null}});if(error&&error.code!=='23505')console.warn('Legal acceptance save',document,error);}}localStorage.removeItem('citabot.pending_legal_v1');}
-  async function cbLoadOrOnboard(){cbBoot('Conectando CitaBot…','Validando tu cuenta y cargando tus datos reales…');const {data:{user}}=await sb.auth.getUser();if(!user){cbBootHide();$('cbAuth').classList.add('open');return;}await cbRecordLegalAcceptance(user);const {data:members,error:me}=await sb.from('business_members').select('business_id,role').eq('user_id',user.id);if(me)throw me;if(!members?.length){$('cbAuth').classList.remove('open');state.onboardStep=1;document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.add('open');renderOnboarding();cbBootHide();showToast('Cuenta creada. Configura tu negocio.');return;}const ids=members.map(x=>x.business_id);const {data:biz,error}=await sb.from('businesses').select('*').in('id',ids).eq('is_active',true).order('name');if(error)throw error;if(!biz?.length){$('cbAuth').classList.remove('open');state.onboardStep=1;document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.add('open');renderOnboarding();cbBootHide();showToast('Tu cuenta no tiene un negocio activo. Crea uno para continuar.');return;}const saved=localStorage.getItem('citabot.business_id');let selected=biz.find(b=>b.id===saved);if(!selected&&biz.length===1)selected=biz[0];if(!selected&&biz.length>1)selected=await cbChooseBusiness(biz);if(!selected)throw new Error('No se pudo seleccionar el negocio.');currentBusiness=selected;localStorage.setItem('citabot.business_id',selected.id);await cbEnterApp();}
+  async function cbLoadPlatformAdmin(userId){
+    const nav=$('navPlatformAdmin');
+    try{
+      const {data,error}=await sb.from('platform_admins').select('user_id').eq('user_id',userId).eq('is_active',true).maybeSingle();
+      isPlatformAdmin=!error&&Boolean(data?.user_id);
+    }catch(e){
+      isPlatformAdmin=false;
+      console.warn('Platform admin lookup failed',e);
+    }
+    if(nav)nav.style.display=isPlatformAdmin?'flex':'none';
+    return isPlatformAdmin;
+  }
+
+  function cbFormatCOP(value){
+    return new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Number(value)||0);
+  }
+
+  async function cbLoadPlatformAdminPanel(){
+    if(!isPlatformAdmin){showToast('No tienes acceso al panel administrativo.');return;}
+    const host=$('platformAdminPanel');
+    if(!host)return;
+    host.className='card';
+    host.innerHTML='<div class="empty">Cargando datos reales de la plataforma…</div>';
+    try{
+      const {data,error}=await sb.functions.invoke('citabot-platform-admin',{body:{}});
+      if(error)throw error;
+      if(!data?.ok)throw new Error(data?.error||'No fue posible cargar la administración.');
+      const s=data.summary||{};
+      const businesses=Array.isArray(data.businesses)?data.businesses:[];
+      const rows=businesses.map(b=>{
+        const plan=b.subscription?.plan||'sin plan';
+        const status=b.subscription?.status||'—';
+        const integrations=(b.enabled_integrations||[]).length;
+        return '<tr>'+
+          '<td><b>'+esc(b.name||'Sin nombre')+'</b><small style="display:block;color:var(--muted)">'+esc(b.category||'—')+'</small></td>'+
+          '<td>'+esc(b.city||'—')+'</td>'+
+          '<td><b>'+esc(plan)+'</b><small style="display:block;color:var(--muted)">'+esc(status)+'</small></td>'+
+          '<td><span class="badge '+(b.is_active?'confirmed':'inactive')+'">'+(b.is_active?'Activo':'Inactivo')+'</span></td>'+
+          '<td><span class="badge '+(b.is_listed?'confirmed':'inactive')+'">'+(b.is_listed?'Publicado':'No publicado')+'</span></td>'+
+          '<td>'+integrations+'</td>'+
+          '</tr>';
+      }).join('');
+      host.innerHTML=
+        '<div class="grid4">'+
+          '<div class="card metric"><small>Negocios</small><strong>'+Number(s.businesses_total||0)+'</strong><span class="trend">Total registrados</span></div>'+
+          '<div class="card metric"><small>Activos</small><strong>'+Number(s.businesses_active||0)+'</strong><span class="trend">Operativos</span></div>'+
+          '<div class="card metric"><small>Publicados</small><strong>'+Number(s.businesses_listed||0)+'</strong><span class="trend">En directorio</span></div>'+
+          '<div class="card metric"><small>Ingresos cobrados</small><strong>'+esc(cbFormatCOP(s.paid_revenue))+'</strong><span class="trend">Plataforma</span></div>'+
+        '</div>'+
+        '<div class="grid2" style="margin-top:14px">'+
+          '<div class="card"><div class="section-title"><h2>Suscripciones activas</h2><span>'+Number(s.subscriptions_active||0)+'</span></div><p class="feature-note">Incluye estados activos, de prueba y pendientes.</p></div>'+
+          '<div class="card"><div class="section-title"><h2>Impulsos pendientes</h2><span>'+esc(cbFormatCOP(s.pending_boost_amount))+'</span></div><p class="feature-note">Monto pendiente de órdenes de visibilidad.</p></div>'+
+        '</div>'+
+        '<div class="section-title"><h2>Negocios registrados</h2><span>'+businesses.length+' mostrados</span></div>'+
+        '<div class="card"><div style="overflow:auto"><table class="table"><thead><tr><th>Negocio</th><th>Ciudad</th><th>Plan</th><th>Estado</th><th>Directorio</th><th>Integraciones</th></tr></thead><tbody>'+
+          (rows||'<tr><td colspan="6" class="empty">No hay negocios registrados.</td></tr>')+
+        '</tbody></table></div></div>'+
+        '<div class="card" style="margin-top:14px"><b>Protección activa</b><p class="feature-note">Este panel no escribe en negocios, pagos, suscripciones ni roles. Las operaciones sensibles siguen controladas por el backend.</p></div>';
+    }catch(e){
+      console.error('Platform admin panel error:',e);
+      host.className='card';
+      host.innerHTML='<div class="empty">No fue posible cargar el panel administrativo. Revisa la sesión e inténtalo de nuevo.</div>';
+    }
+  }
+
+  async function cbLoadOrOnboard(){cbBoot('Conectando CitaBot…','Validando tu cuenta y cargando tus datos reales…');const {data:{user}}=await sb.auth.getUser();if(!user){cbBootHide();$('cbAuth').classList.add('open');return;}await cbRecordLegalAcceptance(user);await cbLoadPlatformAdmin(user.id);const {data:members,error:me}=await sb.from('business_members').select('business_id,role').eq('user_id',user.id);if(me)throw me;if(!members?.length&&isPlatformAdmin){cbBootHide();$('cbAuth').classList.remove('open');$('landing').classList.remove('active');$('onboarding').classList.remove('open');$('app').style.display='grid';$('businessName').textContent='Administración de plataforma';go('platform-admin');await cbLoadPlatformAdminPanel();return;}if(!members?.length){$('cbAuth').classList.remove('open');state.onboardStep=1;document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.add('open');renderOnboarding();cbBootHide();showToast('Cuenta creada. Configura tu negocio.');return;}const ids=members.map(x=>x.business_id);const {data:biz,error}=await sb.from('businesses').select('*').in('id',ids).eq('is_active',true).order('name');if(error)throw error;if(!biz?.length&&isPlatformAdmin){cbBootHide();$('cbAuth').classList.remove('open');$('landing').classList.remove('active');$('onboarding').classList.remove('open');$('app').style.display='grid';$('businessName').textContent='Administración de plataforma';go('platform-admin');await cbLoadPlatformAdminPanel();return;}if(!biz?.length){$('cbAuth').classList.remove('open');state.onboardStep=1;document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.add('open');renderOnboarding();cbBootHide();showToast('Tu cuenta no tiene un negocio activo. Crea uno para continuar.');return;}const saved=localStorage.getItem('citabot.business_id');let selected=biz.find(b=>b.id===saved);if(!selected&&biz.length===1)selected=biz[0];if(!selected&&biz.length>1)selected=await cbChooseBusiness(biz);if(!selected)throw new Error('No se pudo seleccionar el negocio.');currentBusiness=selected;localStorage.setItem('citabot.business_id',selected.id);await cbEnterApp();}
   async function cbEnterApp(){const role=(await sb.from('business_members').select('role').eq('user_id',(await sb.auth.getUser()).data.user.id).eq('business_id',currentBusiness.id).maybeSingle()).data?.role;if(['owner','admin'].includes(role)){try{const metaSync=await sb.functions.invoke('citabot-meta-sync',{body:{business_id:currentBusiness.id}});if(metaSync?.error){integrationStatus.whatsapp='error';integrationStatus.whatsappMessage=metaSync.error.message||'No se pudo comprobar Meta.';}else if(metaSync?.data?.ok){integrationStatus.whatsapp='ready';integrationStatus.whatsappMessage='Meta respondió correctamente.';}else{integrationStatus.whatsapp='blocked';integrationStatus.whatsappMessage=metaSync?.data?.error||'Meta no autorizó la integración.';}}catch(e){integrationStatus.whatsapp='error';integrationStatus.whatsappMessage=e?.message||'No se pudo comprobar Meta.';console.warn('Meta sync pendiente',e);}}await cbRefresh();cbBootHide();document.getElementById('cbAuth').classList.remove('open');document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.remove('open');document.getElementById('app').style.display='grid';$('businessName').textContent=currentBusiness.name;$('setBusiness').value=currentBusiness.name;go('dashboard');showToast('CitaBot conectado correctamente');}
   window.finishOnboarding=async()=>{const name=state.business?.trim(),city=($('obCity')?.value||'').trim(),phone=($('obPhone')?.value||'').trim();if(!name){showToast('Escribe el nombre del negocio');return;}const {data:{user}}=await sb.auth.getUser();if(!user){showOnboarding();return;}try{cbBoot('Configurando CitaBot…','Creando tu negocio y guardando toda la configuración de una sola vez…');const category=state.type==='restaurant'?'restaurant':'service';const {data,error}=await sb.rpc('create_citabot_business_onboarding',{p_name:name,p_category:category,p_city:city||null,p_phone:phone||null,p_email:user.email||null});if(error)throw error;const b=data?.business;if(!b)throw new Error('CitaBot no devolvió el negocio creado.');currentBusiness=b;localStorage.setItem('citabot.business_id',b.id);await cbEnterApp();}catch(e){console.error('CitaBot onboarding error:',e);cbBootHide();showToast(e.message||'No se pudo configurar el negocio');}};
   
-  window.logout=async()=>{try{await sb.auth.signOut();}catch(error){console.error(error);showToast('No se pudo cerrar la sesión remota.');}finally{currentBusiness=null;currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};document.getElementById('app').style.display='none';document.getElementById('landing').classList.add('active');}};
+  window.logout=async()=>{try{await sb.auth.signOut();}catch(error){console.error(error);showToast('No se pudo cerrar la sesión remota.');}finally{currentBusiness=null;isPlatformAdmin=false;if($('navPlatformAdmin'))$('navPlatformAdmin').style.display='none';currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};document.getElementById('app').style.display='none';document.getElementById('landing').classList.add('active');}};
   function cbTrialActive(){const s=currentData.subscription;return Boolean(s&&s.plan==='trial'&&s.status==='trialing'&&s.trial_ends_at&&new Date(s.trial_ends_at)>new Date());}
 function cbTrialDaysLeft(){if(!cbTrialActive())return 0;return Math.max(0,Math.ceil((new Date(currentData.subscription.trial_ends_at)-Date.now())/86400000));}
 function cbEffectivePlan(){return cbTrialActive()?'trial':(currentData.subscription?.plan||'free');}
@@ -772,7 +852,7 @@ window.subscribeProfessional=()=>subscribePlan('professional');window.openModal=
   }
   window.cbBookSubmit=async(slug,timeZone='America/Bogota')=>{const get=id=>$(id).value.trim();const service=get('pbService'),staff=get('pbStaff'),date=get('pbDate'),time=get('pbTime'),name=get('pbName'),phone=get('pbPhone'),email=get('pbEmail'),paymentMethod=get('pbPaymentMethod'),privacyConsent=$('pbPrivacy')?.checked===true,whatsappConsent=$('pbWhatsapp')?.checked===true;if(!date||!time||!name||!phone||!paymentMethod){$('pbMsg').innerHTML='<div class="cb-error">Completa nombre, WhatsApp, fecha, hora y forma de pago.</div>';return;}if(!privacyConsent||!whatsappConsent){$('pbMsg').innerHTML='<div class="cb-error">Acepta la política de privacidad y el contacto por WhatsApp para confirmar la reserva.</div>';return;}const starts=zonedDateTimeToUtc(date,time,timeZone);if(!starts||Number.isNaN(starts.getTime())||starts<=new Date()){ $('pbMsg').innerHTML='<div class="cb-error">Selecciona una fecha y hora futuras.</div>';return;}$('pbMsg').innerHTML='<p style="color:#777;font-size:12px">Guardando reserva…</p>';try{const {data:booking,error}=await sb.functions.invoke('citabot-public-booking',{body:{business_slug:slug,service_id:service,staff_id:staff||null,customer_name:name,customer_phone:phone,customer_email:email||null,payment_method:paymentMethod,starts_at:starts.toISOString(),customer_notes:get('pbNote')||null,privacy_consent:privacyConsent,whatsapp_consent:whatsappConsent}});if(error)throw error;if(!booking?.ok)throw Error(booking?.error||'No fue posible guardar la reserva.');$('pbMsg').innerHTML='<div class="cb-ok"><b>¡Reserva confirmada!</b><br>La reserva quedó registrada correctamente en CitaBot.</div>';}catch(error){$('pbMsg').innerHTML=`<div class="cb-error">${esc((error.message||'No fue posible guardar la reserva.').replace('PGRST',''))}</div>`;}};
   sb.auth.getSession().then(async({data:{session}})=>{if(session){try{await cbLoadOrOnboard()}catch(e){console.error('CitaBot startup error:',e);cbBootHide();$('cbAuth').classList.add('open');msg(e?.message||'No se pudo cargar tu cuenta.')}}else{cbBootHide();}});
-sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){cbSetAuthMode('reset');$('cbAuth').classList.add('open');msg('Define una nueva contraseña para tu cuenta.',true);return;}if(event==='SIGNED_OUT'||!session){cbBootHide();currentBusiness=null;document.getElementById('app').style.display='none';document.getElementById('onboarding').classList.remove('open');document.getElementById('landing').classList.add('active');}});
+sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){cbSetAuthMode('reset');$('cbAuth').classList.add('open');msg('Define una nueva contraseña para tu cuenta.',true);return;}if(event==='SIGNED_OUT'||!session){cbBootHide();currentBusiness=null;isPlatformAdmin=false;if($('navPlatformAdmin'))$('navPlatformAdmin').style.display='none';document.getElementById('app').style.display='none';document.getElementById('onboarding').classList.remove('open');document.getElementById('landing').classList.add('active');}});
   window.addEventListener('hashchange',()=>{const m=location.hash.match(/^#book=([^&]+)/);if(m)publicBooking(decodeURIComponent(m[1]))});
   const bm=new URLSearchParams(location.search).get('book');if(bm)publicBooking(bm);if(location.hash.includes('type=recovery')||new URLSearchParams(location.search).get('type')==='recovery'){setTimeout(()=>{cbSetAuthMode('reset');$('cbAuth').classList.add('open');},0)};
 })();</script>
