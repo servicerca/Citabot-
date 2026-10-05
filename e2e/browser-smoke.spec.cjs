@@ -28,8 +28,9 @@ test.describe('CitaBot production browser smoke', () => {
     await expect(page).toHaveTitle(/CitaBot/i);
     await expect(page.locator('#landing')).toHaveClass(/active/);
     await expect(page.getByRole('button', { name: /Comenzar gratis/i }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /Explorar negocios/i })).toHaveCount(1);
 
-    await page.getByRole('button', { name: /Explorar negocios/i }).first().click();
+    await page.getByRole('button', { name: /Explorar negocios/i }).click();
     await expect(page.locator('#directoryModal')).toHaveClass(/open/);
     await expect(page.locator('#directorySearch')).toBeVisible();
     await expect(page.locator('#directoryResults')).toContainText(/negocios|resultados|Cargando/i);
