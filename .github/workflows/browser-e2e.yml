@@ -1,15 +1,10 @@
 name: CitaBot production browser E2E
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Publicar CitaBot en GitHub Pages"]
+    types: [completed]
     branches: ["main"]
-    paths:
-      - "index.html"
-      - "politica-privacidad.html"
-      - "terminos-servicio.html"
-      - "eliminacion-datos.html"
-      - "e2e/**"
-      - ".github/workflows/browser-e2e.yml"
   workflow_dispatch:
 
 permissions:
@@ -17,10 +12,13 @@ permissions:
 
 jobs:
   browser-smoke:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout deployed commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Node.js 24
         uses: actions/setup-node@v4
@@ -38,6 +36,27 @@ jobs:
         run: |
           set -euo pipefail
           npx playwright install --with-deps chromium
+
+      - name: Wait for deployed commit
+        env:
+          PAGES_URL: https://servicerca.github.io/Citabot-
+          EXPECTED_COMMIT: ${{ github.event.workflow_run.head_sha || github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${PAGES_URL}"
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if curl --fail --silent --show-error --location --max-time 20               "${PAGES_URL}/citabot-build.json?cb=${EXPECTED_COMMIT}"               -o /tmp/citabot-build.json; then
+              actual="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1], encoding="utf-8"))["commit"])' /tmp/citabot-build.json)"
+              if [ "${actual}" = "${EXPECTED_COMMIT}" ]; then
+                echo "Production is serving deployed commit ${actual}"
+                exit 0
+              fi
+            fi
+            sleep 5
+          done
+          echo "Production did not expose the expected deployed commit."
+          exit 1
 
       - name: Run production browser smoke
         env:
