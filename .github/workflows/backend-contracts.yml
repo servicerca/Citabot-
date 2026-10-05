@@ -48,7 +48,7 @@ jobs:
           call 400 GET "citabot-public-booking?slug=__invalid_slug_for_ci__"
           call 400 POST "citabot-public-booking" '{}'
 
-          call 401 POST "citabot-meta-health"
+          call 405 POST "citabot-meta-health"
           call 401 POST "citabot-meta-sync" '{}'
           call 401 POST "citabot-whatsapp-send" '{}'
           call 401 POST "citabot-account-delete" '{}'
