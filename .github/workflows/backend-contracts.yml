@@ -1,0 +1,62 @@
+name: CitaBot backend production contracts
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/backend-contracts.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  production-contracts:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: https://rphyhaoxwvaezulvhcrf.supabase.co
+      SUPABASE_KEY: sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH
+    steps:
+      - name: Verify public and protected production function contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          call() {
+            local expected="$1"
+            local method="$2"
+            local path="$3"
+            local body="${4:-}"
+            local response
+            local code
+            local url="${SUPABASE_URL}/functions/v1/${path}"
+
+            if [ "$method" = "GET" ]; then
+              code="$(curl --fail-with-body -sS -o /tmp/contract-response -w "%{http_code}"                 -H "apikey: ${SUPABASE_KEY}" "${url}")"
+            else
+              code="$(curl --fail-with-body -sS -o /tmp/contract-response -w "%{http_code}"                 -H "apikey: ${SUPABASE_KEY}"                 -H "Content-Type: application/json"                 -X "${method}"                 --data "${body}" "${url}")"
+            fi
+
+            response="$(cat /tmp/contract-response)"
+            echo "${method} ${path} -> HTTP ${code}: ${response}"
+
+            test "${code}" = "${expected}"
+          }
+
+          call 400 GET "citabot-public-booking?slug=__invalid_slug_for_ci__"
+          call 400 POST "citabot-public-booking" '{}'
+
+          call 401 POST "citabot-meta-health"
+          call 401 POST "citabot-meta-sync" '{}'
+          call 401 POST "citabot-whatsapp-send" '{}'
+          call 401 POST "citabot-account-delete" '{}'
+          call 401 POST "citabot-commercial-checkout" '{}'
+          call 401 POST "citabot-mercadopago-subscribe" '{}'
+          call 401 POST "citabot-commercial-sync" '{}'
+          call 401 POST "citabot-plan-sync" '{}'
+
+          call 200 POST "citabot-mercadopago-webhook" '{}'
+
+          echo "CitaBot backend production contracts: OK"
