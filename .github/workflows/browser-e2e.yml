@@ -58,6 +58,16 @@ jobs:
           echo "Production did not expose the expected deployed commit."
           exit 1
 
+      - name: Reject mocked production browser tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -nE 'page\.route\(|route\.fulfill\(' e2e/browser-smoke.spec.cjs; then
+            echo "Production E2E must call real backends; mocks are forbidden."
+            exit 1
+          fi
+          echo "No backend mocks found in production E2E."
+
       - name: Run production browser smoke
         env:
           BASE_URL: https://servicerca.github.io/Citabot-/

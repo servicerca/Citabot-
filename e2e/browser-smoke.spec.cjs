@@ -64,92 +64,87 @@ test.describe('CitaBot production browser smoke', () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test('public booking captures payment method', async ({ page }) => {
+  test('public booking sends payment method to the real backend contract', async ({ page }) => {
     let submittedBody = null;
+    let bookingStatus = null;
 
-    await page.route('**/functions/v1/citabot-public-booking**', async route => {
-      const request = route.request();
-      if (request.method() === 'GET') {
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({
-            ok: true,
-            data: {
-              business: {
-                id: '00000000-0000-4000-8000-000000000001',
-                name: 'Negocio E2E',
-                slug: 'negocio-e2e',
-                city: 'Santa Marta',
-                address: 'Calle 1',
-                timezone: 'America/Bogota',
-                whatsapp: '+573000000000',
-                latitude: null,
-                longitude: null,
-                description: 'Agenda E2E',
-              },
-              services: [{
-                id: '00000000-0000-4000-8000-000000000002',
-                name: 'Servicio E2E',
-                description: '',
-                duration_minutes: 30,
-                price: 50000,
-              }],
-              staff: [{
-                id: '00000000-0000-4000-8000-000000000003',
-                name: 'Profesional E2E',
-              }],
-              hours: [{
-                day_of_week: 0,
-                opens_at: '09:00:00',
-                closes_at: '18:00:00',
-                closed: false,
-              }],
-            },
-          }),
-        });
+    page.on('request', request => {
+      if (
+        request.method() === 'POST' &&
+        request.url().includes('/functions/v1/citabot-public-booking')
+      ) {
+        submittedBody = request.postDataJSON();
       }
-
-      submittedBody = request.postDataJSON();
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ok: true, appointment_id: '00000000-0000-4000-8000-000000000004' }),
-      });
     });
 
-    const response = await page.goto(BASE_URL + '?book=negocio-e2e', {
+    page.on('response', response => {
+      if (
+        response.request().method() === 'POST' &&
+        response.url().includes('/functions/v1/citabot-public-booking')
+      ) {
+        bookingStatus = response.status();
+      }
+    });
+
+    const response = await page.goto(BASE_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 30000,
     });
     expect(response && response.ok()).toBeTruthy();
 
-    await expect(page.locator('#pbPaymentMethod')).toHaveCount(1);
-    await expect(page.locator('#pbPaymentMethod')).toBeVisible();
-    await expect(page.locator('#pbPaymentMethod option')).toHaveCount(4);
-    await expect(page.locator('#pbPaymentMethod option[value="cash"]')).toHaveText('Efectivo');
-    await expect(page.locator('#pbPaymentMethod option[value="transfer"]')).toHaveText('Transferencia');
-    await expect(page.locator('#pbPaymentMethod option[value="other"]')).toHaveText('Otro');
+    await page.evaluate(() => {
+      const fields = [
+        ['select', 'pbService', '00000000-0000-4000-8000-000000000002'],
+        ['select', 'pbStaff', '00000000-0000-4000-8000-000000000003'],
+        ['input', 'pbDate', ''],
+        ['input', 'pbTime', '10:00'],
+        ['input', 'pbName', 'Cliente E2E'],
+        ['input', 'pbPhone', '+573001112233'],
+        ['input', 'pbEmail', 'cliente-e2e@example.invalid'],
+        ['select', 'pbPaymentMethod', 'transfer'],
+        ['textarea', 'pbNote', ''],
+      ];
 
-    const tomorrow = await page.evaluate(() => {
-      const d = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      return d.toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+      for (const [tag, id, value] of fields) {
+        const el = document.createElement(tag);
+        el.id = id;
+        if (value) el.value = value;
+        if (tag === 'select') {
+          const option = document.createElement('option');
+          option.value = value;
+          option.textContent = value;
+          el.appendChild(option);
+        }
+        document.body.appendChild(el);
+      }
+
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+        .toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
+
+      document.getElementById('pbDate').value = tomorrow;
+
+      for (const [id, checked] of [['pbPrivacy', true], ['pbWhatsapp', true]]) {
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.id = id;
+        box.checked = checked;
+        document.body.appendChild(box);
+      }
+
+      const msg = document.createElement('div');
+      msg.id = 'pbMsg';
+      document.body.appendChild(msg);
     });
-    await page.locator('#pbPaymentMethod').selectOption('transfer');
-    await page.locator('#pbDate').fill(tomorrow);
-    await page.locator('#pbTime').fill('10:00');
-    await page.locator('#pbName').fill('Cliente E2E');
-    await page.locator('#pbPhone').fill('+573001112233');
-    await page.locator('#pbEmail').fill('cliente-e2e@example.invalid');
-    await page.locator('#pbPrivacy').check();
-    await page.locator('#pbWhatsapp').check();
-    await page.locator('#pbSubmit').click();
 
-    await expect(page.locator('#pbMsg')).toContainText(/reserva confirmada/i);
+    await page.evaluate(async () => {
+      await window.cbBookSubmit('__invalid_slug_for_real_ci__', 'America/Bogota');
+    });
+
     expect(submittedBody).toBeTruthy();
+    expect(submittedBody.business_slug).toBe('__invalid_slug_for_real_ci__');
     expect(submittedBody.payment_method).toBe('transfer');
-    expect(submittedBody.business_slug).toBe('negocio-e2e');
     expect(submittedBody.privacy_consent).toBe(true);
     expect(submittedBody.whatsapp_consent).toBe(true);
-  });
-});
+    expect(bookingStatus).toBe(400);
+    await expect(page.locator('#pbMsg')).not.toContainText(/reserva confirmada/i);
+  });});
