@@ -71,4 +71,5 @@ jobs:
       - name: Run production browser smoke
         env:
           BASE_URL: https://servicerca.github.io/Citabot-/
+          SUPABASE_KEY: sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH
         run: npx playwright@1.55.0 test e2e/browser-smoke.spec.cjs --reporter=line
