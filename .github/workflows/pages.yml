@@ -40,7 +40,9 @@ jobs:
           html = Path("index.html").read_text(encoding="utf-8")
           assert "https://rphyhaoxwvaezulvhcrf.supabase.co" in html
           assert "CitaBot" in html
-          assert 'name="citabot-version" content="3.4.6-production"' in html
+          assert 'name="citabot-version" content="3.5.0-production"' in html
+          assert "--shadow-premium" in html
+          assert "prefers-reduced-motion" in html
           assert len(re.findall(r'<button\b[^>]*>\s*Explorar negocios\s*</button>', html, flags=re.I)) == 1
           assert "contactCustomerPhone" in html and "contactCustomerTelegram" in html
           assert 'id="navPlatformAdmin"' in html
