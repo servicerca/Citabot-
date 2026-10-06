@@ -8,6 +8,8 @@ Deno.serve(async(req)=>{
  if(req.method!=="POST")return Response.json({ok:false,error:"method_not_allowed"},{status:405,headers:cors});
  try{
   const user=await authUser(req),body=await req.json().catch(()=>({})),mode=String(body?.mode||"").trim();
+  const accessToken=(req.headers.get("Authorization")||"").slice(7).trim();
+  if(!accessToken) throw new Error("unauthorized");
   if(!["business_profile","account"].includes(mode))return Response.json({ok:false,error:"invalid_mode"},{status:400,headers:cors});
   if(mode==="business_profile"){
    const businessId=String(body?.business_id||"").trim();if(!businessId)return Response.json({ok:false,error:"business_id_required"},{status:400,headers:cors});
@@ -30,6 +32,7 @@ Deno.serve(async(req)=>{
   const {error:me}=await admin.from("business_members").delete().eq("user_id",user.id);if(me)throw me;
   const {error:leu}=await admin.from("legal_acceptances").delete().eq("user_id",user.id);if(leu)throw leu;
   const {error:pe}=await admin.from("profiles").delete().eq("id",user.id);if(pe)throw pe;
+  const {error:se}=await admin.auth.admin.signOut(accessToken,"global");if(se)throw se;
   const {error:ae}=await admin.auth.admin.deleteUser(user.id);if(ae)throw ae;
   return Response.json({ok:true,mode,message:"account_deleted"},{status:200,headers:cors});
  }catch(e){const m=e instanceof Error?e.message:"request_failed";const status=m==="unauthorized"?401:500;return Response.json({ok:false,error:status===401?"unauthorized":"delete_failed"},{status,headers:cors});}
