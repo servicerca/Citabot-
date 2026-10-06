@@ -136,9 +136,17 @@ test.describe('CitaBot production browser smoke', () => {
       document.body.appendChild(msg);
     });
 
+    const bookingResponsePromise = page.waitForResponse(response =>
+      response.request().method() === 'POST' &&
+      response.url().includes('/functions/v1/citabot-public-booking')
+    );
+
     await page.evaluate(async () => {
       await window.cbBookSubmit('__invalid_slug_for_real_ci__', 'America/Bogota');
     });
+
+    const bookingResponse = await bookingResponsePromise;
+    bookingStatus = bookingResponse.status();
 
     expect(submittedBody).toBeTruthy();
     expect(submittedBody.business_slug).toBe('__invalid_slug_for_real_ci__');
