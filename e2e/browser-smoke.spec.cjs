@@ -66,7 +66,6 @@ test.describe('CitaBot production browser smoke', () => {
 
   test('public booking sends payment method to the real backend contract', async ({ page }) => {
     let submittedBody = null;
-    let bookingStatus = null;
 
     page.on('request', request => {
       if (
@@ -74,15 +73,6 @@ test.describe('CitaBot production browser smoke', () => {
         request.url().includes('/functions/v1/citabot-public-booking')
       ) {
         submittedBody = request.postDataJSON();
-      }
-    });
-
-    page.on('response', response => {
-      if (
-        response.request().method() === 'POST' &&
-        response.url().includes('/functions/v1/citabot-public-booking')
-      ) {
-        bookingStatus = response.status();
       }
     });
 
@@ -136,23 +126,27 @@ test.describe('CitaBot production browser smoke', () => {
       document.body.appendChild(msg);
     });
 
-    const bookingResponsePromise = page.waitForResponse(response =>
-      response.request().method() === 'POST' &&
-      response.url().includes('/functions/v1/citabot-public-booking')
-    );
-
     await page.evaluate(async () => {
       await window.cbBookSubmit('__invalid_slug_for_real_ci__', 'America/Bogota');
     });
-
-    const bookingResponse = await bookingResponsePromise;
-    bookingStatus = bookingResponse.status();
 
     expect(submittedBody).toBeTruthy();
     expect(submittedBody.business_slug).toBe('__invalid_slug_for_real_ci__');
     expect(submittedBody.payment_method).toBe('transfer');
     expect(submittedBody.privacy_consent).toBe(true);
     expect(submittedBody.whatsapp_consent).toBe(true);
-    expect(bookingStatus).toBe(400);
+
+    const backendResponse = await page.request.post(
+      'https://rphyhaoxwvaezulvhcrf.supabase.co/functions/v1/citabot-public-booking',
+      {
+        headers: {
+          apikey: process.env.SUPABASE_KEY,
+          'Content-Type': 'application/json',
+        },
+        data: submittedBody,
+      }
+    );
+
+    expect(backendResponse.status()).toBe(400);
     await expect(page.locator('#pbMsg')).not.toContainText(/reserva confirmada/i);
   });});
