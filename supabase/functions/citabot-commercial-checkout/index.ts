@@ -81,9 +81,9 @@ async function setChangeReconciliation(id: string, values: {
   throwOnDbError("reconciliation_update", error);
   if (!data?.id) throw new Error("RECONCILIATION_RECORD_MISSING");
 }
-async function restoreSubscriptionSnapshot(businessId: string, snapshot: SubscriptionSnapshot | null) {
+async function restoreSubscriptionSnapshot(businessId: string, snapshot: SubscriptionSnapshot | null, newSubscriptionId: string) {
   if (!snapshot) {
-    const result = await db.from("subscriptions").delete().eq("business_id", businessId);
+    const result = await db.from("subscriptions").delete().eq("business_id", businessId).eq("provider_subscription_id", newSubscriptionId);
     throwOnDbError("restore_empty_subscription", result.error);
     return;
   }
@@ -294,7 +294,7 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
    }catch(error){
      logCheckoutFailure("CITABOT_PREMIUM_LOCAL_SAVE_FAILED",error);
      let snapshotRestored=false;
-     try{await restoreSubscriptionSnapshot(businessId,prior);snapshotRestored=true;}catch(restoreError){logCheckoutFailure("CITABOT_PREMIUM_SNAPSHOT_RESTORE_FAILED",restoreError);}
+     try{await restoreSubscriptionSnapshot(businessId,prior,newProviderId);snapshotRestored=true;}catch(restoreError){logCheckoutFailure("CITABOT_PREMIUM_SNAPSHOT_RESTORE_FAILED",restoreError);}
      const rollback=await cancelAndVerifyPreapproval(newProviderId);
      if(snapshotRestored&&rollback.confirmedCancelled){
        await setChangeReconciliation(reconciliationId,{state:"resolved",phase:"rolled_back",error_code:"LOCAL_SAVE_FAILED"});
@@ -323,7 +323,7 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
          // Provider confirms the old plan is still not cancelled. Roll back the new attempt.
          await setChangeReconciliation(reconciliationId,{state:"in_progress",phase:"rollback_started",error_code:"OLD_SUBSCRIPTION_CANCEL_FAILED"});
          let snapshotRestored=false;
-         try{await restoreSubscriptionSnapshot(businessId,prior);snapshotRestored=true;}catch(restoreError){logCheckoutFailure("CITABOT_OLD_SNAPSHOT_RESTORE_FAILED",restoreError);}
+         try{await restoreSubscriptionSnapshot(businessId,prior,newProviderId);snapshotRestored=true;}catch(restoreError){logCheckoutFailure("CITABOT_OLD_SNAPSHOT_RESTORE_FAILED",restoreError);}
          const rollback=await cancelAndVerifyPreapproval(newProviderId);
          if(snapshotRestored&&rollback.confirmedCancelled){
            await setChangeReconciliation(reconciliationId,{state:"resolved",phase:"rolled_back",error_code:"OLD_SUBSCRIPTION_CANCEL_FAILED"});
