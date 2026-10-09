@@ -46,6 +46,6 @@ for (const operation of [
 }
 assert.match(mercadoPago, /BOOST_DIRECTORY_LISTING_MISSING/);
 assert.match(mercadoPago, /PAYMENT_ID_MISMATCH/);
-assert.match(mercadoPago, /order\\.starts_at\\?new Date\\(order\\.starts_at\\):new Date\\(\\)/);
+assert.ok(mercadoPago.includes("order.starts_at?new Date(order.starts_at):new Date()"), "boost start/end timestamps must remain stable across retries");
 
 console.log("Public Edge error-sanitization guard: OK");
