@@ -42,7 +42,7 @@ for (const operation of [
   "payment_revenue",
   "payment_subscription_activation",
 ]) {
-  assert.match(mercadoPago, new RegExp("throwOnDbError\\\\(\\\\\"" + operation + "\\\\""));
+  assert.ok(mercadoPago.includes('throwOnDbError("' + operation + '"'), "missing DB error check: " + operation);
 }
 assert.match(mercadoPago, /BOOST_DIRECTORY_LISTING_MISSING/);
 assert.match(mercadoPago, /PAYMENT_ID_MISMATCH/);
