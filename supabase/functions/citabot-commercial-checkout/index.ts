@@ -70,7 +70,8 @@ async function cancelAndVerifyPreapproval(id: string): Promise<CancellationCheck
 }
 async function setChangeReconciliation(id: string, values: {
   state: "in_progress" | "resolved" | "reconciliation_required";
-  phase: "provider_created" | "local_pending_saved" | "old_subscription_cancelled" | "rollback_started" | "rolled_back" | "local_restore_failed" | "rollback_unconfirmed" | "finished";
+  phase: "initiating" | "provider_created" | "local_pending_saved" | "old_subscription_cancelled" | "rollback_started" | "rolled_back" | "local_restore_failed" | "rollback_unconfirmed" | "finished";
+  new_subscription_id?: string | null;
   error_code?: string | null;
 }) {
   const payload: Record<string, unknown> = { ...values, updated_at: new Date().toISOString() };
@@ -102,19 +103,20 @@ async function restoreSubscriptionSnapshot(businessId: string, snapshot: Subscri
   throwOnDbError("restore_subscription_snapshot", result.error);
   if (!result.data?.id) throw new Error("SUBSCRIPTION_SNAPSHOT_RESTORE_MISSING");
 }
-async function recordSubscriptionChange(businessId: string, previous: SubscriptionSnapshot | null, newSubscriptionId: string) {
+async function recordSubscriptionChange(businessId: string, previous: SubscriptionSnapshot | null) {
   const { data, error } = await db.from("subscription_change_reconciliation").insert({
     business_id: businessId,
     provider: "mercadopago",
     previous_plan: previous?.plan == null ? null : String(previous.plan),
     previous_subscription_id: previous?.provider_subscription_id == null ? null : String(previous.provider_subscription_id),
     new_plan: "premium",
-    new_subscription_id: newSubscriptionId,
+    new_subscription_id: null,
     previous_subscription: previous,
     state: "in_progress",
-    phase: "provider_created",
+    phase: "initiating",
     updated_at: new Date().toISOString(),
   }).select("id").single();
+  if (error?.code === "23505") return null;
   throwOnDbError("reconciliation_insert", error);
   if (!data?.id) throw new Error("RECONCILIATION_INSERT_MISSING");
   return String(data.id);
@@ -148,24 +150,32 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
    throwOnDbError("existing_subscription_lookup",existing.error);
    const prior=(existing.data||null) as SubscriptionSnapshot|null;
 
-   if(prior?.provider_subscription_id&&prior.status==="active"&&prior.plan==="premium"){
-     return json({ok:true,already_active:true,plan:"premium"});
-   }
-   if(prior?.provider_subscription_id&&prior.status==="pending"&&prior.plan==="premium"){
+   if(prior?.provider_subscription_id&&prior.plan==="premium"&&["active","pending"].includes(String(prior.status||""))){
      const remote=await checkPreapproval(String(prior.provider_subscription_id));
+     if(remote.status==="authorized"){
+       if(prior.status!=="active"){
+         const mark=await db.from("subscriptions").update({
+           status:"active",updated_at:new Date().toISOString()
+         }).eq("id",String(prior.id));
+         throwOnDbError("confirmed_premium_status_update",mark.error);
+       }
+       return json({ok:true,already_active:true,plan:"premium"});
+     }
+     if(remote.status==="pending"&&remote.initPoint){
+       if(prior.status!=="pending"){
+         const mark=await db.from("subscriptions").update({
+           status:"pending",updated_at:new Date().toISOString()
+         }).eq("id",String(prior.id));
+         throwOnDbError("pending_premium_status_update",mark.error);
+       }
+       return json({ok:true,already_pending:true,plan:"premium",subscription_id:prior.provider_subscription_id,init_point:remote.initPoint,amount:69900});
+     }
      if(isCancelled(remote.status)){
        const mark=await db.from("subscriptions").update({
          status:"cancelled",updated_at:new Date().toISOString()
        }).eq("id",String(prior.id));
        throwOnDbError("stale_premium_status_update",mark.error);
-     }else if(remote.status==="authorized"){
-       const mark=await db.from("subscriptions").update({
-         status:"active",current_period_end:prior.current_period_end??null,updated_at:new Date().toISOString()
-       }).eq("id",String(prior.id));
-       throwOnDbError("confirmed_premium_status_update",mark.error);
-       return json({ok:true,already_active:true,plan:"premium"});
-     }else if(remote.status==="pending"&&remote.initPoint){
-       return json({ok:true,already_pending:true,plan:"premium",subscription_id:prior.provider_subscription_id,init_point:remote.initPoint,amount:69900});
+       prior.status="cancelled";
      }else{
        return json({
          ok:false,
@@ -174,7 +184,32 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
      }
    }
 
-   const createResponse=await fetch("https://api.mercadopago.com/preapproval",{
+   let reconciliationId: string | null;
+   try {
+     reconciliationId=await recordSubscriptionChange(businessId,prior);
+   } catch(error) {
+     logCheckoutFailure("CITABOT_CHECKOUT_RECONCILIATION_RESERVATION_FAILED",error);
+     return json({ok:false,error:"No se pudo reservar el cambio de suscripción. No se creó una nueva suscripción."},503);
+   }
+   if(!reconciliationId){
+     const pending=await db.from("subscription_change_reconciliation")
+       .select("id").eq("business_id",businessId)
+       .in("state",["in_progress","reconciliation_required"])
+       .order("created_at",{ascending:false}).limit(1).maybeSingle();
+     throwOnDbError("concurrent_reconciliation_lookup",pending.error);
+     if(pending.data?.id){
+       return json({
+         ok:false,
+         error:"Ya existe un cambio de suscripción en curso. No se creó una segunda suscripción.",
+         reconciliation_reference:pending.data.id
+       },409);
+     }
+     return json({ok:false,error:"No se pudo reservar el cambio de suscripción. No se creó una nueva suscripción."},503);
+   }
+
+   let createResponse: Response;
+   try {
+     createResponse=await fetch("https://api.mercadopago.com/preapproval",{
      method:"POST",
      headers:{Authorization:"Bearer "+mp,"Content-Type":"application/json"},
      body:JSON.stringify({
@@ -186,33 +221,34 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
        status:"pending"
      })
    });
+   } catch {
+     await setChangeReconciliation(reconciliationId,{state:"reconciliation_required",phase:"rollback_unconfirmed",error_code:"PROVIDER_CREATE_STATE_UNKNOWN"});
+     return json({
+       ok:false,
+       error:"No se pudo confirmar si Mercado Pago recibió la solicitud. No intentes otro cambio hasta revisar esta referencia.",
+       reconciliation_required:true,
+       reconciliation_reference:reconciliationId
+     },503);
+   }
    const d=await createResponse.json().catch(()=>({}));
    if(!createResponse.ok){
      console.error("CITABOT_PREMIUM_CREATE_FAILED",JSON.stringify({status:createResponse.status}));
-     return json({ok:false,error:"Mercado Pago no pudo crear la solicitud de Premium. No se cambió el plan actual."},502);
+     await setChangeReconciliation(reconciliationId,{state:"resolved",phase:"finished",error_code:"PROVIDER_CREATE_REJECTED"});
+     return json({ok:false,error:"Mercado Pago no pudo crear la solicitud Premium. El plan actual no se modificó."},502);
    }
    const newProviderId=d?.id==null?"":String(d.id);
    if(!newProviderId){
-     return json({ok:false,error:"Mercado Pago no devolvió un identificador de suscripción. No se cambió el plan actual."},502);
-   }
-
-   let reconciliationId="";
-   try{
-     reconciliationId=await recordSubscriptionChange(businessId,prior,newProviderId);
-   }catch(error){
-     logCheckoutFailure("CITABOT_CHECKOUT_RECONCILIATION_INSERT_FAILED",error);
-     const rollback=await cancelAndVerifyPreapproval(newProviderId);
-     if(rollback.confirmedCancelled){
-       return json({ok:false,error:"No se pudo registrar el cambio y la nueva solicitud sí quedó cancelada. El plan anterior no se modificó."},503);
-     }
-     console.error("CITABOT_CHECKOUT_UNTRACKED_PREAPPROVAL",JSON.stringify({business_id:businessId,provider_subscription_id:newProviderId}));
+     await setChangeReconciliation(reconciliationId,{state:"reconciliation_required",phase:"rollback_unconfirmed",error_code:"PROVIDER_ID_MISSING"});
      return json({
        ok:false,
-       error:"No se pudo registrar ni confirmar la cancelación de la nueva solicitud. No completes ese pago ni intentes otro cambio; requiere conciliación manual.",
+       error:"Mercado Pago no devolvió el identificador de la solicitud. No completes ningún pago ni inicies otro cambio.",
        reconciliation_required:true,
-       provider_subscription_reference:newProviderId
+       reconciliation_reference:reconciliationId
      },503);
    }
+   await setChangeReconciliation(reconciliationId,{
+     state:"in_progress",phase:"provider_created",new_subscription_id:newProviderId,error_code:null
+   });
 
    const remoteInitPoint=typeof d?.init_point==="string"&&d.init_point?d.init_point:null;
    if(!remoteInitPoint){
