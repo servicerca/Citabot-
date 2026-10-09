@@ -33,6 +33,16 @@ jobs:
         with:
           node-version: 24
 
+      - name: Setup Deno for Edge Function type checks
+        if: github.event_name == 'pull_request'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Type-check payment reconciliation functions
+        if: github.event_name == 'pull_request'
+        run: deno check supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts
+
       - name: Reject obsolete database field references
         shell: bash
         run: |
