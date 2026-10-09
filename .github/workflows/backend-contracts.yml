@@ -82,6 +82,29 @@ jobs:
           call 400 GET "citabot-public-booking?slug=__invalid_slug_for_ci__"
           call 400 POST "citabot-public-booking" '{}'
 
+          # A valid but unique missing slug must produce only a safe business message.
+          missing_slug="citabot-ci-missing-${GITHUB_RUN_ID}"
+          call 404 GET "citabot-public-booking?slug=${missing_slug}"
+          response="$(cat /tmp/contract-response)"
+          test "${response}" = '{"ok":false,"error":"Negocio no disponible."}'
+
+          # Force a PostgREST UUID-cast error before the SQL booking function can write anything.
+          # The endpoint must hide the database detail and return a generic service response.
+          future="$(date -u -d '+2 days' +%Y-%m-%dT%H:%M:%SZ)"
+          booking_error_body="$(printf '{"business_slug":"%s","service_id":"not-a-uuid","customer_name":"CI contract","customer_phone":"3000000000","starts_at":"%s","privacy_consent":true,"whatsapp_consent":true}' "${missing_slug}" "${future}")"
+          call 503 POST "citabot-public-booking" "${booking_error_body}"
+          response="$(cat /tmp/contract-response)"
+          test "${response}" = '{"ok":false,"error":"No se pudo completar la reserva. Inténtalo de nuevo más tarde."}'
+          if printf '%s' "${response}" | grep -Eiq 'invalid input syntax|22P02|PGRST|book_appointment_v3'; then
+            echo "Internal database details leaked from public booking."
+            exit 1
+          fi
+
+          # Invalid JSON is a client error, never an unhandled server exception.
+          call 400 POST "citabot-public-booking" '{'
+          response="$(cat /tmp/contract-response)"
+          test "${response}" = '{"ok":false,"error":"El cuerpo de la solicitud no es JSON válido."}'
+
           call 405 POST "citabot-meta-health"
           call 401 POST "citabot-meta-sync" '{}'
           call 401 POST "citabot-whatsapp-send" '{}'
