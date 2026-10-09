@@ -64,4 +64,32 @@ assert.ok(commercialSync.includes('.eq("featured_until", order.ends_at)'), "manu
 assert.ok(commercialSync.includes('No se pudo sincronizar el plan o las promociones.'), "manual sync must hide raw provider/DB errors");
 assert.doesNotMatch(commercialSync, /console\\.error\\("CITABOT_COMMERCIAL_SYNC_ERROR",e\\)/);
 
+const checkout = read("supabase/functions/citabot-commercial-checkout/index.ts");
+assert.match(checkout, /function cancelAndVerifyPreapproval/);
+assert.match(checkout, /function markBoostOrderFailed/);
+assert.match(checkout, /CITABOT_BOOST_PREFERENCE_PERSIST_FAILED/);
+assert.match(checkout, /preference_reference/);
+assert.doesNotMatch(checkout, /pd\?\.message\|\|"No se pudo crear el pago\."/);
+assert.ok(checkout.includes('eq("id",o.data.id).eq("status","pending").select("id").maybeSingle()'), "must check and constrain preference persistence");
+
+assert.match(checkout, /function recordSubscriptionChange/);
+assert.match(checkout, /subscription_change_reconciliation/);
+assert.match(checkout, /No completes/i);
+assert.match(checkout, /CITABOT_CHECKOUT_CANCEL_REQUEST_FAILED/);
+assert.doesNotMatch(checkout, /El nuevo intento de Premium fue cancelado para evitar cobros dobles/);
+assert.doesNotMatch(checkout, /await fetch\("https:\/\/api\.mercadopago\.com\/preapproval\/".*\.catch\(\(\)=>null\)/);
+assert.doesNotMatch(checkout, /error:e instanceof Error\?e\.message/);
+assert.ok(
+  checkout.indexOf("recordSubscriptionChange(businessId,prior)") < checkout.indexOf('fetch("https://api.mercadopago.com/preapproval",{'),
+  "must reserve the per-business reconciliation lock before creating a provider subscription"
+);
+const reconciliationMigration = read("supabase/migrations/20261009004000_citabot_subscription_change_reconciliation.sql");
+const reconciliationLockMigration = read("supabase/migrations/20261009004100_citabot_serialize_subscription_changes.sql");
+assert.match(reconciliationMigration, /enable row level security/);
+assert.match(reconciliationMigration, /revoke all on table public\.subscription_change_reconciliation from public, anon, authenticated/i);
+assert.match(reconciliationMigration, /grant all on table public\.subscription_change_reconciliation to service_role/i);
+assert.match(reconciliationLockMigration, /create unique index.*subscription_change_reconciliation_one_unresolved_per_business_idx/i);
+assert.match(reconciliationLockMigration, /alter column new_subscription_id drop not null/i);
+
+
 console.log("Public Edge error-sanitization guard: OK");
