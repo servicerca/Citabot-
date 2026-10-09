@@ -48,4 +48,16 @@ assert.match(mercadoPago, /BOOST_DIRECTORY_LISTING_MISSING/);
 assert.match(mercadoPago, /PAYMENT_ID_MISMATCH/);
 assert.ok(mercadoPago.includes("order.starts_at?new Date(order.starts_at):new Date()"), "boost start/end timestamps must remain stable across retries");
 
+// Refunded directory boosts must revoke only their own featured interval,
+// and manual reconciliation must be able to repair paid/refunded orders.
+assert.ok(mercadoPago.includes('else if(status==="refunded")'), "webhook must reconcile refunded boosts");
+assert.ok(mercadoPago.includes('.eq("featured_until",order.ends_at)'), "webhook must not remove a newer promotion");
+assert.ok(mercadoPago.includes('status:"refunded"'), "webhook must mark refund status");
+const commercialSync = read("supabase/functions/citabot-commercial-sync/index.ts");
+assert.match(commercialSync, /function throwOnDbError/);
+assert.ok(commercialSync.includes('.in("status", ["pending", "paid", "refunded"])'), "manual sync must revisit paid/refunded boost orders");
+assert.ok(commercialSync.includes('.eq("featured_until", order.ends_at)'), "manual sync must preserve newer promotions");
+assert.ok(commercialSync.includes('No se pudo sincronizar el plan o las promociones.'), "manual sync must hide raw provider/DB errors");
+assert.doesNotMatch(commercialSync, /console\\.error\\("CITABOT_COMMERCIAL_SYNC_ERROR",e\\)/);
+
 console.log("Public Edge error-sanitization guard: OK");
