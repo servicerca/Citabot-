@@ -95,31 +95,31 @@ async function syncPayment(id:string){
     throwOnDbError("boost_order_lookup",orderLookupError);
     if(!order?.business_id)return {ignored:true};
 
-    const orderUpdate=await db.from("directory_boost_orders").update({
-      status,
+    const providerReference=payment?.order?.id?String(payment.order.id):null;
+    const baseUpdate={
       provider:"mercadopago",
-      provider_reference:payment?.order?.id?String(payment.order.id):null,
+      provider_reference:providerReference,
       provider_transaction_id:transactionId,
       updated_at:new Date().toISOString()
-    }).eq("id",order.id).select("id").maybeSingle();
-    throwOnDbError("boost_order_status_update",orderUpdate.error);
-    if(!orderUpdate.data?.id)throw new Error("BOOST_ORDER_STATUS_UPDATE_MISSING");
+    };
 
     if(status==="paid"){
       const startAt=order.starts_at?new Date(order.starts_at):new Date();
       const endAt=order.ends_at?new Date(order.ends_at):new Date(startAt.getTime()+Number(order.duration_days)*86400000);
       if(Number.isNaN(startAt.getTime())||Number.isNaN(endAt.getTime())||endAt<=startAt)throw new Error("BOOST_ORDER_DATES_INVALID");
 
-      const activation=await db.from("directory_boost_orders").update({
+      // Keep the order pending/paid until all entitlement and revenue writes succeed.
+      // This makes provider retries recover partial writes without extending the boost.
+      const dateWrite=await db.from("directory_boost_orders").update({
+        ...baseUpdate,
         starts_at:startAt.toISOString(),
-        ends_at:endAt.toISOString(),
-        updated_at:new Date().toISOString()
+        ends_at:endAt.toISOString()
       }).eq("id",order.id).select("id").maybeSingle();
-      throwOnDbError("boost_order_activation",activation.error);
-      if(!activation.data?.id)throw new Error("BOOST_ORDER_ACTIVATION_MISSING");
+      throwOnDbError("boost_order_dates",dateWrite.error);
+      if(!dateWrite.data?.id)throw new Error("BOOST_ORDER_DATES_MISSING");
 
       const listing=await db.from("business_directory").update({
-        featured:true,
+        featured:endAt.getTime()>Date.now(),
         featured_until:endAt.toISOString(),
         updated_at:new Date().toISOString()
       }).eq("business_id",order.business_id).select("business_id").maybeSingle();
@@ -136,6 +136,54 @@ async function syncPayment(id:string){
         status:"paid"
       },{onConflict:"source,source_reference"});
       throwOnDbError("boost_revenue",revenueWrite.error);
+
+      const finalOrderWrite=await db.from("directory_boost_orders").update({
+        ...baseUpdate,
+        status:"paid",
+        updated_at:new Date().toISOString()
+      }).eq("id",order.id).select("id").maybeSingle();
+      throwOnDbError("boost_order_paid_status",finalOrderWrite.error);
+      if(!finalOrderWrite.data?.id)throw new Error("BOOST_ORDER_PAID_STATUS_MISSING");
+    }else if(status==="refunded"){
+      const revenueWrite=await db.from("platform_revenue").upsert({
+        business_id:order.business_id,
+        source:"directory_boost",
+        source_reference:transactionId,
+        gross_amount:amount||Number(order.amount||0),
+        platform_fee:0,
+        currency,
+        status:"refunded"
+      },{onConflict:"source,source_reference"});
+      throwOnDbError("boost_refund_revenue",revenueWrite.error);
+
+      // Revoke only the entitlement granted by this order. If another later boost
+      // has changed featured_until, leave that newer promotion intact.
+      if(order.ends_at){
+        const revoke=await db.from("business_directory").update({
+          featured:false,
+          featured_until:null,
+          updated_at:new Date().toISOString()
+        }).eq("business_id",order.business_id)
+          .eq("featured_until",order.ends_at)
+          .select("business_id").maybeSingle();
+        throwOnDbError("boost_refund_revoke",revoke.error);
+      }
+
+      const finalOrderWrite=await db.from("directory_boost_orders").update({
+        ...baseUpdate,
+        status:"refunded",
+        updated_at:new Date().toISOString()
+      }).eq("id",order.id).select("id").maybeSingle();
+      throwOnDbError("boost_refund_status",finalOrderWrite.error);
+      if(!finalOrderWrite.data?.id)throw new Error("BOOST_REFUND_STATUS_MISSING");
+    }else{
+      const finalOrderWrite=await db.from("directory_boost_orders").update({
+        ...baseUpdate,
+        status,
+        updated_at:new Date().toISOString()
+      }).eq("id",order.id).select("id").maybeSingle();
+      throwOnDbError("boost_order_status_update",finalOrderWrite.error);
+      if(!finalOrderWrite.data?.id)throw new Error("BOOST_ORDER_STATUS_UPDATE_MISSING");
     }
     return {business_id:order.business_id,status,boost_order_id:order.id};
   }
