@@ -103,6 +103,19 @@ async function restoreSubscriptionSnapshot(businessId: string, snapshot: Subscri
   throwOnDbError("restore_subscription_snapshot", result.error);
   if (!result.data?.id) throw new Error("SUBSCRIPTION_SNAPSHOT_RESTORE_MISSING");
 }
+async function markBoostOrderFailed(orderId: string, providerReference?: string | null): Promise<boolean> {
+  const payload: Record<string, unknown> = { status: "failed", updated_at: new Date().toISOString() };
+  if (providerReference) payload.provider_reference = providerReference;
+  const result = await db.from("directory_boost_orders").update(payload)
+    .eq("id", orderId).eq("status", "pending").select("id").maybeSingle();
+  if (result.error) {
+    const candidate = result.error.code;
+    const code = typeof candidate === "string" && /^[A-Z0-9_]{1,20}$/.test(candidate) ? candidate : "unknown";
+    console.error("CITABOT_BOOST_ORDER_CLEANUP_FAILED", JSON.stringify({ code }));
+    return false;
+  }
+  return Boolean(result.data?.id);
+}
 async function recordSubscriptionChange(businessId: string, previous: SubscriptionSnapshot | null) {
   const { data, error } = await db.from("subscription_change_reconciliation").insert({
     business_id: businessId,
@@ -389,10 +402,74 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
    if(pending.data?.id)return json({ok:false,error:"Ya existe una compra de visibilidad pendiente para este negocio.",pending_order_id:pending.data.id},409);
    const o=await db.from("directory_boost_orders").insert({business_id:businessId,placement:"featured",duration_days:days,amount:prices[days],currency:"COP",status:"pending",provider:"mercadopago"}).select("id").single();if(o.error)throw o.error;
    const ref="citabot-boost:"+o.data.id;
-   const pref=await fetch("https://api.mercadopago.com/checkout/preferences",{method:"POST",headers:{Authorization:"Bearer "+mp,"Content-Type":"application/json"},body:JSON.stringify({external_reference:ref,items:[{id:"citabot-directory-boost",title,quantity:1,unit_price:prices[days],currency_id:"COP"}],payer:{email},back_urls:{success:publicUrl,failure:publicUrl,pending:publicUrl},auto_return:"approved"})});
-   const pd=await pref.json().catch(()=>({}));if(!pref.ok){await db.from("directory_boost_orders").delete().eq("id",o.data.id);return json({ok:false,error:pd?.message||"No se pudo crear el pago."},502);}
-   await db.from("directory_boost_orders").update({provider_reference:String(pd.id||"")}).eq("id",o.data.id);
-   return json({ok:true,mode:"boost",order_id:o.data.id,preference_id:pd.id,init_point:pd.init_point,amount:prices[days],duration_days:days});
+   let pref: Response;
+   try{
+     pref=await fetch("https://api.mercadopago.com/checkout/preferences",{
+       method:"POST",
+       headers:{Authorization:"Bearer "+mp,"Content-Type":"application/json"},
+       body:JSON.stringify({
+         external_reference:ref,
+         items:[{id:"citabot-directory-boost",title,quantity:1,unit_price:prices[days],currency_id:"COP"}],
+         payer:{email},
+         back_urls:{success:publicUrl,failure:publicUrl,pending:publicUrl},
+         auto_return:"approved"
+       })
+     });
+   }catch{
+     const cleaned=await markBoostOrderFailed(String(o.data.id));
+     if(cleaned)return json({ok:false,error:"No se pudo confirmar la creación del enlace de pago. El pedido quedó marcado como fallido; no se entregó ningún enlace."},503);
+     return json({
+       ok:false,
+       error:"No se pudo confirmar la creación del enlace ni cerrar el pedido. No intentes otra compra hasta revisar esta referencia.",
+       reconciliation_required:true,
+       order_reference:o.data.id
+     },503);
+   }
+   const pd=await pref.json().catch(()=>({}));
+   if(!pref.ok){
+     const cleaned=await markBoostOrderFailed(String(o.data.id));
+     if(cleaned)return json({ok:false,error:"Mercado Pago no pudo crear el enlace de pago. El pedido quedó marcado como fallido y no se entregó ningún enlace."},502);
+     return json({
+       ok:false,
+       error:"Mercado Pago rechazó la solicitud y no se pudo cerrar el pedido local. No intentes otra compra hasta revisar esta referencia.",
+       reconciliation_required:true,
+       order_reference:o.data.id
+     },503);
+   }
+   const preferenceId=pd?.id==null?"":String(pd.id);
+   const initPoint=typeof pd?.init_point==="string"&&pd.init_point?pd.init_point:null;
+   if(!preferenceId||!initPoint){
+     const cleaned=await markBoostOrderFailed(String(o.data.id),preferenceId||null);
+     if(cleaned)return json({ok:false,error:"Mercado Pago no devolvió un enlace de pago válido. El pedido quedó marcado como fallido."},502);
+     return json({
+       ok:false,
+       error:"El enlace de pago no es válido y no se pudo cerrar el pedido local. No completes el pago ni intentes otra compra.",
+       reconciliation_required:true,
+       order_reference:o.data.id,
+       preference_reference:preferenceId||null
+     },503);
+   }
+   const savedPreference=await db.from("directory_boost_orders").update({
+     provider_reference:preferenceId,
+     updated_at:new Date().toISOString()
+   }).eq("id",o.data.id).eq("status","pending").select("id").maybeSingle();
+   if(savedPreference.error||!savedPreference.data?.id){
+     if(savedPreference.error){
+       const candidate=savedPreference.error.code;
+       const code=typeof candidate==="string"&&/^[A-Z0-9_]{1,20}$/.test(candidate)?candidate:"unknown";
+       console.error("CITABOT_BOOST_PREFERENCE_PERSIST_FAILED",JSON.stringify({code}));
+     }
+     const cleaned=await markBoostOrderFailed(String(o.data.id),preferenceId);
+     if(cleaned)return json({ok:false,error:"No se pudo guardar el enlace del pago. El pedido quedó marcado como fallido y el enlace no se entregó."},503);
+     return json({
+       ok:false,
+       error:"No se pudo guardar el enlace ni cerrar el pedido local. No abras ni completes el enlace de pago; requiere conciliación.",
+       reconciliation_required:true,
+       order_reference:o.data.id,
+       preference_reference:preferenceId
+     },503);
+   }
+   return json({ok:true,mode:"boost",order_id:o.data.id,preference_id:preferenceId,init_point:initPoint,amount:prices[days],duration_days:days});
  }
  return json({ok:false,error:"Modo no soportado."},400);
 }catch(e){logCheckoutFailure("CITABOT_COMMERCIAL_CHECKOUT_FAILED",e);return json({ok:false,error:"No se pudo completar la operación comercial. Inténtalo de nuevo más tarde."},500)}});
