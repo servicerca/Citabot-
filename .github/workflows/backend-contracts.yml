@@ -6,6 +6,12 @@ on:
     paths:
       - "supabase/functions/**"
       - "supabase/migrations/**"
+      - "scripts/check-public-booking-sanitization.mjs"
+      - ".github/workflows/backend-contracts.yml"
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "scripts/check-public-booking-sanitization.mjs"
       - ".github/workflows/backend-contracts.yml"
   workflow_dispatch:
 
@@ -19,17 +25,30 @@ jobs:
       SUPABASE_URL: https://rphyhaoxwvaezulvhcrf.supabase.co
       SUPABASE_KEY: sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - name: Reject obsolete database field references
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RniE '\b(client_id|appointment_date|start_time|end_time)\b' supabase/functions; then
+          if grep -RniE '\\b(client_id|appointment_date|start_time|end_time)\\b' supabase/functions; then
             echo "Found a reference to a removed production appointment field."
             exit 1
           fi
           echo "No obsolete appointment field references found."
 
+      - name: Check public booking error sanitization
+        if: github.event_name == 'pull_request'
+        run: node scripts/check-public-booking-sanitization.mjs
+
       - name: Verify public and protected production function contracts
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -44,9 +63,14 @@ jobs:
             local url="${SUPABASE_URL}/functions/v1/${path}"
 
             if [ "$method" = "GET" ]; then
-              code="$(curl -sS -o /tmp/contract-response -w "%{http_code}"                 -H "apikey: ${SUPABASE_KEY}" "${url}")"
+              code="$(curl -sS -o /tmp/contract-response -w "%{http_code}" \
+                -H "apikey: ${SUPABASE_KEY}" "${url}")"
             else
-              code="$(curl -sS -o /tmp/contract-response -w "%{http_code}"                 -H "apikey: ${SUPABASE_KEY}"                 -H "Content-Type: application/json"                 -X "${method}"                 --data "${body}" "${url}")"
+              code="$(curl -sS -o /tmp/contract-response -w "%{http_code}" \
+                -H "apikey: ${SUPABASE_KEY}" \
+                -H "Content-Type: application/json" \
+                -X "${method}" \
+                --data "${body}" "${url}")"
             fi
 
             response="$(cat /tmp/contract-response)"
