@@ -34,14 +34,12 @@ jobs:
           node-version: 24
 
       - name: Setup Deno for Edge Function type checks
-        if: github.event_name == 'pull_request'
         uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
 
-      - name: Type-check payment reconciliation functions
-        if: github.event_name == 'pull_request'
-        run: deno check supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts
+      - name: Type-check production Edge Functions
+        run: deno check supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts
 
       - name: Reject obsolete database field references
         shell: bash
@@ -53,8 +51,7 @@ jobs:
           fi
           echo "No obsolete appointment field references found."
 
-      - name: Check public booking error sanitization
-        if: github.event_name == 'pull_request'
+      - name: Check public Edge and payment reconciliation safeguards
         run: node scripts/check-public-booking-sanitization.mjs
 
       - name: Verify public and protected production function contracts
@@ -85,6 +82,11 @@ jobs:
 
             response="$(cat /tmp/contract-response)"
             echo "${method} ${path} -> HTTP ${code}: ${response}"
+
+            if [ "${path}" = "citabot-mercadopago-webhook" ] && [ "${expected}" = "401" ] && [[ "${response}" == *"Webhook secret no configurado"* ]]; then
+              echo "::error::MERCADOPAGO_WEBHOOK_SECRET is missing from CitaBot's Supabase Edge Function secrets. Add the genuine secret from Mercado Pago; do not disable signature verification."
+              exit 1
+            fi
 
             test "${code}" = "${expected}"
           }
