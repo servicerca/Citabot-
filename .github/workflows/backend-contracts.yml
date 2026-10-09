@@ -39,7 +39,7 @@ jobs:
           deno-version: v2.x
 
       - name: Type-check production Edge Functions
-        run: deno check supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts
+        run: deno check supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts supabase/functions/citabot-commercial-checkout/index.ts
 
       - name: Reject obsolete database field references
         shell: bash
