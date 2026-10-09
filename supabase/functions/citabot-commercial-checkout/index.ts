@@ -246,9 +246,36 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
        reconciliation_reference:reconciliationId
      },503);
    }
-   await setChangeReconciliation(reconciliationId,{
-     state:"in_progress",phase:"provider_created",new_subscription_id:newProviderId,error_code:null
-   });
+   try{
+     await setChangeReconciliation(reconciliationId,{
+       state:"in_progress",phase:"provider_created",new_subscription_id:newProviderId,error_code:null
+     });
+   }catch(error){
+     logCheckoutFailure("CITABOT_PROVIDER_ID_PERSIST_FAILED",error);
+     const rollback=await cancelAndVerifyPreapproval(newProviderId);
+     let stored=false;
+     try{
+       await setChangeReconciliation(reconciliationId,{
+         state:rollback.confirmedCancelled?"resolved":"reconciliation_required",
+         phase:rollback.confirmedCancelled?"rolled_back":"rollback_unconfirmed",
+         new_subscription_id:newProviderId,
+         error_code:rollback.confirmedCancelled?"PROVIDER_ID_PERSIST_FAILED":"PROVIDER_ID_PERSIST_AND_ROLLBACK_UNCONFIRMED"
+       });
+       stored=true;
+     }catch(recordError){
+       logCheckoutFailure("CITABOT_PROVIDER_ID_ROLLBACK_RECORD_FAILED",recordError);
+     }
+     if(rollback.confirmedCancelled&&stored){
+       return json({ok:false,error:"No se pudo registrar la nueva solicitud y se confirmó su cancelación. El plan anterior no se modificó."},503);
+     }
+     return json({
+       ok:false,
+       error:"No se pudo guardar la referencia de la nueva suscripción ni confirmar su cancelación. No completes el pago ni inicies otro cambio.",
+       reconciliation_required:true,
+       reconciliation_reference:reconciliationId,
+       provider_subscription_reference:newProviderId
+     },503);
+   }
 
    const remoteInitPoint=typeof d?.init_point==="string"&&d.init_point?d.init_point:null;
    if(!remoteInitPoint){
