@@ -95,12 +95,12 @@ assert.match(reconciliationLockMigration, /alter column new_subscription_id drop
 // Security regression guards for privilege changes applied to production.
 // These tables/functions must stay inaccessible to application roles across future migrations.
 const legalAcceptancePrivileges = read("supabase/migrations/20261009221641_citabot_revoke_unsafe_legal_acceptance_privileges.sql");
-assert.match(legalAcceptancePrivileges, /REVOKE REFERENCES, TRIGGER, TRUNCATE ON TABLE public\\.legal_acceptances FROM authenticated/i);
+assert.match(legalAcceptancePrivileges, /REVOKE REFERENCES, TRIGGER, TRUNCATE ON TABLE public\.legal_acceptances FROM authenticated/i);
 
 const privateFunctionPrivileges = read("supabase/migrations/20261009222627_citabot_revoke_private_function_execution_from_client_roles.sql");
 assert.match(privateFunctionPrivileges, /REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA private FROM PUBLIC, anon, authenticated/i);
 
 const reconciliationClientAccess = read("supabase/migrations/20261009222936_citabot_explicitly_deny_client_access_to_subscription_reconciliation.sql");
-assert.match(reconciliationClientAccess, /FOR ALL\\s+TO anon, authenticated\\s+USING \\(false\\)\\s+WITH CHECK \\(false\\)/i);
+assert.match(reconciliationClientAccess, /FOR ALL\s+TO anon, authenticated\s+USING \(false\)\s+WITH CHECK \(false\)/i);
 
 console.log("Public Edge error-sanitization guard: OK");
