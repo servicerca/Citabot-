@@ -66,6 +66,12 @@ assert.doesNotMatch(commercialSync, /console\\.error\\("CITABOT_COMMERCIAL_SYNC_
 
 const checkout = read("supabase/functions/citabot-commercial-checkout/index.ts");
 assert.match(checkout, /function cancelAndVerifyPreapproval/);
+assert.match(checkout, /function markBoostOrderFailed/);
+assert.match(checkout, /CITABOT_BOOST_PREFERENCE_PERSIST_FAILED/);
+assert.match(checkout, /preference_reference/);
+assert.doesNotMatch(checkout, /pd\?\.message\|\|"No se pudo crear el pago\."/);
+assert.ok(checkout.includes('eq("id",o.data.id).eq("status","pending").select("id").maybeSingle()'), "must check and constrain preference persistence");
+
 assert.match(checkout, /function recordSubscriptionChange/);
 assert.match(checkout, /subscription_change_reconciliation/);
 assert.match(checkout, /No completes/i);
