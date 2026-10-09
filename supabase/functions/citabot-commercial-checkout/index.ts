@@ -343,10 +343,7 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
    if(mustCancelOld){
      const oldCancellation=await cancelAndVerifyPreapproval(oldProviderId!);
      if(!oldCancellation.confirmedCancelled){
-       if(isCancelled(oldCancellation.status)){
-         // The provider confirms cancellation despite the original PUT result; continue safely.
-         await setChangeReconciliation(reconciliationId,{state:"in_progress",phase:"old_subscription_cancelled",error_code:null});
-       }else if(oldCancellation.status){
+       if(oldCancellation.status){
          // Provider confirms the old plan is still not cancelled. Roll back the new attempt.
          await setChangeReconciliation(reconciliationId,{state:"in_progress",phase:"rollback_started",error_code:"OLD_SUBSCRIPTION_CANCEL_FAILED"});
          let snapshotRestored=false;
