@@ -117,4 +117,13 @@ jobs:
 
           call 200 POST "citabot-mercadopago-webhook" '{}'
 
+          # Forged provider events without signatures must be rejected before any DB mutation.
+          call 401 POST "citabot-whatsapp-webhook" '{"entry":[]}'
+          response="$(cat /tmp/contract-response)"
+          test "${response}" = 'Invalid signature'
+
+          call 401 POST "citabot-mercadopago-webhook" '{"type":"payment","data":{"id":"ci-invalid-signature"}}'
+          response="$(cat /tmp/contract-response)"
+          test "${response}" = '{"ok":false,"error":"Firma inválida"}'
+
           echo "CitaBot backend production contracts: OK"
