@@ -25,6 +25,8 @@ const db = createClient(url, serviceKey, {
 
 type SafeClientError = { status: number; message: string };
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // Only known, deliberately authored business-rule messages may be returned to
 // an unauthenticated caller. Unexpected PostgREST/Postgres errors stay private.
 const CLIENT_BOOKING_ERRORS = new Map<string, SafeClientError>([
@@ -154,6 +156,13 @@ Deno.serve(async (req) => {
     if (!/^[a-z0-9-]{2,80}$/.test(slug)) return json({ ok: false, error: "Negocio inválido." }, 400);
     if (!serviceId || !customerName || !customerPhone || !startsAt) {
       return json({ ok: false, error: "Faltan datos obligatorios." }, 400);
+    }
+    // Reject malformed identifiers before PostgREST can emit a UUID-cast error.
+    if (!UUID_PATTERN.test(serviceId)) {
+      return json({ ok: false, error: "El identificador del servicio no es válido." }, 400);
+    }
+    if (staffRaw && !UUID_PATTERN.test(staffRaw)) {
+      return json({ ok: false, error: "El identificador del profesional no es válido." }, 400);
     }
     if (!privacyConsent || !whatsappConsent) {
       return json({ ok: false, error: "Debes aceptar privacidad y el uso de WhatsApp para gestionar la reserva." }, 400);

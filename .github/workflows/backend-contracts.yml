@@ -100,13 +100,12 @@ jobs:
           response="$(cat /tmp/contract-response)"
           test "${response}" = '{"ok":false,"error":"Negocio no disponible."}'
 
-          # Force a PostgREST UUID-cast error before the SQL booking function can write anything.
-          # The endpoint must hide the database detail and return a generic service response.
+          # Malformed UUIDs are client input errors and must be rejected before PostgREST.
           future="$(date -u -d '+2 days' +%Y-%m-%dT%H:%M:%SZ)"
           booking_error_body="$(printf '{"business_slug":"%s","service_id":"not-a-uuid","customer_name":"CI contract","customer_phone":"3000000000","starts_at":"%s","privacy_consent":true,"whatsapp_consent":true}' "${missing_slug}" "${future}")"
-          call 503 POST "citabot-public-booking" "${booking_error_body}"
+          call 400 POST "citabot-public-booking" "${booking_error_body}"
           response="$(cat /tmp/contract-response)"
-          test "${response}" = '{"ok":false,"error":"No se pudo completar la reserva. Inténtalo de nuevo más tarde."}'
+          test "${response}" = '{"ok":false,"error":"El identificador del servicio no es válido."}'
           if printf '%s' "${response}" | grep -Eiq 'invalid input syntax|22P02|PGRST|book_appointment_v3'; then
             echo "Internal database details leaked from public booking."
             exit 1
