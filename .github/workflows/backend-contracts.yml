@@ -37,7 +37,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if grep -RniE '\\b(client_id|appointment_date|start_time|end_time)\\b' supabase/functions; then
+          if grep -RniE '\b(client_id|appointment_date|start_time|end_time)\b' supabase/functions; then
             echo "Found a reference to a removed production appointment field."
             exit 1
           fi
