@@ -1,0 +1,30 @@
+name: CitaBot public pricing UX guard
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "scripts/check-pricing-cta.mjs"
+      - ".github/workflows/citabot-pricing-ux.yml"
+  pull_request:
+    paths:
+      - "index.html"
+      - "scripts/check-pricing-cta.mjs"
+      - ".github/workflows/citabot-pricing-ux.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  pricing-cta:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify public Premium signup action
+        run: node scripts/check-pricing-cta.mjs
