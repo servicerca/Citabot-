@@ -12,7 +12,7 @@ assert.ok(cardStart >= 0 && listEnd > heading && cardEnd > listEnd,
   "could not isolate the public Premium pricing card");
 
 const card = html.slice(cardStart, cardEnd + "</div>".length);
-assert.match(card, /<button\\b[^>]*onclick="showOnboarding\\(\\)"/,
+assert.match(card, /<button\b[^>]*onclick="showOnboarding\(\)"/,
   "Premium card must have a working signup action");
 assert.match(card, /Crear cuenta gratis/,
   "CTA must explain that account creation is the next step");
