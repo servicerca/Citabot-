@@ -30,7 +30,7 @@ const signatureVerificationPosition = mercadoPago.indexOf("if(!(await verifySign
 const simulatorGuardPosition = mercadoPago.indexOf("const legacySimulatorSample=");
 assert.ok(signatureVerificationPosition >= 0, "webhook must verify the provider signature");
 assert.ok(simulatorGuardPosition > signatureVerificationPosition, "legacy simulator guard must remain after signature verification");
-assert.match(mercadoPago, /if\(legacySimulatorSample\)return json\(\{ok:true,simulation:true,ignored:true\}\););
+assert.match(mercadoPago, /if\(legacySimulatorSample\)return json\(\{ok:true,simulation:true,ignored:true\}\);/);
 
 assert.doesNotMatch(mercadoPago, /console\.error\('CITABOT_MERCADOPAGO_WEBHOOK_ERROR',e\)/);
 
