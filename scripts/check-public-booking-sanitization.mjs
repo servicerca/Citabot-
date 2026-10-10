@@ -24,6 +24,14 @@ const mercadoPago = read("supabase/functions/citabot-mercadopago-webhook/index.t
 assert.match(mercadoPago, /function logWebhookFailure/);
 assert.match(mercadoPago, /No se pudo procesar el evento de pago/);
 assert.doesNotMatch(mercadoPago, /e instanceof Error\?e\.message:'Error interno'/);
+// The legacy provider simulator fixture is acknowledged only after HMAC signature verification.
+// Keep production's compatibility guard in source control and reject attempts to move it earlier.
+const signatureVerificationPosition = mercadoPago.indexOf("if(!(await verifySignature(req,dataId)))");
+const simulatorGuardPosition = mercadoPago.indexOf("const legacySimulatorSample=");
+assert.ok(signatureVerificationPosition >= 0, "webhook must verify the provider signature");
+assert.ok(simulatorGuardPosition > signatureVerificationPosition, "legacy simulator guard must remain after signature verification");
+assert.match(mercadoPago, /if\(legacySimulatorSample\)return json\(\{ok:true,simulation:true,ignored:true\}\););
+
 assert.doesNotMatch(mercadoPago, /console\.error\('CITABOT_MERCADOPAGO_WEBHOOK_ERROR',e\)/);
 
 // Payment webhooks must propagate every ledger/entitlement write failure so
