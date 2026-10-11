@@ -26,7 +26,7 @@ for(let attempt=0;attempt<3;attempt++){
   if(attempt<2) await new Promise(r=>setTimeout(r,400*(attempt+1)));
 }
 if(!rr?.ok){
-  console.error("CITABOT_AI_PROVIDER_FAILED",{status:rr?.status||null,error:lastProviderError,attempts:3});
+  console.error("CITABOT_AI_PROVIDER_FAILED",{status:rr?.status||null,attempts:3});
   return new Response(JSON.stringify({
     ok:false,
     degraded:true,
