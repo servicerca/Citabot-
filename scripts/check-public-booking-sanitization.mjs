@@ -111,4 +111,13 @@ assert.match(privateFunctionPrivileges, /REVOKE EXECUTE ON ALL FUNCTIONS IN SCHE
 const reconciliationClientAccess = read("supabase/migrations/20261009222936_citabot_explicitly_deny_client_access_to_subscription_reconciliation.sql");
 assert.match(reconciliationClientAccess, /FOR ALL\s+TO anon, authenticated\s+USING \(false\)\s+WITH CHECK \(false\)/i);
 
+
+const citabotAi = read("supabase/functions/citabot-ai/index.ts");
+assert.match(citabotAi, /CITABOT_AI_PROVIDER_FAILED/);
+assert.match(citabotAi, /provider_status:rr\?\.status\|\|null[\s\S]*\{status:503,headers:\{\.\.\.cors,"Content-Type":"application\/json"\}\}/);
+assert.match(citabotAi, /CITABOT_AI_INTERNAL_FAILURE/);
+assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./);
+assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
+assert.doesNotMatch(citabotAi, /error:lastProviderError/);
+
 console.log("Public Edge error-sanitization guard: OK");
