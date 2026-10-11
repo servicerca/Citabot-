@@ -38,6 +38,9 @@ jobs:
         with:
           deno-version: v2.x
 
+      - name: Test CitaBot AI request validation boundaries
+        run: deno test supabase/functions/citabot-ai/request-validation.test.ts
+
       - name: Type-check production Edge Functions
         run: deno check supabase/functions/citabot-ai/index.ts supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts supabase/functions/citabot-commercial-checkout/index.ts supabase/functions/citabot-mercadopago-subscribe/index.ts
 
