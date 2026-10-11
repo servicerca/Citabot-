@@ -32,8 +32,8 @@ if(!rr?.ok){
     degraded:true,
     error:"La IA no está disponible temporalmente. La agenda, clientes y demás funciones de CitaBot siguen operativas.",
     provider_status:rr?.status||null
-  }),{headers:{...cors,"Content-Type":"application/json"}});
+  }),{status:503,headers:{...cors,"Content-Type":"application/json"}});
 }
 const text=data.output_text??data.output?.flatMap((x:any)=>x.content??[]).map((x:any)=>x.text??"").join("")??"";
 return new Response(JSON.stringify({ok:true,text,provider:"openai",model}),{headers:{...cors,"Content-Type":"application/json"}});
-}catch(e){return new Response(JSON.stringify({error:e instanceof Error?e.message:"Error interno"}),{status:500,headers:{...cors,"Content-Type":"application/json"}});}});
+}catch(e){console.error("CITABOT_AI_INTERNAL_FAILURE",e instanceof Error?e.name:"UnknownError");return new Response(JSON.stringify({error:"No se pudo procesar la solicitud de IA temporalmente."}),{status:500,headers:{...cors,"Content-Type":"application/json"}});}});
