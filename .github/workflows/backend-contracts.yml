@@ -128,6 +128,8 @@ jobs:
           call 401 POST "citabot-commercial-sync" '{}'
           call 401 POST "citabot-plan-sync" '{}'
           call 401 POST "citabot-platform-admin" '{}'
+          # The AI endpoint must remain behind the Supabase JWT gateway.
+          call 401 POST "citabot-ai" '{"business_id":"00000000-0000-4000-8000-000000000001","input":"CI unauthorized check"}'
 
           call 200 POST "citabot-mercadopago-webhook" '{}'
 
