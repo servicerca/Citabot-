@@ -10,7 +10,7 @@ const leakedPasswordDecisionAt = html.indexOf('if(exposure.compromised)', submit
 const signupAt = html.indexOf("if(authMode==='signup'){r=await sb.auth.signUp", submitAt);
 
 assert.ok(submitAt >= 0, 'signup handler must exist');
-assert.ok(checkerAt > submitAt, 'password exposure checker must be included');
+assert.ok(checkerAt >= 0 && checkerAt < submitAt, 'password exposure checker must be defined before the signup handler');
 assert.ok(guardAt > submitAt, 'signup handler must reject an unavailable exposure check');
 assert.ok(leakedPasswordDecisionAt > guardAt, 'availability must be checked before the leaked-password decision');
 assert.ok(signupAt > leakedPasswordDecisionAt, 'password check must run before Supabase signup');
