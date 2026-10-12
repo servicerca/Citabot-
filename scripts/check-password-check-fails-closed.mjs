@@ -69,4 +69,52 @@ assert.equal((await networkFailure('sample-password')).checked, false, 'network 
 const noCrypto = makeChecker(async () => { throw new Error('must not be called'); }, false);
 assert.equal((await noCrypto('sample-password')).checked, false, 'missing Web Crypto must fail closed');
 
+
+const submitEnd = html.indexOf('window.cbResetPassword=async()=>', submitAt);
+assert.ok(submitEnd > submitAt, 'signup handler source must be extractable for a behavior test');
+const submitSource = html.slice(submitAt, submitEnd);
+async function exerciseSignup(exposureResult) {
+  const messages = [];
+  let signupCalls = 0;
+  const elements = {
+    cbAuthEmail: { value: 'shop@example.invalid' },
+    cbAuthPassword: { value: 'Valid!Password123' },
+    cbAuthName: { value: 'Test shop' },
+    cbAuthPasswordConfirm: { value: 'Valid!Password123' },
+    cbAuthConsent: { checked: true },
+    cbAuthSubmit: { disabled: false }
+  };
+  const sandbox = {
+    window: {},
+    authMode: 'signup',
+    $: id => elements[id] || null,
+    cbPasswordPolicy: () => true,
+    cbPasswordMessage: () => 'invalid password',
+    cbCheckPasswordExposure: async () => exposureResult,
+    msg: message => messages.push(message),
+    sb: { auth: { signUp: async () => {
+      signupCalls += 1;
+      return { data: { session: null }, error: null };
+    } } },
+    cbBoot() {},
+    cbLoadOrOnboard: async () => {}
+  };
+  vm.runInNewContext(submitSource, sandbox, { timeout: 1000 });
+  await sandbox.window.cbSubmitAuth();
+  return { signupCalls, messages, buttonEnabledAgain: elements.cbAuthSubmit.disabled === false };
+}
+const failedCheckSubmit = await exerciseSignup({ checked: false, compromised: false });
+assert.equal(failedCheckSubmit.signupCalls, 0, 'signup must never call Supabase when the exposure check is unavailable');
+assert.ok(failedCheckSubmit.messages.some(m => String(m).includes('No se pudo comprobar')), 'user must receive a clear retry message');
+assert.equal(failedCheckSubmit.buttonEnabledAgain, true, 'submit button must be re-enabled after fail-closed rejection');
+
+const leakedPasswordSubmit = await exerciseSignup({ checked: true, compromised: true, count: 5 });
+assert.equal(leakedPasswordSubmit.signupCalls, 0, 'signup must never call Supabase for an exposed password');
+assert.ok(leakedPasswordSubmit.messages.some(m => String(m).includes('filtraciones')), 'user must be told to choose another password');
+
+const safePasswordSubmit = await exerciseSignup({ checked: true, compromised: false, count: 0 });
+assert.equal(safePasswordSubmit.signupCalls, 1, 'valid clean password should be allowed to proceed to Supabase signup');
+assert.ok(safePasswordSubmit.messages.some(m => String(m).includes('Cuenta creada')), 'successful auth response must be handled');
+assert.equal(safePasswordSubmit.buttonEnabledAgain, true, 'submit button should be re-enabled after the auth request');
+
 console.log('CitaBot password exposure checks: static guard + runtime edge cases OK');
