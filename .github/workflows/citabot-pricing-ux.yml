@@ -28,3 +28,5 @@ jobs:
           node-version: 24
       - name: Verify public Premium signup action
         run: node scripts/check-pricing-cta.mjs
+      - name: Require leaked-password check to fail closed
+        run: node scripts/check-password-check-fails-closed.mjs
