@@ -6,11 +6,13 @@ on:
     paths:
       - "index.html"
       - "scripts/check-pricing-cta.mjs"
+      - "scripts/check-password-check-fails-closed.mjs"
       - ".github/workflows/citabot-pricing-ux.yml"
   pull_request:
     paths:
       - "index.html"
       - "scripts/check-pricing-cta.mjs"
+      - "scripts/check-password-check-fails-closed.mjs"
       - ".github/workflows/citabot-pricing-ux.yml"
 
 permissions:
