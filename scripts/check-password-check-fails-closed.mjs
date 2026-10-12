@@ -97,6 +97,8 @@ async function exerciseSignup(exposureResult) {
       return { data: { session: null }, error: null };
     } } },
     cbBoot() {},
+    cbBootHide() {},
+    location: { href: 'https://example.invalid/' },
     cbLoadOrOnboard: async () => {}
   };
   vm.runInNewContext(submitSource, sandbox, { timeout: 1000 });
