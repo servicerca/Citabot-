@@ -7,11 +7,14 @@ on:
       - "supabase/functions/**"
       - "supabase/migrations/**"
       - "scripts/check-public-booking-sanitization.mjs"
+      - "scripts/check-onboarding-rpc-security.mjs"
       - ".github/workflows/backend-contracts.yml"
   pull_request:
     paths:
       - "supabase/functions/**"
+      - "supabase/migrations/**"
       - "scripts/check-public-booking-sanitization.mjs"
+      - "scripts/check-onboarding-rpc-security.mjs"
       - ".github/workflows/backend-contracts.yml"
   workflow_dispatch:
 
@@ -56,6 +59,9 @@ jobs:
 
       - name: Check public Edge and payment reconciliation safeguards
         run: node scripts/check-public-booking-sanitization.mjs
+
+      - name: Guard secure business onboarding RPC privileges
+        run: node scripts/check-onboarding-rpc-security.mjs
 
       - name: Verify public and protected production function contracts
         if: github.event_name != 'pull_request'
