@@ -791,8 +791,11 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(document.g
       const response=await fetch('https://api.pwnedpasswords.com/range/'+prefix,{headers:{'Add-Padding':'true'},cache:'no-store'});
       if(!response.ok) throw new Error('No se pudo consultar Pwned Passwords.');
       const text=await response.text();
-      const line=text.split(/\r?\n/).find(row=>row.startsWith(suffix+':'));
-      const count=line?Number(line.split(':')[1]||0):0;
+      const rows=text.split(/\r?\n/).filter(Boolean);
+      if(!rows.length || rows.some(row=>!/^([0-9A-F]{35}):(\d+)$/i.test(row))) throw new Error('Respuesta inválida de Pwned Passwords.');
+      const line=rows.find(row=>row.slice(0,35).toUpperCase()===suffix);
+      const count=line?Number(line.slice(36)):0;
+      if(!Number.isSafeInteger(count)||count<0) throw new Error('Recuento inválido de Pwned Passwords.');
       return {checked:true,compromised:count>0,count};
     }catch(error){
       console.warn('CitaBot password exposure check unavailable:',error);
