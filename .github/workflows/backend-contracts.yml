@@ -185,7 +185,7 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-fixture.sql
 
       - name: Apply onboarding migration to disposable PostgreSQL
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261013050000_citabot_guard_onboarding_retries_and_slug_collisions.sql
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261013045141_citabot_guard_onboarding_retries_and_slug_collisions.sql
 
       - name: Verify onboarding auth, trial limits, and slug collisions
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-integration.sql
