@@ -18,3 +18,23 @@ assert.match(card, /Crear cuenta gratis/,
   "CTA must explain that account creation is the next step");
 
 console.log("CitaBot public Premium pricing CTA: OK");
+
+const pricingHtml = html;
+assert.doesNotMatch(pricingHtml, /Más elegido/i,
+  "do not publish social-proof claims until real usage data supports them");
+assert.match(pricingHtml, /Conexión con WhatsApp Business \(requiere configuración de Meta\)/,
+  "WhatsApp plan copy must disclose the external Meta setup requirement");
+assert.match(pricingHtml, /Asistencia de IA y automatizaciones \(según configuración y plan\)/,
+  "AI and automation copy must not imply every integration is already connected");
+assert.match(pricingHtml, /Funciones avanzadas de IA \(requieren configuración activa\)/,
+  "advanced AI copy must disclose configuration requirements");
+assert.match(pricingHtml, /La compra de posiciones destacadas se habilitará cuando terminemos de validar los pagos/,
+  "directory boost copy must not present payment as validated before end-to-end verification");
+assert.match(pricingHtml, /Mercado Pago: prueba externa pendiente/,
+  "payment validation status must stay visible while production checkout remains unverified");
+assert.doesNotMatch(pricingHtml,
+  /Los negocios pueden comprar posiciones destacadas en el directorio mediante Mercado Pago/i,
+  "do not advertise direct purchases as ready while external payment validation is pending");
+
+console.log("CitaBot public pricing readiness and evidence-based claims: OK");
+
