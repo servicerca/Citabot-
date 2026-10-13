@@ -1,0 +1,100 @@
+-- Disposable behavior tests for CitaBot's onboarding RPC.
+-- Run after tests/citabot-onboarding-rpc-fixture.sql and the corresponding migration.
+DO $tests$
+DECLARE
+  v_owner_one constant uuid := '10000000-0000-4000-8000-000000000001';
+  v_owner_two constant uuid := '10000000-0000-4000-8000-000000000002';
+  v_result jsonb;
+  v_blocked boolean;
+  v_error text;
+BEGIN
+  IF NOT has_function_privilege(
+    'authenticated',
+    'public.create_citabot_business_onboarding(text,text,text,text,text)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'authenticated role must be able to execute onboarding';
+  END IF;
+  IF has_function_privilege(
+    'anon',
+    'public.create_citabot_business_onboarding(text,text,text,text,text)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'anonymous role must not be able to execute onboarding';
+  END IF;
+
+  -- An unauthenticated call must be rejected before any business or trial exists.
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  v_blocked := false;
+  BEGIN
+    PERFORM public.create_citabot_business_onboarding(
+      'Tienda Central', 'service', 'Santa Marta', NULL, NULL
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_error = MESSAGE_TEXT;
+    IF v_error = 'Sesión requerida' THEN
+      v_blocked := true;
+    ELSE
+      RAISE;
+    END IF;
+  END;
+  IF NOT v_blocked THEN
+    RAISE EXCEPTION 'unauthenticated onboarding was not rejected';
+  END IF;
+
+  -- First real identity in the disposable database receives exactly one trial.
+  PERFORM set_config('request.jwt.claim.sub', v_owner_one::text, true);
+  SELECT public.create_citabot_business_onboarding(
+    'Tienda Central', 'service', 'Santa Marta', NULL, NULL
+  ) INTO v_result;
+  IF v_result->'business'->>'slug' <> 'tienda-central' THEN
+    RAISE EXCEPTION 'unexpected first slug: %', v_result->'business'->>'slug';
+  END IF;
+  IF v_result->'trial'->>'plan' <> 'trial'
+     OR v_result->'trial'->>'status' <> 'trialing' THEN
+    RAISE EXCEPTION 'first onboarding did not produce the expected trial';
+  END IF;
+
+  -- A different owner choosing the same public name must receive a unique slug.
+  -- This exercises the collision branch that previously called max(integer, integer).
+  PERFORM set_config('request.jwt.claim.sub', v_owner_two::text, true);
+  SELECT public.create_citabot_business_onboarding(
+    'Tienda Central', 'service', 'Santa Marta', NULL, NULL
+  ) INTO v_result;
+  IF v_result->'business'->>'slug' <> 'tienda-central-2' THEN
+    RAISE EXCEPTION 'slug collision did not produce suffix -2: %',
+      v_result->'business'->>'slug';
+  END IF;
+
+  -- Calling the onboarding RPC again for the first owner cannot mint a second trial.
+  PERFORM set_config('request.jwt.claim.sub', v_owner_one::text, true);
+  v_blocked := false;
+  BEGIN
+    PERFORM public.create_citabot_business_onboarding(
+      'Otro negocio', 'service', 'Santa Marta', NULL, NULL
+    );
+  EXCEPTION WHEN OTHERS THEN
+    GET STACKED DIAGNOSTICS v_error = MESSAGE_TEXT;
+    IF v_error LIKE 'Esta cuenta ya tiene un negocio registrado.%' THEN
+      v_blocked := true;
+    ELSE
+      RAISE;
+    END IF;
+  END;
+  IF NOT v_blocked THEN
+    RAISE EXCEPTION 'repeat onboarding was not rejected for an existing owner';
+  END IF;
+
+  IF (SELECT count(*) FROM public.businesses) <> 2 THEN
+    RAISE EXCEPTION 'unexpected business count after guarded onboarding';
+  END IF;
+  IF (SELECT count(*) FROM public.business_members) <> 2 THEN
+    RAISE EXCEPTION 'unexpected membership count after guarded onboarding';
+  END IF;
+  IF (SELECT count(*) FROM public.subscriptions) <> 2 THEN
+    RAISE EXCEPTION 'repeat onboarding created an extra subscription';
+  END IF;
+
+  RAISE NOTICE 'CitaBot onboarding integration: authentication, one-trial guard, and slug collision passed';
+END;
+$tests$;
