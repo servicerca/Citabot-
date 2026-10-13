@@ -8,6 +8,7 @@ on:
       - "supabase/migrations/**"
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
+      - "tests/citabot-onboarding-rpc-*.sql"
       - ".github/workflows/backend-contracts.yml"
   pull_request:
     paths:
@@ -149,3 +150,41 @@ jobs:
           test "${response}" = '{"ok":false,"error":"Firma inválida"}'
 
           echo "CitaBot backend production contracts: OK"
+
+  onboarding-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: citabot_onboarding_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d citabot_onboarding_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/citabot_onboarding_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+      - name: Create disposable Supabase-compatible fixture
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-fixture.sql
+
+      - name: Apply onboarding migration to disposable PostgreSQL
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261013050000_citabot_guard_onboarding_retries_and_slug_collisions.sql
+
+      - name: Verify onboarding auth, trial limits, and slug collisions
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-integration.sql
