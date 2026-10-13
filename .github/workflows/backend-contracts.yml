@@ -9,6 +9,7 @@ on:
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
+      - "tests/citabot-onboarding-rpc-*.sql"
       - ".github/workflows/backend-contracts.yml"
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - "supabase/migrations/**"
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
+      - "tests/citabot-onboarding-rpc-*.sql"
       - ".github/workflows/backend-contracts.yml"
   workflow_dispatch:
 
