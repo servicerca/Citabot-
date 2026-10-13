@@ -8,6 +8,7 @@ on:
       - "politica-privacidad.html"
       - "terminos-servicio.html"
       - "eliminacion-datos.html"
+      - "scripts/check-workspace-pagination.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -29,6 +30,9 @@ jobs:
     steps:
       - name: Descargar repositorio
         uses: actions/checkout@v4
+
+      - name: Verificar paginación segura del espacio de trabajo
+        run: node scripts/check-workspace-pagination.mjs
 
       - name: Validar HTML y JavaScript de producción
         shell: python
