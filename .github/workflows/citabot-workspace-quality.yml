@@ -1,0 +1,53 @@
+name: CitaBot workspace quality guard
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "scripts/check-workspace-pagination.mjs"
+      - ".github/workflows/citabot-workspace-quality.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "index.html"
+      - "scripts/check-workspace-pagination.mjs"
+      - ".github/workflows/citabot-workspace-quality.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  workspace-quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Check workspace pagination guard
+        run: node scripts/check-workspace-pagination.mjs
+
+      - name: Check all inline JavaScript syntax
+        shell: python
+        run: |
+          import re
+          import subprocess
+          from pathlib import Path
+
+          html = Path("index.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script\b([^>]*)>([\s\S]*?)</script>", html, flags=re.I)
+          inline = 0
+          for i, (attrs, body) in enumerate(scripts, 1):
+              if re.search(r"\bsrc\s*=", attrs, flags=re.I):
+                  continue
+              path = Path(f"/tmp/citabot-inline-{i}.js")
+              path.write_text(body, encoding="utf-8")
+              subprocess.run(["node", "--check", str(path)], check=True)
+              inline += 1
+          assert inline >= 3, f"Se esperaban al menos 3 scripts inline, encontrados: {inline}"
+          print(f"CitaBot workspace JavaScript syntax: OK ({inline} inline scripts)")
