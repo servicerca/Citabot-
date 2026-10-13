@@ -44,12 +44,12 @@ console.log("CitaBot public pricing readiness and evidence-based claims: OK");
 
 const tempDir = mkdtempSync(join(tmpdir(), "citabot-inline-js-"));
 try {
-  const scripts = [...html.matchAll(/<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi)];
+  const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)];
   let inlineCount = 0;
   for (let i = 0; i < scripts.length; i++) {
     const attrs = scripts[i][1];
     const body = scripts[i][2];
-    if (/\\bsrc\\s*=/.test(attrs)) continue;
+    if (/\bsrc\s*=/.test(attrs)) continue;
     const file = join(tempDir, `inline-${i + 1}.js`);
     writeFileSync(file, body, "utf8");
     execFileSync(process.execPath, ["--check", file], { stdio: "pipe" });
