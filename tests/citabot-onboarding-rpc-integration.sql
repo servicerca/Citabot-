@@ -23,6 +23,19 @@ BEGIN
     RAISE EXCEPTION 'anonymous role must not be able to execute onboarding';
   END IF;
 
+  -- Authenticated callers may create their first business only through the
+  -- atomic RPC; direct table inserts would bypass the one-trial and membership guard.
+  IF has_table_privilege('authenticated', 'public.businesses', 'INSERT') THEN
+    RAISE EXCEPTION 'authenticated role must not insert businesses directly';
+  END IF;
+  IF has_table_privilege('authenticated', 'public.business_members', 'INSERT') THEN
+    RAISE EXCEPTION 'authenticated role must not insert memberships directly';
+  END IF;
+  IF has_table_privilege('anon', 'public.businesses', 'INSERT')
+     OR has_table_privilege('anon', 'public.business_members', 'INSERT') THEN
+    RAISE EXCEPTION 'anonymous role must not insert businesses or memberships';
+  END IF;
+
   -- An unauthenticated call must be rejected before any business or trial exists.
   PERFORM set_config('request.jwt.claim.sub', '', true);
   v_blocked := false;
@@ -95,6 +108,6 @@ BEGIN
     RAISE EXCEPTION 'repeat onboarding created an extra subscription';
   END IF;
 
-  RAISE NOTICE 'CitaBot onboarding integration: authentication, one-trial guard, and slug collision passed';
+  RAISE NOTICE 'CitaBot onboarding integration: authentication, direct-write guard, one-trial limit, and slug collision passed';
 END;
 $tests$;
