@@ -1,0 +1,22 @@
+name: CitaBot boost payment validation
+on:
+  pull_request:
+    branches: ["main"]
+  push:
+    branches: ["fix/citabot-boost-payment-amount-currency-20261014"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate-payment-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run isolated payment validation tests
+        run: deno test supabase/functions/citabot-mercadopago-webhook/payment-validation.test.ts
