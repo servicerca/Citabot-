@@ -5,13 +5,19 @@ on:
     branches: ["main"]
     paths:
       - "index.html"
+      - "politica-privacidad.html"
+      - "terminos-servicio.html"
       - "scripts/check-workspace-pagination.mjs"
+      - "scripts/check-password-check-fails-closed.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
     paths:
       - "index.html"
+      - "politica-privacidad.html"
+      - "terminos-servicio.html"
       - "scripts/check-workspace-pagination.mjs"
+      - "scripts/check-password-check-fails-closed.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -31,6 +37,9 @@ jobs:
 
       - name: Check workspace pagination guard
         run: node scripts/check-workspace-pagination.mjs
+
+      - name: Check password exposure protection and privacy disclosure
+        run: node scripts/check-password-check-fails-closed.mjs
 
       - name: Check all inline JavaScript syntax
         shell: python
