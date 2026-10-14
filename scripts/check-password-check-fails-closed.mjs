@@ -3,6 +3,14 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const privacyPolicy = readFileSync(new URL('../politica-privacidad.html', import.meta.url), 'utf8');
+const terms = readFileSync(new URL('../terminos-servicio.html', import.meta.url), 'utf8');
+
+assert.ok(html.includes("citabot_legal_version:'2026-10-14-v2'"), 'new signup consent must record the updated legal bundle version');
+assert.ok(html.includes('Pwned Passwords') && html.includes('no se envía la contraseña completa ni el hash completo'), 'the in-app privacy notice must explain the external password exposure check and the data minimization behavior');
+assert.ok(privacyPolicy.includes('Pwned Passwords') && privacyPolicy.includes('cinco primeros caracteres hexadecimales') && privacyPolicy.includes('no se envía la contraseña completa ni el hash completo'), 'the standalone privacy policy must disclose Pwned Passwords and explain the truncated hash prefix');
+assert.ok(privacyPolicy.includes('Última actualización: 14 de octubre de 2026'), 'the standalone privacy policy date must match the updated disclosure');
+assert.ok(terms.includes('Última actualización:</strong> 14 de octubre de 2026'), 'the terms date must match the updated legal bundle');
 const submitAt = html.indexOf('window.cbSubmitAuth=async()=>');
 const checkerAt = html.indexOf('async function cbCheckPasswordExposure');
 const guard = "if(!exposure.checked){msg('No se pudo comprobar la seguridad de la contraseña. Reinténtalo cuando tengas conexión.');return;}";
