@@ -7,7 +7,7 @@ const migration = readFileSync(
 );
 
 const directWriteMigration = readFileSync(
-  "supabase/migrations/20261014020000_citabot_revoke_direct_business_creation.sql",
+  "supabase/migrations/20261014015651_citabot_revoke_direct_business_creation.sql",
   "utf8"
 );
 
