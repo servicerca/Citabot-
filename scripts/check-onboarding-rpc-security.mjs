@@ -40,12 +40,12 @@ assert.doesNotMatch(
 
 assert.match(
   directWriteMigration,
-  /REVOKE INSERT ON TABLE public\\.businesses FROM PUBLIC, anon, authenticated/i,
+  /REVOKE INSERT ON TABLE public\.businesses FROM PUBLIC, anon, authenticated/i,
   "authenticated clients must not bypass atomic onboarding by inserting businesses directly"
 );
 assert.match(
   directWriteMigration,
-  /REVOKE INSERT ON TABLE public\\.business_members FROM PUBLIC, anon, authenticated/i,
+  /REVOKE INSERT ON TABLE public\.business_members FROM PUBLIC, anon, authenticated/i,
   "authenticated clients must not create owner memberships outside the onboarding RPC"
 );
 console.log("CitaBot onboarding RPC security migration guard: OK");
