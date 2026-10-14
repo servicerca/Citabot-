@@ -190,5 +190,8 @@ jobs:
       - name: Apply onboarding migration to disposable PostgreSQL
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261013045141_citabot_guard_onboarding_retries_and_slug_collisions.sql
 
-      - name: Verify onboarding auth, trial limits, and slug collisions
+      - name: Apply direct-write restriction to disposable PostgreSQL
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014015651_citabot_revoke_direct_business_creation.sql
+
+      - name: Verify onboarding auth, direct-write restriction, trial limits, and slug collisions
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-integration.sql

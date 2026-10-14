@@ -52,3 +52,8 @@ CREATE TABLE public.subscriptions (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz
 );
+
+-- Simulate the broad authenticated INSERT grants observed in production before
+-- the direct-write hardening migration is applied by CI.
+GRANT INSERT ON TABLE public.businesses TO authenticated;
+GRANT INSERT ON TABLE public.business_members TO authenticated;
