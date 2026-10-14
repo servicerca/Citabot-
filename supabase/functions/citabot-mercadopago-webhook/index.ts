@@ -90,7 +90,7 @@ async function syncPayment(id:string){
   if(ref.startsWith("citabot-boost:")){
     const orderId=ref.slice("citabot-boost:".length);
     const {data:order,error:orderLookupError}=await db.from("directory_boost_orders")
-      .select("id,business_id,duration_days,amount,status,starts_at,ends_at")
+      .select("id,business_id,duration_days,amount,currency,status,starts_at,ends_at")
       .eq("id",orderId)
       .maybeSingle();
     throwOnDbError("boost_order_lookup",orderLookupError);
