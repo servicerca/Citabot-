@@ -52,6 +52,6 @@ jobs:
       - name: Create disposable existing-schema fixture
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-boost-status-migration-fixture.sql
       - name: Apply refund-state migration
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014052000_citabot_allow_refunded_boost_orders.sql
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014052344_citabot_allow_refunded_boost_orders.sql
       - name: Verify all documented order states
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-boost-status-migration.sql
