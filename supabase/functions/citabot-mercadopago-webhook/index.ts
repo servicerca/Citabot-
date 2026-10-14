@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { canSyncBoostOrderStatus, matchesBoostOrderPayment } from "./payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,x-signature,x-request-id","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const MP_TOKEN=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");const MP_SECRET=Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
 if(!SUPABASE_URL||!SERVICE_ROLE_KEY)throw new Error("Supabase server configuration missing");
@@ -89,7 +90,7 @@ async function syncPayment(id:string){
   if(ref.startsWith("citabot-boost:")){
     const orderId=ref.slice("citabot-boost:".length);
     const {data:order,error:orderLookupError}=await db.from("directory_boost_orders")
-      .select("id,business_id,duration_days,amount,status,starts_at,ends_at")
+      .select("id,business_id,duration_days,amount,currency,status,starts_at,ends_at")
       .eq("id",orderId)
       .maybeSingle();
     throwOnDbError("boost_order_lookup",orderLookupError);
@@ -102,6 +103,35 @@ async function syncPayment(id:string){
       provider_transaction_id:transactionId,
       updated_at:new Date().toISOString()
     };
+
+    if(!canSyncBoostOrderStatus(order.status,status)){
+      console.error("CITABOT_BOOST_ORDER_STATE_TRANSITION_REJECTED",JSON.stringify({
+        order_id:order.id,
+        payment_id:transactionId,
+        current_status:order.status,
+        incoming_status:status
+      }));
+      return {ignored:true,reason:"boost_order_state_transition"};
+    }
+
+    // Never grant a promotion until the provider-confirmed transaction exactly
+    // matches the server-created order amount and currency. A valid signature
+    // proves event origin, not that the customer paid the expected price.
+    if(status==="paid"&&!matchesBoostOrderPayment(payment,order)){
+      const expectedAmount=Number(order.amount);
+      const receivedAmount=Number(payment?.transaction_amount);
+      const expectedCurrency=typeof order.currency==="string"?order.currency.trim().toUpperCase():"";
+      const receivedCurrency=typeof payment?.currency_id==="string"?payment.currency_id.trim().toUpperCase():"";
+      console.error("CITABOT_BOOST_PAYMENT_MISMATCH",JSON.stringify({
+        order_id:order.id,
+        payment_id:transactionId,
+        amount_matches:Number.isFinite(receivedAmount)&&Number.isFinite(expectedAmount)&&Math.round(receivedAmount*100)===Math.round(expectedAmount*100),
+        currency_matches:Boolean(expectedCurrency)&&expectedCurrency===receivedCurrency
+      }));
+      // Keep the order and entitlement unchanged for manual reconciliation.
+      // The mismatch is permanent for this payment; acknowledge it instead of retrying.
+      return {ignored:true,reason:"boost_payment_amount_currency_mismatch"};
+    }
 
     if(status==="paid"){
       const startAt=order.starts_at?new Date(order.starts_at):new Date();
