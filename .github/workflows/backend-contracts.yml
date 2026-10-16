@@ -193,5 +193,8 @@ jobs:
       - name: Apply direct-write restriction to disposable PostgreSQL
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014015651_citabot_revoke_direct_business_creation.sql
 
+      - name: Restrict authenticated business updates to supported fields
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015000100_citabot_restrict_business_update_columns.sql
+
       - name: Verify onboarding auth, direct-write restriction, trial limits, and slug collisions
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-integration.sql
