@@ -60,6 +60,11 @@ test.describe('CitaBot production browser smoke', () => {
     await page.locator('#cbAuthEmail').fill('');
     await page.getByRole('button', { name: /Cancelar/i }).click();
 
+    // The public session must safely reject the admin route without a scope ReferenceError.
+    await page.evaluate(() => go('platform-admin'));
+    await expect(page.locator('#navPlatformAdmin')).toBeHidden();
+    await expect(page.locator('#view-platform-admin')).not.toHaveClass(/active/);
+
     expect(serverErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
