@@ -56,8 +56,8 @@ BEGIN
   END LOOP;
 
   FOREACH v_column IN ARRAY ARRAY[
-    'id', 'owner_id', 'slug', 'category', 'timezone',
-    'is_active', 'created_at'
+    'id', 'owner_id', 'slug', 'category', 'description', 'email', 'logo_url',
+    'timezone', 'is_active', 'created_at'
   ] LOOP
     IF has_column_privilege('authenticated', 'public.businesses', v_column, 'UPDATE') THEN
       RAISE EXCEPTION 'authenticated role must not be able to update protected field %', v_column;
