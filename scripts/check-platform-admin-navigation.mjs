@@ -13,6 +13,12 @@ assert.doesNotMatch(goLine, /\bisPlatformAdmin\b/,
   'La función global go no debe referenciar directamente una variable privada de la IIFE.');
 assert.match(html, /window\.cbIsPlatformAdmin\s*=\s*\(\)\s*=>\s*isPlatformAdmin;/,
   'Debe existir un getter que consulte el estado administrativo real de la sesión.');
+assert.match(html, /window\.cbLoadPlatformAdminPanel\s*=\s*\(\)\s*=>\s*cbLoadPlatformAdminPanel\(\);/,
+  'El panel privado debe publicarse mediante una entrada namespaced para la navegación global.');
+assert.match(html, /onclick="window\.cbLoadPlatformAdminPanel\?\.\(\)"/,
+  'El botón de actualizar debe usar la entrada global y no una función privada de la IIFE.');
+assert.doesNotMatch(goLine, /void cbLoadPlatformAdminPanel\(/,
+  'La navegación global no debe llamar una función privada fuera de su ámbito.');
 assert.match(html, /async function cbLoadPlatformAdmin\(userId\)/,
   'Debe conservarse la consulta de rol en el arranque autenticado.');
 assert.match(html, /from\('platform_admins'\)\.select\('user_id'\)/,
