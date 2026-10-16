@@ -9,6 +9,7 @@ on:
       - "terminos-servicio.html"
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
+      - "scripts/check-platform-admin-navigation.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -18,6 +19,7 @@ on:
       - "terminos-servicio.html"
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
+      - "scripts/check-platform-admin-navigation.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -37,6 +39,9 @@ jobs:
 
       - name: Check workspace pagination guard
         run: node scripts/check-workspace-pagination.mjs
+
+      - name: Check platform-admin navigation scope
+        run: node scripts/check-platform-admin-navigation.mjs
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs
