@@ -1,5 +1,5 @@
--- Disposable behavior tests for CitaBot's onboarding RPC.
--- Run after tests/citabot-onboarding-rpc-fixture.sql and the corresponding migration.
+-- Disposable behavior tests for CitaBot's onboarding RPC and client privilege boundaries.
+-- Run after the fixture and the corresponding migrations.
 DO $tests$
 DECLARE
   v_owner_one constant uuid := '10000000-0000-4000-8000-000000000001';
@@ -7,6 +7,7 @@ DECLARE
   v_result jsonb;
   v_blocked boolean;
   v_error text;
+  v_column text;
 BEGIN
   IF NOT has_function_privilege(
     'authenticated',
@@ -35,6 +36,33 @@ BEGIN
      OR has_table_privilege('anon', 'public.business_members', 'INSERT') THEN
     RAISE EXCEPTION 'anonymous role must not insert businesses or memberships';
   END IF;
+
+  -- Business owners may edit only fields exposed by the current workspace form.
+  -- Table-level UPDATE would also allow changing status/owner/identity metadata.
+  IF has_table_privilege('authenticated', 'public.businesses', 'UPDATE') THEN
+    RAISE EXCEPTION 'authenticated role must not have table-level UPDATE on businesses';
+  END IF;
+  IF has_table_privilege('anon', 'public.businesses', 'UPDATE') THEN
+    RAISE EXCEPTION 'anonymous role must not have UPDATE on businesses';
+  END IF;
+
+  FOREACH v_column IN ARRAY ARRAY[
+    'name', 'city', 'address', 'phone', 'whatsapp',
+    'is_listed', 'latitude', 'longitude', 'updated_at'
+  ] LOOP
+    IF NOT has_column_privilege('authenticated', 'public.businesses', v_column, 'UPDATE') THEN
+      RAISE EXCEPTION 'authenticated role must be able to update allowed field %', v_column;
+    END IF;
+  END LOOP;
+
+  FOREACH v_column IN ARRAY ARRAY[
+    'id', 'owner_id', 'slug', 'category', 'timezone',
+    'is_active', 'created_at'
+  ] LOOP
+    IF has_column_privilege('authenticated', 'public.businesses', v_column, 'UPDATE') THEN
+      RAISE EXCEPTION 'authenticated role must not be able to update protected field %', v_column;
+    END IF;
+  END LOOP;
 
   -- An unauthenticated call must be rejected before any business or trial exists.
   PERFORM set_config('request.jwt.claim.sub', '', true);
@@ -108,6 +136,6 @@ BEGIN
     RAISE EXCEPTION 'repeat onboarding created an extra subscription';
   END IF;
 
-  RAISE NOTICE 'CitaBot onboarding integration: authentication, direct-write guard, one-trial limit, and slug collision passed';
+  RAISE NOTICE 'CitaBot integration: onboarding auth, direct-write restriction, field-level business grants, trial limit, and slug collision passed';
 END;
 $tests$;
