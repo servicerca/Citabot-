@@ -48,7 +48,7 @@ jobs:
           html = Path("index.html").read_text(encoding="utf-8")
           assert "https://rphyhaoxwvaezulvhcrf.supabase.co" in html
           assert "CitaBot" in html
-          assert 'name="citabot-version" content="3.5.0-production"' in html
+          assert 'name="citabot-version" content="3.5.1-production"' in html
           assert "--shadow-premium" in html
           assert "prefers-reduced-motion" in html
           assert len(re.findall(r'<button\b[^>]*>\s*Explorar negocios\s*</button>', html, flags=re.I)) == 1
@@ -57,7 +57,7 @@ jobs:
           assert 'id="view-platform-admin"' in html
           assert "citabot-platform-admin" in html
           assert "platform_admins" in html
-          assert 'if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()===true)void cbLoadPlatformAdminPanel();' in html
+          assert 'if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()===true)void window.cbLoadPlatformAdminPanel?.();' in html
           assert 'if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()!==true)' in html
           assert 'window.cbIsPlatformAdmin = () => isPlatformAdmin;' in html
           assert "Servicerca" not in html
