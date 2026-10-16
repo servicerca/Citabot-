@@ -9,6 +9,7 @@ on:
       - "terminos-servicio.html"
       - "eliminacion-datos.html"
       - "scripts/check-workspace-pagination.mjs"
+      - "scripts/check-platform-admin-navigation.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -33,6 +34,9 @@ jobs:
 
       - name: Verificar paginación segura del espacio de trabajo
         run: node scripts/check-workspace-pagination.mjs
+
+      - name: Verificar ámbito de navegación administrativa
+        run: node scripts/check-platform-admin-navigation.mjs
 
       - name: Validar HTML y JavaScript de producción
         shell: python
