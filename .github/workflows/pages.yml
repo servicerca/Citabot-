@@ -57,7 +57,7 @@ jobs:
           assert 'id="view-platform-admin"' in html
           assert "citabot-platform-admin" in html
           assert "platform_admins" in html
-          assert 'if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()===true)void cbLoadPlatformAdminPanel();' in html
+          assert 'if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()===true)void window.cbLoadPlatformAdminPanel?.();' in html
           assert 'if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()!==true)' in html
           assert 'window.cbIsPlatformAdmin = () => isPlatformAdmin;' in html
           assert "Servicerca" not in html
