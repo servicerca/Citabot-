@@ -42,3 +42,69 @@ Deno.test("normaliza acentos y puntuación sin alterar el contenido legible", ()
     "La normalización debe permitir detectar variantes acentuadas.",
   );
 });
+
+import {
+  ensureWhatsAppOptOutRecorded,
+  type WhatsAppOptOutCustomer,
+  type WhatsAppOptOutStore,
+} from "./opt-out.ts";
+
+Deno.test("persiste la baja de forma idempotente sin sobrescribir la primera fecha", async () => {
+  let customer: WhatsAppOptOutCustomer | null = { id: "customer-1", whatsapp_opted_out_at: null };
+  let writes = 0;
+  const store: WhatsAppOptOutStore = {
+    getCustomer: async () => customer,
+    setOptOut: async (_businessId, _customerId, timestamp) => {
+      writes += 1;
+      if (!customer || customer.whatsapp_opted_out_at) return false;
+      customer = { ...customer, whatsapp_opted_out_at: timestamp };
+      return true;
+    },
+  };
+
+  await ensureWhatsAppOptOutRecorded("business-1", "customer-1", store, "2026-10-18T10:00:00.000Z");
+  await ensureWhatsAppOptOutRecorded("business-1", "customer-1", store, "2026-10-18T10:05:00.000Z");
+
+  assert(writes === 1, "Una baja ya guardada no debe volver a sobrescribirse.");
+  assert(customer?.whatsapp_opted_out_at === "2026-10-18T10:00:00.000Z", "Debe conservarse la primera fecha de baja.");
+});
+
+Deno.test("un reintento repara una escritura de baja que falló temporalmente", async () => {
+  let customer: WhatsAppOptOutCustomer | null = { id: "customer-2", whatsapp_opted_out_at: null };
+  let attempts = 0;
+  const store: WhatsAppOptOutStore = {
+    getCustomer: async () => customer,
+    setOptOut: async (_businessId, _customerId, timestamp) => {
+      attempts += 1;
+      if (attempts === 1) throw new Error("temporary database failure");
+      if (!customer || customer.whatsapp_opted_out_at) return false;
+      customer = { ...customer, whatsapp_opted_out_at: timestamp };
+      return true;
+    },
+  };
+
+  let failed = false;
+  try {
+    await ensureWhatsAppOptOutRecorded("business-1", "customer-2", store, "2026-10-18T11:00:00.000Z");
+  } catch {
+    failed = true;
+  }
+  assert(failed, "La primera escritura simulada debe fallar.");
+  await ensureWhatsAppOptOutRecorded("business-1", "customer-2", store, "2026-10-18T11:01:00.000Z");
+  assert(customer?.whatsapp_opted_out_at === "2026-10-18T11:01:00.000Z", "El reintento debe guardar la baja.");
+});
+
+Deno.test("acepta la escritura de otra ejecución concurrente al volver a leer el cliente", async () => {
+  let customer: WhatsAppOptOutCustomer | null = { id: "customer-3", whatsapp_opted_out_at: null };
+  const store: WhatsAppOptOutStore = {
+    getCustomer: async () => customer,
+    setOptOut: async (_businessId, _customerId, timestamp) => {
+      customer = { ...customer!, whatsapp_opted_out_at: timestamp };
+      return false;
+    },
+  };
+
+  await ensureWhatsAppOptOutRecorded("business-1", "customer-3", store, "2026-10-18T12:00:00.000Z");
+  assert(Boolean(customer?.whatsapp_opted_out_at), "La operación concurrente ya dejó la baja guardada.");
+});
+
