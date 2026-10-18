@@ -120,4 +120,21 @@ assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./
 assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
 
+
+const professionalSubscribe = read("supabase/functions/citabot-mercadopago-subscribe/index.ts");
+assert.match(professionalSubscribe, /function reserveCheckout/);
+assert.match(professionalSubscribe, /subscription_change_reconciliation/);
+assert.match(professionalSubscribe, /No se creó una segunda suscripción/);
+assert.match(professionalSubscribe, /function cancelAndVerifyPreapproval/);
+assert.match(professionalSubscribe, /PROVIDER_CREATE_STATE_UNKNOWN/);
+assert.match(professionalSubscribe, /reconciliation_required/);
+assert.doesNotMatch(professionalSubscribe, /error:e instanceof Error\?e\.message/);
+assert.ok(
+  professionalSubscribe.indexOf("reserveCheckout(businessId, prior)") < professionalSubscribe.indexOf('fetch("https://api.mercadopago.com/preapproval", {'),
+  "Professional checkout must reserve the per-business lock before creating Mercado Pago's preapproval"
+);
+const professionalReconciliationMigration = read("supabase/migrations/20261018070000_citabot_allow_professional_subscription_reconciliation.sql");
+assert.match(professionalReconciliationMigration, /drop constraint if exists subscription_change_reconciliation_new_plan_check/i);
+assert.match(professionalReconciliationMigration, /check \(new_plan in \('premium', 'professional'\)\)/i);
+
 console.log("Public Edge error-sanitization guard: OK");
