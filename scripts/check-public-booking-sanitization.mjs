@@ -120,4 +120,25 @@ assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./
 assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
 
+
+const whatsappSend = read("supabase/functions/citabot-whatsapp-send/index.ts");
+assert.match(whatsappSend, /WHATSAPP_CUSTOMER_SERVICE_WINDOW_MS\s*=\s*24\s*\*\s*60\s*\*\s*60\s*\*\s*1000/);
+assert.match(whatsappSend, /customer\.whatsapp_opted_out_at/);
+assert.match(whatsappSend, /WHATSAPP_RECIPIENT_OPTED_OUT/);
+assert.match(whatsappSend, /WHATSAPP_SERVICE_WINDOW_CLOSED/);
+assert.ok(
+  whatsappSend.indexOf("WHATSAPP_SERVICE_WINDOW_CLOSED") < whatsappSend.indexOf("sb.from(\"messages\").insert"),
+  "the open-window guard must run before writing an outbound message"
+);
+assert.match(whatsappSend, /WHATSAPP_ACCESS_TOKEN/);
+assert.match(whatsappSend, /CITABOT_WHATSAPP_SEND_FAILED/);
+assert.doesNotMatch(whatsappSend, /error:\s*error instanceof Error\s*\?\s*error\.message/);
+
+const whatsappWebhook = read("supabase/functions/citabot-whatsapp-webhook/index.ts");
+assert.match(whatsappWebhook, /function isWhatsAppOptOut/);
+assert.match(whatsappWebhook, /normalizeOptOutText/);
+assert.match(whatsappWebhook, /whatsapp_opted_out_at:optedOutAt/);
+assert.match(whatsappWebhook, /CITABOT_WHATSAPP_OPTOUT_RECORDED/);
+assert.match(whatsappWebhook, /if\(isWhatsAppOptOut\(text\)\)[\s\S]*?continue;/);
+
 console.log("Public Edge error-sanitization guard: OK");
