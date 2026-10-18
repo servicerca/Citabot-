@@ -1,18 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { isWhatsAppOptOut } from "./opt-out.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-hub-signature-256"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const VERIFY_TOKEN=Deno.env.get("WHATSAPP_VERIFY_TOKEN");const APP_SECRET=Deno.env.get("WHATSAPP_APP_SECRET");const ACCESS_TOKEN=Deno.env.get("WHATSAPP_ACCESS_TOKEN");const OPENAI_API_KEY=Deno.env.get("OPENAI_API_KEY");const OPENAI_MODEL=Deno.env.get("OPENAI_MODEL")||"gpt-5-mini";
 if(!SUPABASE_URL||!SERVICE_ROLE_KEY)throw new Error("Supabase server configuration is missing");const sb=createClient(SUPABASE_URL,SERVICE_ROLE_KEY);function logBackendFailure(event:string,error:unknown){const candidate=error&&typeof error==="object"&&"code" in error?(error as {code?:unknown}).code:null;const code=typeof candidate==="string"&&/^[A-Z0-9_]{1,20}$/.test(candidate)?candidate:"unknown";console.error(event,JSON.stringify({code}));}
 function hex(b:Uint8Array){return Array.from(b).map(x=>x.toString(16).padStart(2,"0")).join("")}function eq(a:string,b:string){if(a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)d|=a.charCodeAt(i)^b.charCodeAt(i);return d===0}
-function normalizeOptOutText(value:string){
- return value.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase()
-  .replace(/[^\p{L}\p{N}\s]/gu," ").replace(/\s+/g," ").trim();
-}
-function isWhatsAppOptOut(value:string){
- const text=normalizeOptOutText(value);
- if(/^(stop|baja|parar|unsubscribe|desuscribir|cancelar mensajes|no mas mensajes|no quiero mensajes|no quiero recibir mensajes|no me escribas|no me escriban|no me contacten|no mas whatsapp)$/.test(text))return true;
- return /(^|\s)(no me escribas|no me escriban|no me contacten|no quiero recibir mensajes|no quiero mas mensajes|no mas mensajes|deja de enviarme|dejen de enviarme|no me mandes mas mensajes|no me manden mas mensajes|cancelar mensajes|dar de baja mensajes|desuscribir)(\s|$)/.test(text);
-}
 async function verifySignature(raw:string,s:string|null){if(!APP_SECRET||!s?.startsWith("sha256="))return false;const k=await crypto.subtle.importKey("raw",new TextEncoder().encode(APP_SECRET),{name:"HMAC",hash:"SHA-256"},false,["sign"]);const d=await crypto.subtle.sign("HMAC",k,new TextEncoder().encode(raw));return eq(hex(new Uint8Array(d)),s.slice(7))}
 async function graphPost(phoneId:string,path:string,payload:unknown){if(!ACCESS_TOKEN)throw new Error("WHATSAPP_ACCESS_TOKEN is missing");const r=await fetch(`https://graph.facebook.com/v26.0/${phoneId}/${path}`,{method:"POST",headers:{Authorization:`Bearer ${ACCESS_TOKEN}`,"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`Meta Graph API ${path} failed (${r.status})`);return data}
 async function sendWhatsAppText(phoneId:string,to:string,body:string){return graphPost(phoneId,"messages",{messaging_product:"whatsapp",recipient_type:"individual",to,type:"text",text:{preview_url:false,body}})}async function markRead(phoneId:string,messageId:string){try{await graphPost(phoneId,"messages",{messaging_product:"whatsapp",status:"read",message_id:messageId})}catch(e){logBackendFailure("CITABOT_READ_RECEIPT_FAILED",e)}}
