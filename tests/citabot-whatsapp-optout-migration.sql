@@ -23,5 +23,5 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'WhatsApp opt-out guardrail migration: existing records preserved and explicit opt-out persisted';
-END
+END;
 $tests$;
