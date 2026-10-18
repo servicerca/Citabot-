@@ -122,10 +122,12 @@ assert.doesNotMatch(citabotAi, /error:lastProviderError/);
 
 
 const whatsappSend = read("supabase/functions/citabot-whatsapp-send/index.ts");
-assert.match(whatsappSend, /isInsideWhatsAppCustomerServiceWindow\(lastInbound\?\.created_at\)/);
+assert.match(whatsappSend, /isInsideWhatsAppCustomerServiceWindow\(lastInbound\?\.provider_timestamp\)/);
+assert.match(whatsappSend, /isInsideWhatsAppCustomerServiceWindow\(freshInbound\?\.provider_timestamp\)/);
 assert.match(whatsappSend, /customer\.whatsapp_opted_out_at/);
 assert.match(whatsappSend, /WHATSAPP_RECIPIENT_OPTED_OUT/);
 assert.match(whatsappSend, /WHATSAPP_SERVICE_WINDOW_CLOSED/);
+assert.match(whatsappSend, /\.not\("provider_timestamp", "is", null\)/);
 assert.ok(
   whatsappSend.lastIndexOf("WHATSAPP_SERVICE_WINDOW_CLOSED") < whatsappSend.indexOf("const { data: messageRow, error: queueError }"),
   "the final open-window guard must run after Meta validation and before queuing an outbound message"
@@ -139,18 +141,29 @@ assert.match(whatsappSend, /WHATSAPP_ACCESS_TOKEN/);
 assert.match(whatsappSend, /CITABOT_WHATSAPP_SEND_FAILED/);
 assert.doesNotMatch(whatsappSend, /error:\s*error instanceof Error\s*\?\s*error\.message/);
 
-const customerServiceWindow = read("supabase/functions/citabot-whatsapp-send/customer-service-window.ts");
+const customerServiceWindow = read("supabase/functions/_shared/whatsapp-compliance.ts");
 assert.match(customerServiceWindow, /24\s*\*\s*60\s*\*\s*60\s*\*\s*1000/);
 assert.match(customerServiceWindow, /age\s*>=\s*0/);
 assert.match(customerServiceWindow, /age\s*<\s*CUSTOMER_SERVICE_WINDOW_MS/);
+assert.match(customerServiceWindow, /function parseWhatsAppProviderTimestamp/);
+assert.match(customerServiceWindow, /timestampMs\s*>\s*nowMs/);
 
 const whatsappWebhook = read("supabase/functions/citabot-whatsapp-webhook/index.ts");
 assert.match(whatsappWebhook, /from ["']\.\/opt-out\.ts["']/);
+assert.match(whatsappWebhook, /from ["']\.\.\/_shared\/whatsapp-compliance\.ts["']/);
+assert.match(whatsappWebhook, /parseWhatsAppProviderTimestamp\(m\.timestamp\)/);
+assert.match(whatsappWebhook, /provider_timestamp:providerTimestamp/);
+assert.match(whatsappWebhook, /CITABOT_AUTOREPLY_SKIPPED_CLOSED_WINDOW/);
+assert.match(whatsappWebhook, /CITABOT_OPTOUT_ACK_SKIPPED_CLOSED_WINDOW/);
 assert.match(whatsappWebhook, /whatsapp_opted_out_at:optedOutAt/);
 assert.match(whatsappWebhook, /CITABOT_WHATSAPP_OPTOUT_RECORDED/);
 assert.match(whatsappWebhook, /if\(isWhatsAppOptOut\(text\)\)[\s\S]*?continue;/);
 const whatsappOptOut = read("supabase/functions/citabot-whatsapp-webhook/opt-out.ts");
 assert.match(whatsappOptOut, /function isWhatsAppOptOut/);
 assert.match(whatsappOptOut, /normalizeOptOutText/);
+
+const providerTimestampMigration = read("supabase/migrations/20261018074500_citabot_whatsapp_provider_timestamp.sql");
+assert.match(providerTimestampMigration, /ADD COLUMN IF NOT EXISTS provider_timestamp timestamptz/i);
+assert.match(providerTimestampMigration, /messages_whatsapp_inbound_provider_ts_idx/);
 
 console.log("Public Edge error-sanitization guard: OK");
