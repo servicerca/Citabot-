@@ -91,6 +91,40 @@ Deno.serve(async (req) => {
       console.error("citabot-whatsapp-send phone validation failed", { status: phoneCheck.status, phoneNumberId, code: e.code, type: e.type, subcode: e.subcode, fbtrace_id: e.fbtrace_id });
       return json({ ok: false, stage: "phone_validation", error: "No se pudo validar la conexión del número de WhatsApp con Meta.", meta_status: phoneCheck.status, meta_code: e.code, meta_type: e.type, meta_subcode: e.subcode, fbtrace_id: e.fbtrace_id, recommendation: recommendation(e.code, e.message) });
     }
+    // Repeat the consent/window check after Meta's network validation, immediately
+    // before queuing the message, so a slow validation cannot cross the 24-hour
+    // boundary or overlook an opt-out received during the request.
+    const { data: latestCustomer, error: latestCustomerError } = await sb.from("customers")
+      .select("whatsapp_opted_out_at")
+      .eq("id", customer.id)
+      .eq("business_id", customer.business_id)
+      .maybeSingle();
+    if (latestCustomerError || !latestCustomer) {
+      return json({ ok: false, error: "No se pudo volver a comprobar el consentimiento del cliente. No se envió nada." }, 503);
+    }
+    if (latestCustomer.whatsapp_opted_out_at) {
+      return json({ ok: false, code: "WHATSAPP_RECIPIENT_OPTED_OUT", error: "Este cliente pidió no recibir más mensajes por WhatsApp. No se ha enviado nada." }, 403);
+    }
+    const { data: freshInbound, error: freshInboundError } = await sb.from("messages")
+      .select("created_at")
+      .eq("business_id", customer.business_id)
+      .eq("customer_id", customer.id)
+      .eq("channel", "whatsapp")
+      .eq("direction", "inbound")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (freshInboundError) {
+      return json({ ok: false, error: "No se pudo volver a comprobar la ventana de atención. No se envió nada." }, 503);
+    }
+    if (!isInsideWhatsAppCustomerServiceWindow(freshInbound?.created_at)) {
+      return json({
+        ok: false,
+        code: "WHATSAPP_SERVICE_WINDOW_CLOSED",
+        error: "La ventana de atención de WhatsApp ya está cerrada. No se envió nada; hace falta una plantilla aprobada por Meta y el consentimiento correspondiente.",
+      }, 409);
+    }
+
     const { data: messageRow, error: queueError } = await sb.from("messages").insert({
       business_id: customer.business_id,
       customer_id: customer.id,
