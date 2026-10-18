@@ -241,6 +241,12 @@ Deno.serve(async (req) => {
     if (prior?.provider_subscription_id) {
       const remote = await checkPreapproval(String(prior.provider_subscription_id));
       if (remote.status === "authorized") {
+        if (!["professional", "premium"].includes(prior.plan)) {
+          return json({
+            ok: false,
+            error: "El estado de la suscripción local no coincide con Mercado Pago. No se creó otro cobro y la cuenta requiere conciliación.",
+          }, 503);
+        }
         if (prior.status !== "active") {
           const mark = await admin.from("subscriptions").update({
             status: "active", updated_at: new Date().toISOString(),
@@ -332,11 +338,23 @@ Deno.serve(async (req) => {
 
     const providerData = await createResponse.json().catch(() => ({}));
     if (!createResponse.ok) {
+      console.error("CITABOT_PROFESSIONAL_PREAPPROVAL_CREATE_FAILED", JSON.stringify({ status: createResponse.status }));
+      if (createResponse.status >= 500) {
+        await setChangeReconciliation(reconciliationId, {
+          state: "reconciliation_required", phase: "rollback_unconfirmed", new_subscription_id: null,
+          error_code: "PROVIDER_CREATE_HTTP_5XX_UNKNOWN",
+        });
+        return json({
+          ok: false,
+          error: "Mercado Pago no confirmó el resultado de la solicitud. No intentes otro cambio hasta revisar esta referencia.",
+          reconciliation_required: true,
+          reconciliation_reference: reconciliationId,
+        }, 503);
+      }
       await setChangeReconciliation(reconciliationId, {
         state: "resolved", phase: "finished", new_subscription_id: null, error_code: "PROVIDER_CREATE_REJECTED",
       });
-      console.error("CITABOT_PROFESSIONAL_PREAPPROVAL_CREATE_FAILED", JSON.stringify({ status: createResponse.status }));
-      return json({ ok: false, error: "Mercado Pago no pudo crear la solicitud Profesional. El plan actual no se modificó." }, 502);
+      return json({ ok: false, error: "Mercado Pago rechazó la solicitud Profesional. El plan actual no se modificó." }, 502);
     }
 
     const newProviderId = providerData?.id == null ? "" : String(providerData.id);
