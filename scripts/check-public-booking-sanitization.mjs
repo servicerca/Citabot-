@@ -127,8 +127,13 @@ assert.match(whatsappSend, /customer\.whatsapp_opted_out_at/);
 assert.match(whatsappSend, /WHATSAPP_RECIPIENT_OPTED_OUT/);
 assert.match(whatsappSend, /WHATSAPP_SERVICE_WINDOW_CLOSED/);
 assert.ok(
-  whatsappSend.indexOf("WHATSAPP_SERVICE_WINDOW_CLOSED") < whatsappSend.indexOf("sb.from(\"messages\").insert"),
-  "the open-window guard must run before writing an outbound message"
+  whatsappSend.lastIndexOf("WHATSAPP_SERVICE_WINDOW_CLOSED") < whatsappSend.indexOf("const { data: messageRow, error: queueError }"),
+  "the final open-window guard must run after Meta validation and before queuing an outbound message"
+);
+assert.match(whatsappSend, /latestCustomer\.whatsapp_opted_out_at/);
+assert.ok(
+  whatsappSend.indexOf("latestCustomer.whatsapp_opted_out_at") < whatsappSend.indexOf("const { data: messageRow, error: queueError }"),
+  "the final opt-out check must run before queuing an outbound message"
 );
 assert.match(whatsappSend, /WHATSAPP_ACCESS_TOKEN/);
 assert.match(whatsappSend, /CITABOT_WHATSAPP_SEND_FAILED/);
