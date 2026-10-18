@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { isInsideWhatsAppCustomerServiceWindow } from "./customer-service-window.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -21,7 +22,6 @@ function recommendation(code: number | null, message: string | null) {
   if (code === 190) return "La credencial fue rechazada o expiró. Validar el estado del token y volver a autorizar solo después de confirmar el acceso de la app y del negocio.";
   return "Revisar el estado y permisos de la integración de WhatsApp en Meta.";
 }
-const WHATSAPP_CUSTOMER_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 function logSendFailure(event: string, error: unknown) {
   const candidate = error && typeof error === "object" && "code" in error
     ? (error as { code?: unknown }).code
@@ -69,9 +69,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
     if (inboundError) return json({ ok: false, error: "No se pudo comprobar la ventana de atención de WhatsApp." }, 500);
-    const inboundAt = lastInbound?.created_at ? Date.parse(lastInbound.created_at) : Number.NaN;
-    const inboundAge = Date.now() - inboundAt;
-    if (!Number.isFinite(inboundAt) || inboundAge < 0 || inboundAge >= WHATSAPP_CUSTOMER_SERVICE_WINDOW_MS) {
+    if (!isInsideWhatsAppCustomerServiceWindow(lastInbound?.created_at)) {
       return json({
         ok: false,
         code: "WHATSAPP_SERVICE_WINDOW_CLOSED",
