@@ -53,5 +53,5 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'Professional subscription reconciliation migration: both plans accepted, unsupported plan rejected, one unresolved row per business enforced, client access denied';
-END
+END;
 $tests$;
