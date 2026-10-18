@@ -238,7 +238,7 @@ Deno.serve(async (req) => {
 
     // Recover the same provider checkout instead of creating a second one when
     // the user retries after losing the original response.
-    if (prior?.provider_subscription_id && ["active", "pending"].includes(prior.status)) {
+    if (prior?.provider_subscription_id) {
       const remote = await checkPreapproval(String(prior.provider_subscription_id));
       if (remote.status === "authorized") {
         if (prior.status !== "active") {
@@ -257,10 +257,19 @@ Deno.serve(async (req) => {
           }).eq("id", prior.id).select("id").maybeSingle();
           throwOnDbError("pending_subscription_status_update", mark.error);
           if (!mark.data?.id) throw new Error("PENDING_SUBSCRIPTION_UPDATE_MISSING");
+          prior.status = "pending";
+        }
+        if (prior.plan !== "professional") {
+          return json({
+            ok: false,
+            error: "Ya hay una suscripción de otro plan pendiente. No se creó un segundo cobro; completa o cancela el cambio existente desde su plan correspondiente.",
+            current_plan: prior.plan,
+            status: "pending",
+          }, 409);
         }
         return json({
           ok: true, already_pending: true, subscription_id: prior.provider_subscription_id,
-          init_point: remote.initPoint, status: "pending", plan: prior.plan, amount: prior.plan === "premium" ? 69900 : 59900,
+          init_point: remote.initPoint, status: "pending", plan: "professional", amount: 59900,
         });
       }
       if (isCancelled(remote.status)) {
@@ -269,6 +278,7 @@ Deno.serve(async (req) => {
         }).eq("id", prior.id).select("id").maybeSingle();
         throwOnDbError("cancelled_subscription_status_update", mark.error);
         if (!mark.data?.id) throw new Error("CANCELLED_SUBSCRIPTION_UPDATE_MISSING");
+        prior.status = "cancelled";
       } else {
         return json({
           ok: false,
