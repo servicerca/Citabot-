@@ -65,3 +65,9 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261018074500_citabot_whatsapp_provider_timestamp.sql
       - name: Verify provider timestamp semantics and lookup index
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-whatsapp-provider-timestamp-migration.sql
+      - name: Create disposable subscription-reconciliation fixture
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-professional-reconciliation-fixture.sql
+      - name: Apply Professional reconciliation migration
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261018070000_citabot_allow_professional_subscription_reconciliation.sql
+      - name: Verify Professional reconciliation, race lock, and client privileges
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-professional-reconciliation-migration.sql
