@@ -60,16 +60,17 @@ Deno.serve(async (req) => {
       return json({ ok: false, code: "WHATSAPP_RECIPIENT_OPTED_OUT", error: "Este cliente pidió no recibir más mensajes por WhatsApp. No se ha enviado nada." }, 403);
     }
     const { data: lastInbound, error: inboundError } = await sb.from("messages")
-      .select("created_at")
+      .select("provider_timestamp")
       .eq("business_id", customer.business_id)
       .eq("customer_id", customer.id)
       .eq("channel", "whatsapp")
       .eq("direction", "inbound")
-      .order("created_at", { ascending: false })
+      .not("provider_timestamp", "is", null)
+      .order("provider_timestamp", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (inboundError) return json({ ok: false, error: "No se pudo comprobar la ventana de atención de WhatsApp." }, 500);
-    if (!isInsideWhatsAppCustomerServiceWindow(lastInbound?.created_at)) {
+    if (!isInsideWhatsAppCustomerServiceWindow(lastInbound?.provider_timestamp)) {
       return json({
         ok: false,
         code: "WHATSAPP_SERVICE_WINDOW_CLOSED",
@@ -106,18 +107,19 @@ Deno.serve(async (req) => {
       return json({ ok: false, code: "WHATSAPP_RECIPIENT_OPTED_OUT", error: "Este cliente pidió no recibir más mensajes por WhatsApp. No se ha enviado nada." }, 403);
     }
     const { data: freshInbound, error: freshInboundError } = await sb.from("messages")
-      .select("created_at")
+      .select("provider_timestamp")
       .eq("business_id", customer.business_id)
       .eq("customer_id", customer.id)
       .eq("channel", "whatsapp")
       .eq("direction", "inbound")
-      .order("created_at", { ascending: false })
+      .not("provider_timestamp", "is", null)
+      .order("provider_timestamp", { ascending: false })
       .limit(1)
       .maybeSingle();
     if (freshInboundError) {
       return json({ ok: false, error: "No se pudo volver a comprobar la ventana de atención. No se envió nada." }, 503);
     }
-    if (!isInsideWhatsAppCustomerServiceWindow(freshInbound?.created_at)) {
+    if (!isInsideWhatsAppCustomerServiceWindow(freshInbound?.provider_timestamp)) {
       return json({
         ok: false,
         code: "WHATSAPP_SERVICE_WINDOW_CLOSED",
