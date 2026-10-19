@@ -108,7 +108,7 @@ assert.match(
   
 assert.match(
   serviceRoleRevocation,
-  /REVOKE EXECUTE ON FUNCTION public\\.create_citabot_business_onboarding\\(text,\\s*text,\\s*text,\\s*text,\\s*text\\)\\s+FROM service_role/i,
+  /REVOKE EXECUTE ON FUNCTION public\.create_citabot_business_onboarding\(text,\s*text,\s*text,\s*text,\s*text\)\s+FROM service_role/i,
   "service_role must not execute the owner-bound onboarding RPC directly"
 );
 
