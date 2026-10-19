@@ -11,6 +11,15 @@ const directWriteMigration = readFileSync(
   "utf8"
 );
 
+const onboardingImplementation = readFileSync(
+  "supabase/migrations/20261013045141_citabot_guard_onboarding_retries_and_slug_collisions.sql",
+  "utf8"
+);
+const searchPathHardening = readFileSync(
+  "supabase/migrations/20261016231136_harden_citabot_business_onboarding_search_path.sql",
+  "utf8"
+);
+
 assert.match(
   migration,
   /ALTER FUNCTION public\.create_citabot_business_onboarding\(text, text, text, text, text\)\s+SECURITY DEFINER/i,
@@ -35,6 +44,60 @@ assert.doesNotMatch(
   migration,
   /GRANT\s+INSERT\s+ON\s+TABLE\s+public\.subscriptions\s+TO\s+(?:PUBLIC|anon|authenticated)/i,
   "do not solve onboarding by exposing client inserts into subscriptions"
+);
+
+assert.match(
+  onboardingImplementation,
+  /CREATE OR REPLACE FUNCTION public\.create_citabot_business_onboarding\(/i,
+  "the implementation covered by the guard must be the actual onboarding RPC body"
+);
+assert.match(
+  onboardingImplementation,
+  /v_user_id uuid := auth\.uid\(\)/i,
+  "the RPC owner must come from Supabase auth.uid(), never from a caller-supplied owner id"
+);
+assert.match(
+  onboardingImplementation,
+  /IF v_user_id IS NULL THEN\s+RAISE EXCEPTION 'Sesión requerida'/i,
+  "the definer function must reject a request with no authenticated user"
+);
+assert.match(
+  onboardingImplementation,
+  /IF EXISTS \([\s\S]*FROM public\.businesses b[\s\S]*WHERE b\.owner_id = v_user_id[\s\S]*\) THEN\s+RAISE EXCEPTION/i,
+  "an owner with a business must not obtain another free trial through repeated RPC calls"
+);
+const ownerLockAt = onboardingImplementation.indexOf("citabot-user-onboarding:");
+const ownerCheckAt = onboardingImplementation.indexOf("WHERE b.owner_id = v_user_id");
+assert.ok(ownerLockAt >= 0 && ownerCheckAt > ownerLockAt, "per-owner advisory lock must precede the duplicate-onboarding check");
+assert.match(
+  onboardingImplementation,
+  /pg_advisory_xact_lock\([\s\S]*citabot-business-slug:/i,
+  "slug allocation must be serialized to prevent concurrent duplicate slugs"
+);
+assert.match(
+  onboardingImplementation,
+  /INSERT INTO public\.businesses\([\s\S]*owner_id, name, slug[\s\S]*VALUES \([\s\S]*v_user_id/i,
+  "the new business must be assigned to the authenticated owner"
+);
+assert.match(
+  onboardingImplementation,
+  /INSERT INTO public\.business_members\(business_id, user_id, role\)\s+VALUES \(v_business\.id, v_user_id, 'owner'\)/i,
+  "the owner membership must be assigned to that same authenticated user"
+);
+assert.match(
+  onboardingImplementation,
+  /INSERT INTO public\.subscriptions\([\s\S]*business_id, plan, status[\s\S]*VALUES \([\s\S]*v_business\.id, 'trial', 'trialing'/i,
+  "trial subscription creation must be atomic and bound to the newly created owned business"
+);
+assert.match(
+  searchPathHardening,
+  /ALTER FUNCTION public\.create_citabot_business_onboarding\(text, text, text, text, text\)\s+SET search_path = pg_catalog/i,
+  "latest production hardening must pin the definer search_path to pg_catalog"
+);
+assert.match(
+  searchPathHardening,
+  /COMMENT ON FUNCTION public\.create_citabot_business_onboarding[\s\S]*authenticated execution is required/i,
+  "the intentional authenticated-only definer exception must explain its owner-bound onboarding safeguards"
 );
 
 
