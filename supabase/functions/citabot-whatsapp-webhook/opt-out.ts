@@ -5,10 +5,10 @@ export function normalizeOptOutText(value: string): string {
 
 export function isWhatsAppOptOut(value: string): boolean {
   const text = normalizeOptOutText(value);
-  if (/^(stop|baja|parar|unsubscribe|desuscribir|opt out|cancelar mensajes|no mas mensajes|no quiero mensajes|no quiero recibir mensajes|no me escribas|no me escriban|no me contacten|no mas whatsapp|stop messaging me|please stop|do not contact me|do not message me|dont message me)$/.test(text)) {
+  if (/^(stop|baja|parar|unsubscribe|unsubscribe me|remove me|remove me from your list|desuscribir|opt out|cancelar mensajes|no mas mensajes|no quiero mensajes|no quiero recibir mensajes|no quiero recibir whatsapp|no me escribas|no me escriban|no me contactes|no me contacten|no me hables|no mas whatsapp|stop messaging me|stop texting me|please stop|do not contact me|do not message me|do not text me|do not send me messages|dont message me|dont text me)$/.test(text)) {
     return true;
   }
-  return /(^|\s)(no me escribas|no me escriban|no me contacten|no quiero recibir mensajes|no quiero mas mensajes|no mas mensajes|deja de enviarme|dejen de enviarme|no me mandes mas mensajes|no me manden mas mensajes|cancelar mensajes|dar de baja mensajes|desuscribir|stop messaging|do not contact me|do not message me|dont message me)(\s|$)/.test(text);
+  return /(^|\s)(no me escribas|no me escriban|no me contactes|no me contacten|no me vuelvas a escribir|no me hables|no quiero recibir mensajes|no quiero recibir mas mensajes|no quiero recibir whatsapp|no quiero mensajes promocionales|no deseo recibir mensajes|no deseo mensajes|no quiero mas mensajes|no mas mensajes|deja de enviarme|dejen de enviarme|no me mandes mas mensajes|no me manden mas mensajes|no me envies mas mensajes|no me envien mas mensajes|no me escribas mas|retira mi numero|retiren mi numero|sacame de la lista|sacame de sus listas|elimina mi numero|cancelar mensajes|dar de baja mensajes|desuscribir|stop messaging|stop texting me|do not contact me|do not message me|do not text me|do not send me messages|do not send me any more messages|dont message me|dont text me|remove me from your list)(\s|$)/.test(text);
 }
 export type WhatsAppOptOutCustomer = {
   id: string;
