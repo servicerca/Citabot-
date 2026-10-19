@@ -21,7 +21,7 @@ const searchPathHardening = readFileSync(
 );
 
 const serviceRoleRevocation = readFileSync(
-  "supabase/migrations/20261019010000_citabot_revoke_service_role_business_onboarding_execute.sql",
+  "supabase/migrations/20261019013052_citabot_revoke_service_role_business_onboarding_execute.sql",
   "utf8"
 );
 
