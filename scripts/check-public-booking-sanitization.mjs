@@ -162,7 +162,7 @@ const whatsappOptOut = read("supabase/functions/citabot-whatsapp-webhook/opt-out
 assert.match(whatsappOptOut, /function isWhatsAppOptOut/);
 assert.match(whatsappOptOut, /normalizeOptOutText/);
 
-const providerTimestampMigration = read("supabase/migrations/20261019005500_citabot_whatsapp_provider_timestamp.sql");
+const providerTimestampMigration = read("supabase/migrations/20261019013600_citabot_whatsapp_provider_timestamp.sql");
 assert.match(providerTimestampMigration, /ADD COLUMN IF NOT EXISTS provider_timestamp timestamptz/i);
 assert.match(providerTimestampMigration, /messages_whatsapp_inbound_provider_ts_idx/);
 
@@ -178,7 +178,7 @@ assert.ok(
   professionalSubscribe.indexOf("reserveCheckout(businessId, prior)") < professionalSubscribe.indexOf('fetch("https://api.mercadopago.com/preapproval", {'),
   "Professional checkout must reserve the per-business lock before creating Mercado Pago's preapproval"
 );
-const professionalReconciliationMigration = read("supabase/migrations/20261019005300_citabot_allow_professional_subscription_reconciliation.sql");
+const professionalReconciliationMigration = read("supabase/migrations/20261019013400_citabot_allow_professional_subscription_reconciliation.sql");
 assert.match(professionalReconciliationMigration, /drop constraint if exists subscription_change_reconciliation_new_plan_check/i);
 assert.match(professionalReconciliationMigration, /check \(new_plan in \('premium', 'professional'\)\)/i);
 
