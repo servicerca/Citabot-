@@ -20,6 +20,14 @@ BEGIN
     RAISE EXCEPTION 'authenticated must not directly execute the trigger-only function';
   END IF;
 
+  IF has_function_privilege(
+    'service_role',
+    'public.prevent_profile_role_escalation()',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'service_role must not directly execute the trigger-only function';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM pg_trigger t

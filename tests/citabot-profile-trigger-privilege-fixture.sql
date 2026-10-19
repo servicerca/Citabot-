@@ -1,5 +1,6 @@
 -- Disposable fixture for validating direct privileges on trigger-only functions.
 -- Runs only in CI's temporary PostgreSQL service; never run against production.
+CREATE ROLE service_role NOLOGIN;
 CREATE TABLE public.profiles (
   id uuid PRIMARY KEY,
   role text NOT NULL
@@ -30,4 +31,4 @@ EXECUTE FUNCTION public.prevent_profile_role_escalation();
 
 -- Model the unnecessary default/explicit API execution grants found in production.
 GRANT EXECUTE ON FUNCTION public.prevent_profile_role_escalation()
-  TO PUBLIC, anon, authenticated;
+  TO PUBLIC, anon, authenticated, service_role;

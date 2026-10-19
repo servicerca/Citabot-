@@ -210,7 +210,10 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-profile-trigger-privilege-fixture.sql
 
       - name: Apply profile trigger execute revocation
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019004000_citabot_revoke_trigger_function_execute.sql
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019004218_citabot_revoke_trigger_function_execute.sql
+
+      - name: Revoke remaining service-role execute grant
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019005000_citabot_revoke_service_role_trigger_execute.sql
 
       - name: Verify direct execute is revoked and trigger still works
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-profile-trigger-privilege-integration.sql
