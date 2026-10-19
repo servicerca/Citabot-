@@ -10,6 +10,7 @@ on:
       - "scripts/check-onboarding-rpc-security.mjs"
       - "scripts/check-trigger-function-privileges.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
+      - "tests/citabot-profile-trigger-privilege-*.sql"
       - ".github/workflows/backend-contracts.yml"
   pull_request:
     paths:
@@ -19,6 +20,7 @@ on:
       - "scripts/check-onboarding-rpc-security.mjs"
       - "scripts/check-trigger-function-privileges.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
+      - "tests/citabot-profile-trigger-privilege-*.sql"
       - ".github/workflows/backend-contracts.yml"
   workflow_dispatch:
 
@@ -203,3 +205,12 @@ jobs:
 
       - name: Verify onboarding auth, direct-write restriction, trial limits, and slug collisions
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-integration.sql
+
+      - name: Create disposable profile trigger privilege fixture
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-profile-trigger-privilege-fixture.sql
+
+      - name: Apply profile trigger execute revocation
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019004000_citabot_revoke_trigger_function_execute.sql
+
+      - name: Verify direct execute is revoked and trigger still works
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-profile-trigger-privilege-integration.sql
