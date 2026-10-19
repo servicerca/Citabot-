@@ -8,6 +8,7 @@ on:
       - "supabase/migrations/**"
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
+      - "scripts/check-trigger-function-privileges.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
       - ".github/workflows/backend-contracts.yml"
   pull_request:
@@ -16,6 +17,7 @@ on:
       - "supabase/migrations/**"
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
+      - "scripts/check-trigger-function-privileges.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
       - ".github/workflows/backend-contracts.yml"
   workflow_dispatch:
@@ -67,6 +69,9 @@ jobs:
 
       - name: Guard secure business onboarding RPC privileges
         run: node scripts/check-onboarding-rpc-security.mjs
+
+      - name: Guard trigger-only profile function privileges
+        run: node scripts/check-trigger-function-privileges.mjs
 
       - name: Verify public and protected production function contracts
         if: github.event_name != 'pull_request'
