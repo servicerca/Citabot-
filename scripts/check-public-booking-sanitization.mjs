@@ -120,4 +120,13 @@ assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./
 assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
 
-console.log("Public Edge error-sanitization guard: OK");
+
+const whatsappSend = read("supabase/functions/citabot-whatsapp-send/index.ts");
+
+// Browser calls carrying Authorization + JSON must pass the OPTIONS preflight.
+assert.match(citabotAi, /"Access-Control-Allow-Methods":"POST, OPTIONS"/);
+assert.match(citabotAi, /if\(req\.method==="OPTIONS"\) return new Response\("ok",\{headers:cors\}\)/);
+assert.match(whatsappSend, /"Access-Control-Allow-Methods": "POST, OPTIONS"/);
+assert.match(whatsappSend, /if \(req\.method === "OPTIONS"\) return new Response\("ok", \{ headers: cors \}\)/);
+
+console.log("Public Edge error-sanitization and CORS guards: OK");
