@@ -203,6 +203,12 @@ jobs:
       - name: Restrict authenticated business updates to supported fields
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261015000100_citabot_restrict_business_update_columns.sql
 
+      - name: Recreate observed service-role onboarding grant in disposable PostgreSQL
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-service-role-grant-fixture.sql
+
+      - name: Revoke service-role execute on the owner-bound onboarding RPC
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019010000_citabot_revoke_service_role_business_onboarding_execute.sql
+
       - name: Verify onboarding auth, direct-write restriction, trial limits, and slug collisions
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-onboarding-rpc-integration.sql
 
