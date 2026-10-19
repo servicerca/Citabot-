@@ -23,7 +23,7 @@ assert.doesNotMatch(
 );
 
 const serviceRoleMigration = readFileSync(
-  "supabase/migrations/20261019005000_citabot_revoke_service_role_trigger_execute.sql",
+  "supabase/migrations/20261019004901_citabot_revoke_service_role_trigger_execute.sql",
   "utf8"
 );
 
