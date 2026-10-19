@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const migration = readFileSync(
-  "supabase/migrations/20261019004000_citabot_revoke_trigger_function_execute.sql",
+  "supabase/migrations/20261019004218_citabot_revoke_trigger_function_execute.sql",
   "utf8"
 );
 
