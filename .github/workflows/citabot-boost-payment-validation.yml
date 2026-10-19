@@ -62,7 +62,7 @@ jobs:
       - name: Verify Professional reconciliation, race lock, and client privileges
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-professional-reconciliation-migration.sql
 
-- name: Create disposable WhatsApp opt-out fixture
+      - name: Create disposable WhatsApp opt-out fixture
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-whatsapp-optout-fixture.sql
       - name: Apply WhatsApp opt-out guardrail migration
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019013500_citabot_whatsapp_optout_guardrails.sql
