@@ -14,10 +14,19 @@ Deno.test("detecta comandos de baja en español e inglés, con mayúsculas y ace
     "No me escribas más, por favor",
     "No me mandes más mensajes",
     "No me contacten de nuevo",
+    "No me contactes",
+    "Por favor, no me contactes otra vez",
+    "No me hables más",
+    "No quiero mensajes promocionales",
+    "Sácame de la lista",
     "Cancelar mensajes",
     "Please stop",
     "Stop messaging me",
+    "Stop texting me",
+    "Unsubscribe me",
+    "Remove me from your list",
     "Do not contact me",
+    "Do not text me",
   ];
   for (const message of positives) {
     assert(isWhatsAppOptOut(message), `Debía detectar una baja: ${message}`);
