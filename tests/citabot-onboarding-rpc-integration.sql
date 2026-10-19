@@ -23,6 +23,13 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'anonymous role must not be able to execute onboarding';
   END IF;
+  IF has_function_privilege(
+    'service_role',
+    'public.create_citabot_business_onboarding(text,text,text,text,text)',
+    'EXECUTE'
+  ) THEN
+    RAISE EXCEPTION 'service_role must not be able to execute owner-bound onboarding';
+  END IF;
 
   -- Authenticated callers may create their first business only through the
   -- atomic RPC; direct table inserts would bypass the one-trial and membership guard.

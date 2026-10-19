@@ -1,6 +1,12 @@
 -- Disposable fixture for validating direct privileges on trigger-only functions.
 -- Runs only in CI's temporary PostgreSQL service; never run against production.
-CREATE ROLE service_role NOLOGIN;
+DO $role$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role NOLOGIN;
+  END IF;
+END;
+$role$;
 CREATE TABLE public.profiles (
   id uuid PRIMARY KEY,
   role text NOT NULL

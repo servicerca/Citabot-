@@ -20,6 +20,11 @@ const searchPathHardening = readFileSync(
   "utf8"
 );
 
+const serviceRoleRevocation = readFileSync(
+  "supabase/migrations/20261019010000_citabot_revoke_service_role_business_onboarding_execute.sql",
+  "utf8"
+);
+
 assert.match(
   migration,
   /ALTER FUNCTION public\.create_citabot_business_onboarding\(text, text, text, text, text\)\s+SECURITY DEFINER/i,
@@ -100,6 +105,12 @@ assert.match(
   "the intentional authenticated-only definer exception must explain its owner-bound onboarding safeguards"
 );
 
+  
+assert.match(
+  serviceRoleRevocation,
+  /REVOKE EXECUTE ON FUNCTION public\.create_citabot_business_onboarding\(text,\s*text,\s*text,\s*text,\s*text\)\s+FROM service_role/i,
+  "service_role must not execute the owner-bound onboarding RPC directly"
+);
 
 assert.match(
   directWriteMigration,
