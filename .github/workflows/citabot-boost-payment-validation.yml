@@ -55,3 +55,20 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014052344_citabot_allow_refunded_boost_orders.sql
       - name: Verify all documented order states
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-boost-status-migration.sql
+      - name: Create disposable subscription-reconciliation fixture
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-professional-reconciliation-fixture.sql
+      - name: Apply Professional reconciliation migration
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019013400_citabot_allow_professional_subscription_reconciliation.sql
+      - name: Verify Professional reconciliation, race lock, and client privileges
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-professional-reconciliation-migration.sql
+
+- name: Create disposable WhatsApp opt-out fixture
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-whatsapp-optout-fixture.sql
+      - name: Apply WhatsApp opt-out guardrail migration
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019013500_citabot_whatsapp_optout_guardrails.sql
+      - name: Verify opt-out fields and backward-compatible customer records
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-whatsapp-optout-migration.sql
+      - name: Apply WhatsApp provider timestamp migration
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019013600_citabot_whatsapp_provider_timestamp.sql
+      - name: Verify provider timestamp semantics and lookup index
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-whatsapp-provider-timestamp-migration.sql
