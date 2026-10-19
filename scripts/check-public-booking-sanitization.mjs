@@ -121,7 +121,12 @@ assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
 
 
+assert.match(citabotAi, /"Access-Control-Allow-Methods":"POST, OPTIONS"/);
+assert.match(citabotAi, /if\(req\.method==="OPTIONS"\) return new Response\("ok",\{headers:cors\}\)/);
+
 const whatsappSend = read("supabase/functions/citabot-whatsapp-send/index.ts");
+assert.match(whatsappSend, /"Access-Control-Allow-Methods": "POST, OPTIONS"/);
+assert.match(whatsappSend, /if \(req\.method === "OPTIONS"\) return new Response\("ok", \{ headers: cors \}\)/);
 assert.match(whatsappSend, /isInsideWhatsAppCustomerServiceWindow\(lastInbound\?\.provider_timestamp\)/);
 assert.match(whatsappSend, /isInsideWhatsAppCustomerServiceWindow\(freshInbound\?\.provider_timestamp\)/);
 assert.match(whatsappSend, /customer\.whatsapp_opted_out_at/);
