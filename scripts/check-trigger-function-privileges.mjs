@@ -29,12 +29,12 @@ const serviceRoleMigration = readFileSync(
 
 assert.match(
   serviceRoleMigration,
-  /REVOKE EXECUTE ON FUNCTION public\.prevent_profile_role_escalation\\(\\)\\s+FROM service_role/i,
+  /REVOKE EXECUTE ON FUNCTION public\.prevent_profile_role_escalation\(\)\s+FROM service_role/i,
   "service_role must not retain a separate direct execution grant on the trigger-only function"
 );
 assert.match(
   serviceRoleMigration,
-  /COMMENT ON FUNCTION public\.prevent_profile_role_escalation\\(\\)[\\s\\S]*service_role must not execute it directly/i,
+  /COMMENT ON FUNCTION public\.prevent_profile_role_escalation\(\)[\s\S]*service_role must not execute it directly/i,
   "the follow-up migration must document why the service role is also denied direct execution"
 );
 
