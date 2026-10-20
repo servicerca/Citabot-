@@ -21,7 +21,7 @@ Deno.test("parsea el timestamp Unix en segundos remitido por Meta", () => {
 
 Deno.test("rechaza timestamp de proveedor ausente, mal formado o futuro", () => {
   const now = Date.UTC(2026, 9, 18, 12, 0, 0);
-  for (const value of [null, undefined, "", "not-a-timestamp", "123", 0, -1, Math.floor(now / 1000) + 60]) {
+  for (const value of [null, undefined, "", "not-a-timestamp", "123", 123, 0, -1, 1_800_000_000_000, Math.floor(now / 1000) + 60]) {
     assert(parseWhatsAppProviderTimestamp(value, now) === null, "No debía aceptar un timestamp inválido.");
   }
 });
