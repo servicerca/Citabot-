@@ -23,7 +23,7 @@ export function parseWhatsAppProviderTimestamp(
   const seconds =
     typeof value === "string" && /^\d{9,11}$/.test(value)
       ? Number(value)
-      : typeof value === "number" && Number.isSafeInteger(value)
+      : typeof value === "number" && Number.isSafeInteger(value) && /^\d{9,11}$/.test(String(value))
         ? value
         : Number.NaN;
   if (!Number.isSafeInteger(seconds) || seconds <= 0) return null;
