@@ -51,10 +51,13 @@ jobs:
         run: deno test supabase/functions/citabot-ai/request-validation.test.ts
 
       - name: Test CitaBot platform-admin pagination boundaries
-        run: deno test supabase/functions/citabot-platform-admin/pagination.test.ts
+        run: deno test supabase/functions/citabot-platform-admin/pagination.test.ts 
+
+      - name: Test WhatsApp opt-out and customer-service window boundaries
+        run: deno test supabase/functions/citabot-whatsapp-webhook/opt-out.test.ts supabase/functions/citabot-whatsapp-send/customer-service-window.test.ts supabase/functions/_shared/whatsapp-compliance.test.ts
 
       - name: Type-check production Edge Functions
-        run: deno check supabase/functions/citabot-ai/index.ts supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts supabase/functions/citabot-commercial-checkout/index.ts supabase/functions/citabot-mercadopago-subscribe/index.ts supabase/functions/citabot-platform-admin/index.ts
+        run: deno check supabase/functions/citabot-ai/index.ts supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts supabase/functions/citabot-commercial-checkout/index.ts supabase/functions/citabot-mercadopago-subscribe/index.ts supabase/functions/citabot-platform-admin/index.ts supabase/functions/citabot-whatsapp-send/index.ts supabase/functions/citabot-whatsapp-webhook/index.ts
 
       - name: Reject obsolete database field references
         shell: bash

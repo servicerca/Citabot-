@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { isInsideWhatsAppCustomerServiceWindow } from "./customer-service-window.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -22,6 +23,13 @@ function recommendation(code: number | null, message: string | null) {
   if (code === 190) return "La credencial fue rechazada o expiró. Validar el estado del token y volver a autorizar solo después de confirmar el acceso de la app y del negocio.";
   return "Revisar el estado y permisos de la integración de WhatsApp en Meta.";
 }
+function logSendFailure(event: string, error: unknown) {
+  const candidate = error && typeof error === "object" && "code" in error
+    ? (error as { code?: unknown }).code
+    : null;
+  const code = typeof candidate === "string" && /^[A-Z0-9_]{1,20}$/.test(candidate) ? candidate : "unknown";
+  console.error(event, JSON.stringify({ code }));
+}
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ ok: false, error: "Método no permitido" }, 405);
@@ -36,12 +44,40 @@ Deno.serve(async (req) => {
     const messageBody = String(input.body || "").trim();
     if (!customerId || !messageBody) return json({ ok: false, error: "customer_id y body son obligatorios" }, 400);
     if (messageBody.length > 4096) return json({ ok: false, error: "El mensaje es demasiado largo" }, 400);
-    const { data: customer, error: customerError } = await sb.from("customers").select("id,phone,business_id").eq("id", customerId).maybeSingle();
+    const { data: customer, error: customerError } = await sb.from("customers").select("id,phone,business_id,whatsapp_opted_out_at").eq("id", customerId).maybeSingle();
     if (customerError) return json({ ok: false, error: "No se pudo consultar el cliente." }, 500);
     if (!customer) return json({ ok: false, error: "Cliente no encontrado" }, 404);
     const { data: member, error: memberError } = await sb.from("business_members").select("business_id,role").eq("user_id", user.id).eq("business_id", customer.business_id).maybeSingle();
     if (memberError) return json({ ok: false, error: "No se pudo validar el acceso al negocio." }, 500);
-    if (!member) return json({ ok: false, error: "No tienes acceso a este negocio" }, 403); const { data: subscription, error: subscriptionError } = await sb.from("subscriptions").select("plan,status,trial_ends_at").eq("business_id", customer.business_id).maybeSingle(); if (subscriptionError) return json({ ok: false, error: "No se pudo validar el plan de CitaBot." }, 500); const paidPlan = ((subscription?.status === "active" && ["professional","premium"].includes(String(subscription?.plan || "").toLowerCase())) || (subscription?.status === "trialing" && subscription?.plan === "trial" && subscription?.trial_ends_at && new Date(subscription.trial_ends_at)>new Date())); if (!paidPlan) return json({ ok: false, error: "El envío automatizado por WhatsApp está incluido desde el plan Profesional. Activa Profesional o Premium para usarlo." }, 403);
+    if (!member) return json({ ok: false, error: "No tienes acceso a este negocio" }, 403);
+    const { data: subscription, error: subscriptionError } = await sb.from("subscriptions").select("plan,status,trial_ends_at").eq("business_id", customer.business_id).maybeSingle();
+    if (subscriptionError) return json({ ok: false, error: "No se pudo validar el plan de CitaBot." }, 500);
+    const paidPlan = ((subscription?.status === "active" && ["professional","premium"].includes(String(subscription?.plan || "").toLowerCase())) || (subscription?.status === "trialing" && subscription?.plan === "trial" && subscription?.trial_ends_at && new Date(subscription.trial_ends_at)>new Date()));
+    if (!paidPlan) return json({ ok: false, error: "El envío automatizado por WhatsApp está incluido desde el plan Profesional. Activa Profesional o Premium para usarlo." }, 403);
+
+    // A reservation's WhatsApp consent is scoped to that reservation. It does not
+    // override a later opt-out or authorize proactive campaigns.
+    if (customer.whatsapp_opted_out_at) {
+      return json({ ok: false, code: "WHATSAPP_RECIPIENT_OPTED_OUT", error: "Este cliente pidió no recibir más mensajes por WhatsApp. No se ha enviado nada." }, 403);
+    }
+    const { data: lastInbound, error: inboundError } = await sb.from("messages")
+      .select("provider_timestamp")
+      .eq("business_id", customer.business_id)
+      .eq("customer_id", customer.id)
+      .eq("channel", "whatsapp")
+      .eq("direction", "inbound")
+      .not("provider_timestamp", "is", null)
+      .order("provider_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (inboundError) return json({ ok: false, error: "No se pudo comprobar la ventana de atención de WhatsApp." }, 500);
+    if (!isInsideWhatsAppCustomerServiceWindow(lastInbound?.provider_timestamp)) {
+      return json({
+        ok: false,
+        code: "WHATSAPP_SERVICE_WINDOW_CLOSED",
+        error: "La ventana de atención de WhatsApp está cerrada (24 horas desde el último mensaje del cliente). No se envió nada. Para contactar fuera de esa ventana se necesita una plantilla aprobada por Meta y el consentimiento correspondiente; esa función todavía no está habilitada en CitaBot.",
+      }, 409);
+    }
     const phone = String(customer.phone || "").replace(/\D/g, "");
     if (!phone) return json({ ok: false, error: "Cliente sin WhatsApp" }, 400);
     const { data: integration, error: integrationError } = await sb.from("business_integrations").select("whatsapp_phone_number_id,whatsapp_business_account_id,enabled").eq("business_id", customer.business_id).eq("provider", "whatsapp").maybeSingle();
@@ -54,9 +90,44 @@ Deno.serve(async (req) => {
     const phonePayload = await phoneCheck.json().catch(() => ({}));
     if (!phoneCheck.ok) {
       const e = metaError(phonePayload);
-      console.error("citabot-whatsapp-send phone validation failed", { status: phoneCheck.status, phoneNumberId, ...e });
-      return json({ ok: false, stage: "phone_validation", error: e.message ? `WhatsApp rechazó la validación del número: ${e.message}` : `No se pudo validar el número de WhatsApp (HTTP ${phoneCheck.status}).`, meta_status: phoneCheck.status, meta_code: e.code, meta_type: e.type, meta_subcode: e.subcode, fbtrace_id: e.fbtrace_id, recommendation: recommendation(e.code, e.message) });
+      console.error("citabot-whatsapp-send phone validation failed", { status: phoneCheck.status, phoneNumberId, code: e.code, type: e.type, subcode: e.subcode, fbtrace_id: e.fbtrace_id });
+      return json({ ok: false, stage: "phone_validation", error: "No se pudo validar la conexión del número de WhatsApp con Meta.", meta_status: phoneCheck.status, meta_code: e.code, meta_type: e.type, meta_subcode: e.subcode, fbtrace_id: e.fbtrace_id, recommendation: recommendation(e.code, e.message) });
     }
+    // Repeat the consent/window check after Meta's network validation, immediately
+    // before queuing the message, so a slow validation cannot cross the 24-hour
+    // boundary or overlook an opt-out received during the request.
+    const { data: latestCustomer, error: latestCustomerError } = await sb.from("customers")
+      .select("whatsapp_opted_out_at")
+      .eq("id", customer.id)
+      .eq("business_id", customer.business_id)
+      .maybeSingle();
+    if (latestCustomerError || !latestCustomer) {
+      return json({ ok: false, error: "No se pudo volver a comprobar el consentimiento del cliente. No se envió nada." }, 503);
+    }
+    if (latestCustomer.whatsapp_opted_out_at) {
+      return json({ ok: false, code: "WHATSAPP_RECIPIENT_OPTED_OUT", error: "Este cliente pidió no recibir más mensajes por WhatsApp. No se ha enviado nada." }, 403);
+    }
+    const { data: freshInbound, error: freshInboundError } = await sb.from("messages")
+      .select("provider_timestamp")
+      .eq("business_id", customer.business_id)
+      .eq("customer_id", customer.id)
+      .eq("channel", "whatsapp")
+      .eq("direction", "inbound")
+      .not("provider_timestamp", "is", null)
+      .order("provider_timestamp", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (freshInboundError) {
+      return json({ ok: false, error: "No se pudo volver a comprobar la ventana de atención. No se envió nada." }, 503);
+    }
+    if (!isInsideWhatsAppCustomerServiceWindow(freshInbound?.provider_timestamp)) {
+      return json({
+        ok: false,
+        code: "WHATSAPP_SERVICE_WINDOW_CLOSED",
+        error: "La ventana de atención de WhatsApp ya está cerrada. No se envió nada; hace falta una plantilla aprobada por Meta y el consentimiento correspondiente.",
+      }, 409);
+    }
+
     const { data: messageRow, error: queueError } = await sb.from("messages").insert({
       business_id: customer.business_id,
       customer_id: customer.id,
@@ -78,8 +149,8 @@ Deno.serve(async (req) => {
     if (!metaResponse.ok) {
       const e = metaError(metaPayload);
       await sb.from("messages").update({ status: "failed" }).eq("id", messageRow.id);
-      console.error("citabot-whatsapp-send Meta send failed", { status: metaResponse.status, phoneLast4: phone.slice(-4), phoneNumberId, ...e });
-      return json({ ok: false, stage: "meta", error: e.message ? `WhatsApp rechazó el envío: ${e.message}` : `WhatsApp rechazó el envío (HTTP ${metaResponse.status}).`, meta_status: metaResponse.status, meta_code: e.code, meta_type: e.type, meta_subcode: e.subcode, fbtrace_id: e.fbtrace_id, recommendation: recommendation(e.code, e.message) });
+      console.error("citabot-whatsapp-send Meta send failed", { status: metaResponse.status, phoneLast4: phone.slice(-4), phoneNumberId, code: e.code, type: e.type, subcode: e.subcode, fbtrace_id: e.fbtrace_id });
+      return json({ ok: false, stage: "meta", error: "WhatsApp rechazó el envío. Revisa la conexión y el estado del número con Meta.", meta_status: metaResponse.status, meta_code: e.code, meta_type: e.type, meta_subcode: e.subcode, fbtrace_id: e.fbtrace_id, recommendation: recommendation(e.code, e.message) });
     }
     const providerMessageId = metaPayload?.messages?.[0]?.id || null;
     const { error: updateError } = await sb.from("messages").update({
@@ -92,7 +163,7 @@ Deno.serve(async (req) => {
     }
     return json({ ok: true, saved: true, provider_message_id: providerMessageId });
   } catch (error) {
-    console.error("citabot-whatsapp-send unexpected error", error);
-    return json({ ok: false, error: error instanceof Error ? error.message : "Error interno al enviar por WhatsApp" }, 500);
+    logSendFailure("CITABOT_WHATSAPP_SEND_FAILED", error);
+    return json({ ok: false, error: "No se pudo procesar el envío por WhatsApp. Inténtalo de nuevo más tarde." }, 500);
   }
 });
