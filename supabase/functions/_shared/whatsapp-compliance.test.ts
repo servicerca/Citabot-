@@ -11,8 +11,11 @@ function assert(condition: unknown, message: string): asserts condition {
 Deno.test("parsea el timestamp Unix en segundos remitido por Meta", () => {
   const now = Date.UTC(2026, 9, 18, 12, 0, 0);
   const sentAt = now - 60_000;
-  const parsed = parseWhatsAppProviderTimestamp(String(Math.floor(sentAt / 1000)), now);
+  const seconds = Math.floor(sentAt / 1000);
+  const parsed = parseWhatsAppProviderTimestamp(String(seconds), now);
+  const parsedNumeric = parseWhatsAppProviderTimestamp(seconds, now);
   assert(parsed === new Date(sentAt).toISOString(), "El timestamp del proveedor debe conservar la hora real del mensaje.");
+  assert(parsedNumeric === parsed, "Los timestamps numéricos válidos en segundos deben conservarse igual que los strings.");
   assert(isInsideWhatsAppCustomerServiceWindow(parsed, now), "Una entrada reciente debe abrir la ventana de atención.");
 });
 
