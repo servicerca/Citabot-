@@ -1,0 +1,31 @@
+name: CitaBot public booking rate-limit identity
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/citabot-public-booking/**"
+      - ".github/workflows/public-booking-rate-limit-identity.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "supabase/functions/citabot-public-booking/**"
+      - ".github/workflows/public-booking-rate-limit-identity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rate-limit-identity:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Test trusted client IP handling
+        run: deno test supabase/functions/citabot-public-booking/rate-limit-key.test.ts
+      - name: Type-check public booking function
+        run: deno check supabase/functions/citabot-public-booking/index.ts

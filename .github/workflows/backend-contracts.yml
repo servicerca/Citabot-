@@ -53,6 +53,9 @@ jobs:
       - name: Test CitaBot platform-admin pagination boundaries
         run: deno test supabase/functions/citabot-platform-admin/pagination.test.ts
 
+      - name: Test public booking trusted rate-limit identity boundaries
+        run: deno test supabase/functions/citabot-public-booking/rate-limit-key.test.ts
+
       - name: Type-check production Edge Functions
         run: deno check supabase/functions/citabot-ai/index.ts supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-commercial-sync/index.ts supabase/functions/citabot-commercial-checkout/index.ts supabase/functions/citabot-mercadopago-subscribe/index.ts supabase/functions/citabot-platform-admin/index.ts
 

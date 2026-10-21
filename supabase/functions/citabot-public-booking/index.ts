@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { publicBookingRateLimitIdentity } from "./rate-limit-key.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -76,7 +77,8 @@ function logBackendFailure(event: string, error: unknown) {
 }
 
 async function rateKey(req: Request, slug: string) {
-  const raw = `${req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown"}|${slug}`;
+  const trustedClientIp = publicBookingRateLimitIdentity(req.headers);
+  const raw = `${trustedClientIp}|${slug}`;
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(raw));
   return Array.from(new Uint8Array(digest)).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
