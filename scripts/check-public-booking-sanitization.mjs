@@ -188,4 +188,4 @@ assert.match(professionalReconciliationMigration, /drop constraint if exists sub
 assert.match(professionalReconciliationMigration, /check \(new_plan in \('premium', 'professional'\)\)/i);
 
 
-console.log("Public Edge error-sanitization guard: OK");
+console.log("Public Edge error-sanitization and CORS guards: OK");
