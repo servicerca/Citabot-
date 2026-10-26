@@ -121,12 +121,72 @@ assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
 
 
-const whatsappSend = read("supabase/functions/citabot-whatsapp-send/index.ts");
-
 // Browser calls carrying Authorization + JSON must pass the OPTIONS preflight.
 assert.match(citabotAi, /"Access-Control-Allow-Methods":"POST, OPTIONS"/);
 assert.match(citabotAi, /if\(req\.method==="OPTIONS"\) return new Response\("ok",\{headers:cors\}\)/);
+
+const whatsappSend = read("supabase/functions/citabot-whatsapp-send/index.ts");
 assert.match(whatsappSend, /"Access-Control-Allow-Methods": "POST, OPTIONS"/);
 assert.match(whatsappSend, /if \(req\.method === "OPTIONS"\) return new Response\("ok", \{ headers: cors \}\)/);
+assert.match(whatsappSend, /isInsideWhatsAppCustomerServiceWindow\(lastInbound\?\.provider_timestamp\)/);
+assert.match(whatsappSend, /isInsideWhatsAppCustomerServiceWindow\(freshInbound\?\.provider_timestamp\)/);
+assert.match(whatsappSend, /customer\.whatsapp_opted_out_at/);
+assert.match(whatsappSend, /WHATSAPP_RECIPIENT_OPTED_OUT/);
+assert.match(whatsappSend, /WHATSAPP_SERVICE_WINDOW_CLOSED/);
+assert.match(whatsappSend, /\.not\("provider_timestamp", "is", null\)/);
+assert.ok(
+  whatsappSend.lastIndexOf("WHATSAPP_SERVICE_WINDOW_CLOSED") < whatsappSend.indexOf("const { data: messageRow, error: queueError }"),
+  "the final open-window guard must run after Meta validation and before queuing an outbound message"
+);
+assert.match(whatsappSend, /latestCustomer\.whatsapp_opted_out_at/);
+assert.ok(
+  whatsappSend.indexOf("latestCustomer.whatsapp_opted_out_at") < whatsappSend.indexOf("const { data: messageRow, error: queueError }"),
+  "the final opt-out check must run before queuing an outbound message"
+);
+assert.match(whatsappSend, /WHATSAPP_ACCESS_TOKEN/);
+assert.match(whatsappSend, /CITABOT_WHATSAPP_SEND_FAILED/);
+assert.doesNotMatch(whatsappSend, /error:\s*error instanceof Error\s*\?\s*error\.message/);
+
+const customerServiceWindow = read("supabase/functions/_shared/whatsapp-compliance.ts");
+assert.match(customerServiceWindow, /24\s*\*\s*60\s*\*\s*60\s*\*\s*1000/);
+assert.match(customerServiceWindow, /age\s*>=\s*0/);
+assert.match(customerServiceWindow, /age\s*<\s*CUSTOMER_SERVICE_WINDOW_MS/);
+assert.match(customerServiceWindow, /function parseWhatsAppProviderTimestamp/);
+assert.match(customerServiceWindow, /timestampMs\s*>\s*nowMs/);
+
+const whatsappWebhook = read("supabase/functions/citabot-whatsapp-webhook/index.ts");
+assert.match(whatsappWebhook, /from ["']\.\/opt-out\.ts["']/);
+assert.match(whatsappWebhook, /from ["']\.\.\/_shared\/whatsapp-compliance\.ts["']/);
+assert.match(whatsappWebhook, /parseWhatsAppProviderTimestamp\(m\.timestamp\)/);
+assert.match(whatsappWebhook, /provider_timestamp:providerTimestamp/);
+assert.match(whatsappWebhook, /CITABOT_AUTOREPLY_SKIPPED_CLOSED_WINDOW/);
+assert.match(whatsappWebhook, /CITABOT_OPTOUT_ACK_SKIPPED_CLOSED_WINDOW/);
+assert.match(whatsappWebhook, /whatsapp_opted_out_at:optedOutAt/);
+assert.match(whatsappWebhook, /CITABOT_WHATSAPP_OPTOUT_RECORDED/);
+assert.match(whatsappWebhook, /if\(isWhatsAppOptOut\(text\)\)[\s\S]*?continue;/);
+const whatsappOptOut = read("supabase/functions/citabot-whatsapp-webhook/opt-out.ts");
+assert.match(whatsappOptOut, /function isWhatsAppOptOut/);
+assert.match(whatsappOptOut, /normalizeOptOutText/);
+
+const providerTimestampMigration = read("supabase/migrations/20261019013600_citabot_whatsapp_provider_timestamp.sql");
+assert.match(providerTimestampMigration, /ADD COLUMN IF NOT EXISTS provider_timestamp timestamptz/i);
+assert.match(providerTimestampMigration, /messages_whatsapp_inbound_provider_ts_idx/);
+
+const professionalSubscribe = read("supabase/functions/citabot-mercadopago-subscribe/index.ts");
+assert.match(professionalSubscribe, /function reserveCheckout/);
+assert.match(professionalSubscribe, /subscription_change_reconciliation/);
+assert.match(professionalSubscribe, /No se creó una segunda suscripción/);
+assert.match(professionalSubscribe, /function cancelAndVerifyPreapproval/);
+assert.match(professionalSubscribe, /PROVIDER_CREATE_STATE_UNKNOWN/);
+assert.match(professionalSubscribe, /reconciliation_required/);
+assert.doesNotMatch(professionalSubscribe, /error:e instanceof Error\?e\.message/);
+assert.ok(
+  professionalSubscribe.indexOf("reserveCheckout(businessId, prior)") < professionalSubscribe.indexOf('fetch("https://api.mercadopago.com/preapproval", {'),
+  "Professional checkout must reserve the per-business lock before creating Mercado Pago's preapproval"
+);
+const professionalReconciliationMigration = read("supabase/migrations/20261019013400_citabot_allow_professional_subscription_reconciliation.sql");
+assert.match(professionalReconciliationMigration, /drop constraint if exists subscription_change_reconciliation_new_plan_check/i);
+assert.match(professionalReconciliationMigration, /check \(new_plan in \('premium', 'professional'\)\)/i);
+
 
 console.log("Public Edge error-sanitization and CORS guards: OK");
