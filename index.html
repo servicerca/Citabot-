@@ -762,6 +762,8 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(document.g
   const SUPABASE_KEY='sb_publishable_XjqZnyBiOxC1fLNE9rJxQw_9xzEXquH';
   const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
   let authMode='signup', currentBusiness=null, isPlatformAdmin=false;
+let conversationListCursor=null, conversationListHasMore=false, conversationListLoading=false;
+const conversationVisibleCounts=new Map(), conversationHistoryHasMore=new Map(), conversationHistoryLoading=new Set();
   window.cbIsPlatformAdmin = () => isPlatformAdmin;
   let currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};
   const $=id=>document.getElementById(id);
@@ -903,7 +905,7 @@ async function cbFetchAllPages(makeQuery,pageSize=500,maxPages=200){
   if((overflow||[]).length)throw new Error('Este negocio supera el límite seguro de 100.000 registros por consulta. No se mostrarán totales parciales.');
   return {data:rows,error:null};
 }
-async function cbRefresh(){if(!currentBusiness)return;const bid=currentBusiness.id;try{await sb.functions.invoke('citabot-plan-sync',{body:{business_id:bid}});}catch(e){console.warn('Sincronización del plan pendiente',e);}const {error:subReadError}=await sb.from('subscriptions').select('id').eq('business_id',bid).maybeSingle();if(subReadError)throw subReadError;try{const sync=await sb.functions.invoke('citabot-commercial-sync',{body:{business_id:bid}});if(sync?.error){integrationStatus.mercadopago='error';integrationStatus.mercadopagoMessage=sync.error.message||'No se pudo comprobar Mercado Pago.';}else if(sync?.data?.ok===false){integrationStatus.mercadopago='error';integrationStatus.mercadopagoMessage=sync.data.error||'Mercado Pago no está disponible.';}else{integrationStatus.mercadopago='ready';integrationStatus.mercadopagoMessage='Servidor disponible; cobro real aún no verificado.';}}catch(e){integrationStatus.mercadopago='error';integrationStatus.mercadopagoMessage=e?.message||'No se pudo comprobar Mercado Pago.';console.warn('Sincronización comercial pendiente',e);}const [s,st,c,a,m,camp,pay,sub,hours,promo,boost,rev]=await Promise.all([
+async function cbRefresh(){if(!currentBusiness)return;const bid=currentBusiness.id;const preferredConversationId=document.querySelector('#view-conversations .chat-main')?.dataset?.customer||null;try{await sb.functions.invoke('citabot-plan-sync',{body:{business_id:bid}});}catch(e){console.warn('Sincronización del plan pendiente',e);}const {error:subReadError}=await sb.from('subscriptions').select('id').eq('business_id',bid).maybeSingle();if(subReadError)throw subReadError;try{const sync=await sb.functions.invoke('citabot-commercial-sync',{body:{business_id:bid}});if(sync?.error){integrationStatus.mercadopago='error';integrationStatus.mercadopagoMessage=sync.error.message||'No se pudo comprobar Mercado Pago.';}else if(sync?.data?.ok===false){integrationStatus.mercadopago='error';integrationStatus.mercadopagoMessage=sync.data.error||'Mercado Pago no está disponible.';}else{integrationStatus.mercadopago='ready';integrationStatus.mercadopagoMessage='Servidor disponible; cobro real aún no verificado.';}}catch(e){integrationStatus.mercadopago='error';integrationStatus.mercadopagoMessage=e?.message||'No se pudo comprobar Mercado Pago.';console.warn('Sincronización comercial pendiente',e);}const [s,st,c,a,m,camp,pay,sub,hours,promo,boost,rev]=await Promise.all([
   cbFetchAllPages((from,to)=>sb.from('services').select('*').eq('business_id',bid).order('name',{ascending:true}).order('id',{ascending:true}).range(from,to)),
   cbFetchAllPages((from,to)=>sb.from('staff').select('*').eq('business_id',bid).order('name',{ascending:true}).order('id',{ascending:true}).range(from,to)),
   cbFetchAllPages((from,to)=>sb.from('customers').select('*').eq('business_id',bid).order('created_at',{ascending:false}).order('id',{ascending:true}).range(from,to)),
@@ -916,7 +918,7 @@ async function cbRefresh(){if(!currentBusiness)return;const bid=currentBusiness.
   cbFetchAllPages((from,to)=>sb.from('business_promotions').select('*').eq('business_id',bid).order('created_at',{ascending:false}).order('id',{ascending:true}).range(from,to)),
   cbFetchAllPages((from,to)=>sb.from('directory_boost_orders').select('*').eq('business_id',bid).order('created_at',{ascending:false}).order('id',{ascending:true}).range(from,to)),
   cbFetchAllPages((from,to)=>sb.from('platform_revenue').select('*').eq('business_id',bid).order('created_at',{ascending:false}).order('id',{ascending:true}).range(from,to))
-]);const err=[s,st,c,a,m,camp,pay,sub,hours,promo,boost,rev].find(x=>x.error);if(err)throw err.error;currentData={services:s.data||[],staff:st.data||[],customers:c.data||[],appointments:a.data||[],messages:(m.data||[]).slice().reverse(),campaigns:camp.data||[],payments:pay.data||[],subscription:sub.data||null,businessHours:hours.data||[],promotions:promo.data||[],boostOrders:boost.data||[],platformRevenue:rev.data||[]};cbRenderDashboard();cbRenderMetrics();cbRenderClients();cbRenderAgenda();cbRenderConversations();cbRenderAI();cbRenderMarketing();cbRenderReports();cbRenderRevenue();cbRenderSettings();}
+]);const err=[s,st,c,a,m,camp,pay,sub,hours,promo,boost,rev].find(x=>x.error);if(err)throw err.error;conversationListCursor=(m.data||[]).length?(m.data||[])[(m.data||[]).length-1]:null;conversationListHasMore=(m.data||[]).length===200;conversationListLoading=false;conversationVisibleCounts.clear();conversationHistoryHasMore.clear();conversationHistoryLoading.clear();currentData={services:s.data||[],staff:st.data||[],customers:c.data||[],appointments:a.data||[],messages:(m.data||[]).slice().reverse(),campaigns:camp.data||[],payments:pay.data||[],subscription:sub.data||null,businessHours:hours.data||[],promotions:promo.data||[],boostOrders:boost.data||[],platformRevenue:rev.data||[]};cbRenderDashboard();cbRenderMetrics();cbRenderClients();cbRenderAgenda();cbRenderConversations(preferredConversationId);cbRenderAI();cbRenderMarketing();cbRenderReports();cbRenderRevenue();cbRenderSettings();}
   function hasRecentValidAppointment(customerId){const cutoff=new Date(Date.now()-30*864e5);return (currentData.appointments||[]).some(a=>a.customer_id===customerId&&!['cancelled','no_show'].includes(a.status)&&new Date(a.starts_at)>cutoff);}
   window.openLegal=(type)=>{const body=document.getElementById('legalBody'),modal=document.getElementById('legalModal');if(!body||!modal)return;const v='2026-10-14-v2';const common='<p style="font-size:12px;color:var(--muted)">Versión '+v+' · Vigente desde 14 de octubre de 2026.</p>';if(type==='privacy'){body.innerHTML='<h2>Política de privacidad y tratamiento de datos</h2>'+common+'<p>CitaBot trata datos personales para prestar agenda, reservas, atención, recuperación de clientes, comunicaciones y gestión de cuentas. Solo deben suministrarse datos pertinentes para la finalidad informada.</p><h3>Datos tratados</h3><p>Datos de cuenta del negocio; información comercial; nombres, teléfonos, correo y notas de clientes; citas; mensajes y datos técnicos necesarios para seguridad y operación. El directorio público solo muestra la información comercial y ubicación que el negocio decide publicar.</p><h3>Finalidades</h3><p>Administrar cuentas y negocios; gestionar clientes, profesionales, servicios y citas; permitir reservas públicas; enviar o recibir WhatsApp cuando corresponda; procesar suscripciones y pagos; prestar funciones de IA; prevenir abuso y mantener seguridad y soporte.</p><h3>Proveedores</h3><p>CitaBot puede utilizar Supabase, Meta/WhatsApp, Mercado Pago, Resend y proveedores de IA para prestar las funciones activadas. Cada proveedor recibe los datos necesarios para su función.</p><h3>Comprobación de contraseñas expuestas</h3><p>Al crear una cuenta o restablecer una contraseña, CitaBot consulta Pwned Passwords de Have I Been Pwned para detectar contraseñas conocidas en filtraciones. El navegador calcula un hash SHA-1 y envía al servicio solo sus cinco primeros caracteres hexadecimales; no se envía la contraseña completa ni el hash completo. El servicio devuelve las coincidencias para ese prefijo. Si la consulta falla o no puede validarse, CitaBot bloquea el registro o el cambio de contraseña hasta que se pueda reintentar.</p><h3>Derechos</h3><p>El titular puede solicitar conocer, actualizar, rectificar y, cuando proceda, suprimir datos o revocar autorizaciones conforme a la ley aplicable.</p><h3>Seguridad</h3><p>CitaBot aplica autenticación, aislamiento por negocio, controles de acceso, registros y medidas técnicas razonables. Ningún sistema conectado a Internet garantiza riesgo cero.</p><h3>Canal de solicitudes</h3><p>Las solicitudes de privacidad deben enviarse por el canal oficial de soporte/contacto que CitaBot mantenga publicado. Ese canal deberá quedar definido por el operador antes del lanzamiento comercial.</p>';}else{body.innerHTML='<h2>Términos de servicio de CitaBot</h2>'+common+'<p>CitaBot es una plataforma para negocios que facilita agenda, reservas, clientes, comunicaciones, directorio, herramientas de crecimiento, IA y cobros propios de la plataforma.</p><h3>Cuenta</h3><p>El titular debe proporcionar información veraz, proteger sus credenciales y utilizar CitaBot conforme a la ley y a estos términos.</p><h3>Reservas</h3><p>La prestación del servicio reservado corresponde al negocio. CitaBot facilita la reserva y gestión, pero no sustituye al negocio ni garantiza la disponibilidad, calidad o cumplimiento de servicios de terceros.</p><h3>Planes y prueba</h3><p>Los negocios nuevos pueden recibir 7 días de acceso completo sin tarjeta y sin cobro automático. Profesional y Premium se cobran según el precio mostrado al contratar. La visibilidad destacada es un producto separado con la duración indicada antes de pagar.</p><h3>Pagos</h3><p>Los pagos de CitaBot pueden procesarse mediante Mercado Pago. CitaBot sincroniza el estado de las operaciones; las comisiones y tiempos de disponibilidad del dinero dependen del proveedor de pagos.</p><h3>WhatsApp e IA</h3><p>WhatsApp requiere configuración y permisos de Meta. La IA es una herramienta de apoyo y puede contener errores; la información importante debe revisarse antes de actuar.</p><h3>Uso indebido</h3><p>No se permite fraude, suplantación, spam, acceso no autorizado, abuso de mensajería ni carga deliberada de información falsa o dañina.</p><h3>Eliminación y cambios</h3><p>El usuario puede desactivar un perfil o eliminar su cuenta mediante las opciones disponibles. Algunos registros pueden conservarse cuando exista obligación legal o necesidad de seguridad, facturación o defensa.</p>';}modal.classList.add('open')};window.closeLegal=()=>document.getElementById('legalModal')?.classList.remove('open');
   window.scrollToPricing=()=>document.getElementById('pricingAnchor')?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -1000,7 +1002,153 @@ function cbRenderSettings(){const sec=document.getElementById('view-settings');i
   window.contactCustomerTelegram=(name)=>{const business=currentBusiness?.name||'mi negocio';const text='Hola '+String(name||'')+', te contacto desde '+business+'.';const url='https://t.me/share/url?url=&text='+encodeURIComponent(text);window.open(url,'_blank','noopener');};
   window.contactCurrentCustomerPhone=()=>{const id=document.querySelector('#view-conversations .chat-main')?.dataset?.customer;const c=currentData.customers.find(x=>x.id===id);if(c)contactCustomerPhone(c.phone);};
   window.contactCurrentCustomerTelegram=()=>{const id=document.querySelector('#view-conversations .chat-main')?.dataset?.customer;const c=currentData.customers.find(x=>x.id===id);if(c)contactCustomerTelegram(c.name);};
-  function cbRenderConversations(){const list=document.querySelector('#view-conversations .chat-list'),main=document.querySelector('#view-conversations .chat-main');if(!list||!main)return;const groups=new Map();for(const m of (currentData.messages||[])){if(!m.customer_id)continue;if(!groups.has(m.customer_id))groups.set(m.customer_id,[]);groups.get(m.customer_id).push(m);}const cs=[...groups.keys()].map(id=>currentData.customers.find(c=>c.id===id)).filter(Boolean);list.innerHTML=cs.map((c,i)=>{const rows=groups.get(c.id)||[],last=rows[rows.length-1];return '<div class="chat-item '+(i===0?'selected':'')+'" data-customer="'+c.id+'"><b>'+esc(c.name)+'</b><small style="display:block;color:var(--muted)">'+esc(last?.body||'')+'</small></div>'}).join('')||'<div class="empty">Aún no hay conversaciones reales.</div>';const render=(c)=>{main.dataset.customer=c.id;const rows=groups.get(c.id)||[];const head=main.querySelector('div[style*="border-bottom"]'),messages=main.querySelector('.messages');if(head){const phone=String(c.phone||'').replace(/\D/g,'');const phoneButton=phone?'<button type="button" class="btn soft" style="min-height:36px;padding:7px 10px" onclick="contactCurrentCustomerPhone()">Llamar</button>':'';const telegramButton='<button type="button" class="btn secondary" style="min-height:36px;padding:7px 10px" onclick="contactCurrentCustomerTelegram()">Telegram</button>';head.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b style="font-size:12px">'+esc(c.name)+'</b><small style="display:block;color:var(--muted);font-size:9px">WhatsApp · '+esc(c.phone||'')+'</small></div><div style="display:flex;gap:6px;flex-wrap:wrap">'+phoneButton+telegramButton+'</div></div>';}if(messages)messages.innerHTML=rows.slice(-50).map(m=>'<div class="bubble '+(m.direction==='outbound'?'out':'in')+'">'+esc(m.body)+'</div>').join('')||'<div class="empty">Sin mensajes.</div>';};if(cs[0])render(cs[0]);else{const head=main.querySelector('div[style*="border-bottom"]'),messages=main.querySelector('.messages');if(head)head.innerHTML='<b style="font-size:12px">Sin conversaciones</b>';if(messages)messages.innerHTML='<div class="empty">Aún no hay mensajes reales.</div>';}list.querySelectorAll('.chat-item').forEach(item=>item.onclick=()=>{list.querySelectorAll('.chat-item').forEach(x=>x.classList.remove('selected'));item.classList.add('selected');const c=currentData.customers.find(x=>x.id===item.dataset.customer);if(c)render(c);});}
+  window.loadOlderConversations=async()=>{
+  if(!currentBusiness||conversationListLoading||!conversationListHasMore||!conversationListCursor)return;
+  const list=document.querySelector('#view-conversations .chat-list');
+  const selectedId=document.querySelector('#view-conversations .chat-main')?.dataset?.customer||null;
+  conversationListLoading=true;
+  const button=list?.querySelector('#loadOlderConversations');
+  if(button){button.disabled=true;button.textContent='Cargando…';}
+  try{
+    const cursor=conversationListCursor;
+    const {data,error}=await sb.from('messages').select('*').eq('business_id',currentBusiness.id)
+      .or(`created_at.lt.${cursor.created_at},and(created_at.eq.${cursor.created_at},id.lt.${cursor.id})`)
+      .order('created_at',{ascending:false}).order('id',{ascending:false}).limit(200);
+    if(error)throw error;
+    const page=Array.isArray(data)?data:[];
+    if(page.length){
+      conversationListCursor=page[page.length-1];
+      const byId=new Map((currentData.messages||[]).map(message=>[message.id,message]));
+      for(const message of page)byId.set(message.id,message);
+      currentData.messages=[...byId.values()].sort((a,b)=>{
+        const time=Date.parse(a.created_at)-Date.parse(b.created_at);
+        return time||String(a.id).localeCompare(String(b.id));
+      });
+      conversationListHasMore=page.length===200;
+    }else{
+      conversationListCursor=null;
+      conversationListHasMore=false;
+    }
+  }catch(error){
+    showToast(error?.message||'No se pudieron cargar más conversaciones.');
+  }finally{
+    conversationListLoading=false;
+  }
+  cbRenderConversations(selectedId,true);
+};
+window.loadOlderConversationMessages=async(customerId)=>{
+  if(!currentBusiness||!customerId||conversationHistoryLoading.has(customerId))return;
+  const main=document.querySelector('#view-conversations .chat-main');
+  const selectedId=main?.dataset?.customer||customerId;
+  const thread=(currentData.messages||[]).filter(message=>message.customer_id===customerId)
+    .slice().sort((a,b)=>{
+      const time=Date.parse(a.created_at)-Date.parse(b.created_at);
+      return time||String(a.id).localeCompare(String(b.id));
+    });
+  const visible=conversationVisibleCounts.get(customerId)||50;
+  if(thread.length>visible){
+    conversationVisibleCounts.set(customerId,Math.min(thread.length,visible+50));
+    cbRenderConversations(selectedId,true);
+    return;
+  }
+  if(conversationHistoryHasMore.get(customerId)===false)return;
+  const oldest=thread[0];
+  if(!oldest){conversationHistoryHasMore.set(customerId,false);cbRenderConversations(selectedId,true);return;}
+  conversationHistoryLoading.add(customerId);
+  try{
+    const {data,error}=await sb.from('messages').select('*')
+      .eq('business_id',currentBusiness.id).eq('customer_id',customerId)
+      .or(`created_at.lt.${oldest.created_at},and(created_at.eq.${oldest.created_at},id.lt.${oldest.id})`)
+      .order('created_at',{ascending:false}).order('id',{ascending:false}).limit(50);
+    if(error)throw error;
+    const page=Array.isArray(data)?data:[];
+    const byId=new Map((currentData.messages||[]).map(message=>[message.id,message]));
+    for(const message of page)byId.set(message.id,message);
+    currentData.messages=[...byId.values()].sort((a,b)=>{
+      const time=Date.parse(a.created_at)-Date.parse(b.created_at);
+      return time||String(a.id).localeCompare(String(b.id));
+    });
+    conversationVisibleCounts.set(customerId,visible+page.length);
+    conversationHistoryHasMore.set(customerId,page.length===50);
+  }catch(error){
+    showToast(error?.message||'No se pudieron cargar los mensajes anteriores.');
+  }finally{
+    conversationHistoryLoading.delete(customerId);
+  }
+  cbRenderConversations(selectedId,true);
+};
+function cbRenderConversations(preferredCustomerId=null,preserveScroll=false){
+  const list=document.querySelector('#view-conversations .chat-list'),main=document.querySelector('#view-conversations .chat-main');
+  if(!list||!main)return;
+  const groups=new Map();
+  for(const message of (currentData.messages||[])){
+    if(!message.customer_id)continue;
+    if(!groups.has(message.customer_id))groups.set(message.customer_id,[]);
+    groups.get(message.customer_id).push(message);
+  }
+  const customers=[...groups.keys()].map(id=>currentData.customers.find(customer=>customer.id===id)).filter(Boolean);
+  const latestFor=customerId=>(groups.get(customerId)||[]).at(-1);
+  customers.sort((a,b)=>{
+    const time=(Date.parse(latestFor(b.id)?.created_at||"")||0)-(Date.parse(latestFor(a.id)?.created_at||"")||0);
+    return time||String(latestFor(b.id)?.id||"").localeCompare(String(latestFor(a.id)?.id||""));
+  });
+  const selectedCustomerId=customers.some(customer=>customer.id===preferredCustomerId)
+    ?preferredCustomerId:customers[0]?.id||null;
+  list.innerHTML=customers.map(customer=>{
+    const last=latestFor(customer.id);
+    return '<div class="chat-item '+(customer.id===selectedCustomerId?'selected':'')+'" data-customer="'+esc(customer.id)+'"><b>'+esc(customer.name)+'</b><small style="display:block;color:var(--muted)">'+esc(last?.body||'')+'</small></div>';
+  }).join('')||'<div class="empty">Aún no hay conversaciones reales.</div>';
+  if(conversationListHasMore){
+    list.insertAdjacentHTML('beforeend','<button type="button" class="btn secondary" id="loadOlderConversations" style="width:100%;min-height:40px;margin-top:8px">Cargar conversaciones anteriores</button>');
+  }
+  const olderConversationsButton=list.querySelector('#loadOlderConversations');
+  if(olderConversationsButton){
+    olderConversationsButton.disabled=conversationListLoading;
+    if(conversationListLoading)olderConversationsButton.textContent='Cargando…';
+    olderConversationsButton.onclick=()=>window.loadOlderConversations();
+  }
+  const render=(customer,keepScroll=false)=>{
+    main.dataset.customer=customer.id;
+    const rows=groups.get(customer.id)||[];
+    const head=main.querySelector('div[style*="border-bottom"]'),messages=main.querySelector('.messages');
+    const previousScrollHeight=keepScroll&&messages?messages.scrollHeight:0;
+    const previousScrollTop=keepScroll&&messages?messages.scrollTop:0;
+    if(head){
+      const phone=String(customer.phone||'').replace(/\D/g,'');
+      const phoneButton=phone?'<button type="button" class="btn soft" style="min-height:36px;padding:7px 10px" onclick="contactCurrentCustomerPhone()">Llamar</button>':'';
+      const telegramButton='<button type="button" class="btn secondary" style="min-height:36px;padding:7px 10px" onclick="contactCurrentCustomerTelegram()">Telegram</button>';
+      head.innerHTML='<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap"><div><b style="font-size:12px">'+esc(customer.name)+'</b><small style="display:block;color:var(--muted);font-size:9px">WhatsApp · '+esc(customer.phone||'')+'</small></div><div style="display:flex;gap:6px;flex-wrap:wrap">'+phoneButton+telegramButton+'</div></div>';
+    }
+    const visibleCount=conversationVisibleCounts.get(customer.id)||50;
+    const canLoadOlder=rows.length>visibleCount||conversationHistoryHasMore.get(customer.id)!==false;
+    if(messages){
+      const controls=canLoadOlder?'<button type="button" class="btn secondary" id="loadOlderMessages" style="width:100%;min-height:38px;margin-bottom:10px">'+(conversationHistoryLoading.has(customer.id)?'Cargando…':'Cargar mensajes anteriores')+'</button>':'';
+      const visibleRows=rows.slice(-visibleCount);
+      messages.innerHTML=controls+(visibleRows.map(message=>'<div class="bubble '+(message.direction==='outbound'?'out':'in')+'">'+esc(message.body)+'</div>').join('')||'<div class="empty">Sin mensajes.</div>');
+      const olderMessagesButton=messages.querySelector('#loadOlderMessages');
+      if(olderMessagesButton){
+        olderMessagesButton.disabled=conversationHistoryLoading.has(customer.id);
+        olderMessagesButton.onclick=()=>window.loadOlderConversationMessages(customer.id);
+      }
+      if(keepScroll)messages.scrollTop=previousScrollTop+(messages.scrollHeight-previousScrollHeight);
+    }
+  };
+  if(selectedCustomerId){
+    const selectedCustomer=customers.find(customer=>customer.id===selectedCustomerId);
+    if(selectedCustomer)render(selectedCustomer,preserveScroll);
+  }else{
+    const head=main.querySelector('div[style*="border-bottom"]'),messages=main.querySelector('.messages');
+    if(head)head.innerHTML='<b style="font-size:12px">Sin conversaciones</b>';
+    if(messages)messages.innerHTML='<div class="empty">Aún no hay mensajes reales.</div>';
+    delete main.dataset.customer;
+  }
+  list.querySelectorAll('.chat-item').forEach(item=>item.onclick=()=>{
+    list.querySelectorAll('.chat-item').forEach(element=>element.classList.remove('selected'));
+    item.classList.add('selected');
+    const customer=customers.find(entry=>entry.id===item.dataset.customer);
+    if(customer)render(customer);
+  });
+}
   window.deleteBusinessProfile=async()=>{if(!currentBusiness)return;const name=currentBusiness.name||'este negocio';if(!confirm('Vas a eliminar el perfil del negocio “'+name+'”. Tu cuenta de CitaBot seguirá existiendo, pero este negocio quedará inactivo. ¿Continuar?'))return;if(prompt('Para confirmar, escribe ELIMINAR')!=='ELIMINAR'){showToast('Eliminación cancelada.');return;}try{cbBoot('Eliminando perfil…','Desactivando el negocio de forma segura…');const {data,error}=await sb.functions.invoke('citabot-account-delete',{body:{mode:'business_profile',business_id:currentBusiness.id}});if(error)throw error;if(!data?.ok)throw Error(data?.error||'No se pudo eliminar el perfil del negocio.');localStorage.removeItem('citabot.business_id');currentBusiness=null;currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,businessHours:[]};await cbLoadOrOnboard();showToast('Perfil del negocio eliminado.');}catch(e){cbBootHide();showToast(e?.message||'No se pudo eliminar el perfil del negocio.');}};
   window.deleteAccount=async()=>{if(!confirm('Vas a eliminar tu cuenta de CitaBot y los negocios de los que seas propietario. Esta acción es permanente. ¿Continuar?'))return;if(prompt('Para confirmar, escribe ELIMINAR CUENTA')!=='ELIMINAR CUENTA'){showToast('Eliminación cancelada.');return;}try{cbBoot('Eliminando cuenta…','Estamos eliminando tu cuenta y los datos asociados…');const {data,error}=await sb.functions.invoke('citabot-account-delete',{body:{mode:'account'}});if(error)throw error;if(!data?.ok)throw Error(data?.error||'No se pudo eliminar la cuenta.');localStorage.removeItem('citabot.business_id');location.replace(location.pathname);}catch(e){cbBootHide();showToast(e?.message||'No se pudo eliminar la cuenta.');}};
   window.subscribePlan=async(plan)=>{ const buttons=[...document.querySelectorAll('[data-plan]')];try{ if(!currentBusiness)throw Error('Primero inicia sesión.'); if(plan==='free'){showToast('El plan Gratis no necesita pago.');return;} const existingSub=currentData.subscription; if(existingSub?.plan===plan&&existingSub?.status==='pending'){showToast('Tu suscripción ya está pendiente de confirmación.');return;} if(existingSub?.plan===plan&&existingSub?.status==='active'){showToast('Tu suscripción ya está activa.');return;} buttons.forEach(b=>b.disabled=true);const payer_email=(await sb.auth.getUser()).data.user?.email||''; const functionName=plan==='premium'?'citabot-commercial-checkout':'citabot-mercadopago-subscribe'; const body=plan==='premium'?{business_id:currentBusiness.id,mode:'premium',payer_email}:{business_id:currentBusiness.id,plan:'professional',payer_email}; const {data,error}=await sb.functions.invoke(functionName,{body}); if(error)throw error; if(data?.init_point){window.open(data.init_point,'_blank','noopener');showToast('Abriendo Mercado Pago para '+(plan==='premium'?'Premium':'Profesional')+'.');} else if(data?.already_active){showToast('Tu suscripción ya está activa.');} else if(data?.already_pending){showToast('Tu suscripción ya está pendiente de confirmación.');} else if(data?.ok===false)throw Error(data.error||'No se pudo iniciar la suscripción.'); else showToast('La suscripción quedó en proceso.'); }catch(e){console.error(e);showToast(e?.message||'No se pudo iniciar la suscripción.');}finally{buttons.forEach(b=>b.disabled=false);} }; window.buyDirectoryBoost=async(days)=>{ try{ if(!currentBusiness)throw Error('Primero inicia sesión.'); const pending=(currentData.boostOrders||[]).find(x=>x.status==='pending'); if(pending){showToast('Ya tienes una compra de visibilidad pendiente. Espera su confirmación antes de crear otra.');return;} const payer_email=(await sb.auth.getUser()).data.user?.email||''; const {data,error}=await sb.functions.invoke('citabot-commercial-checkout',{body:{business_id:currentBusiness.id,mode:'boost',duration_days:Number(days),payer_email}}); if(error)throw error; if(data?.init_point){window.open(data.init_point,'_blank','noopener');showToast('Abriendo Mercado Pago para la visibilidad destacada.');} else if(data?.ok===false)throw Error(data.error||'No se pudo iniciar el pago.'); }catch(e){console.error(e);showToast(e?.message||'No se pudo iniciar el pago.');} }; window.subscribeProfessional=()=>subscribePlan('professional');window.openModal=type=>{state.modalType=type;const body=$('modalBody');$('modalTitle').textContent=type;$('modalDesc').textContent='Los datos se guardarán en tu cuenta CitaBot.';if(type==='Nuevo profesional')body.innerHTML='<div class="form-grid"><div class="field full"><label>Nombre</label><input id="mStaffName"></div><div class="field"><label>Teléfono</label><input id="mStaffPhone"></div><div class="field"><label>Email</label><input id="mStaffEmail" type="email"></div></div>';else if(type==='Nuevo cliente')body.innerHTML='<div class="form-grid"><div class="field full"><label>Nombre</label><input id="mName"></div><div class="field"><label>WhatsApp</label><input id="mPhone"></div><div class="field"><label>Email</label><input id="mEmail" type="email"></div></div>';else if(type==='Nuevo servicio'||type==='+ Servicio')body.innerHTML='<div class="form-grid"><div class="field full"><label>Nombre</label><input id="mServiceName"></div><div class="field"><label>Duración (min)</label><input id="mDuration" type="number" min="5" value="30"></div><div class="field"><label>Precio COP</label><input id="mPrice" type="number" min="0" value="0"></div></div>';else if(type==='Nueva cita'||type==='Nueva reserva')body.innerHTML=`<div class="form-grid"><div class="field"><label>Cliente</label><select id="mCustomer">${currentData.customers.map(c=>`<option value="${c.id}">${esc(c.name)} · ${esc(c.phone||'')}</option>`).join('')}</select></div><div class="field"><label>Servicio</label><select id="mService">${currentData.services.filter(s=>s.active).map(s=>`<option value="${s.id}">${esc(s.name)} · ${cbMoney(s.price)}</option>`).join('')}</select></div><div class="field"><label>Profesional</label><select id="mStaff">${currentData.staff.filter(s=>s.active).map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')}</select></div><div class="field"><label>Forma de pago</label><select id="mPaymentMethod"><option value="cash">Efectivo</option><option value="transfer">Transferencia</option><option value="other">Otro</option></select></div><div class="field"><label>Fecha y hora</label><input id="mStart" type="datetime-local"></div><div class="field full"><label>Nota</label><textarea id="mNote"></textarea></div></div>`;else if(type==='Nueva promoción'){body.innerHTML='<div class="form-grid"><div class="field full"><label>Título de la promoción</label><input id="mPromoTitle" placeholder="Ej. 20% de descuento en corte + barba"></div><div class="field full"><label>Descripción</label><textarea id="mPromoDescription" placeholder="Describe qué incluye la promoción."></textarea></div><div class="field"><label>Descuento %</label><input id="mPromoDiscount" type="number" min="0" max="100" step="0.01"></div><div class="field"><label>Precio promocional COP</label><input id="mPromoPrice" type="number" min="0" step="100"></div><div class="field"><label>Inicio</label><input id="mPromoStart" type="datetime-local"></div><div class="field"><label>Fin</label><input id="mPromoEnd" type="datetime-local"></div></div>'; }else if(type==='Nueva campaña'){body.innerHTML='<div class="form-grid"><div class="field full"><label>Nombre</label><input id="mCampaignName" placeholder="Recuperación de clientes"></div><div class="field"><label>Canal</label><select id="mCampaignChannel"><option value="whatsapp">WhatsApp</option><option value="email">Email</option></select></div><div class="field"><label>Segmento</label><select id="mCampaignSegment"><option value="inactive_30">Clientes inactivos 30 días</option><option value="all">Todos los clientes</option></select></div><div class="field full"><label>Mensaje</label><textarea id="mCampaignMessage" placeholder="Escribe el mensaje de la campaña."></textarea></div></div>'; }else {body.innerHTML='<p>Esta función requiere conectar el proveedor externo correspondiente.</p>'; }$('modal').classList.add('open')};
