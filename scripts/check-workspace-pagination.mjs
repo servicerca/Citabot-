@@ -35,6 +35,22 @@ assert.match(
   /messages:\(m\.data\|\|\[\]\)\.slice\(\)\.reverse\(\)/,
   "Los mensajes recientes deben mostrarse en orden cronológico.",
 );
+
+assert.match(html, /window\.loadOlderConversations=async\(\)=>/,
+  "La lista de conversaciones debe poder descubrir conversaciones más antiguas sin descargar todo el historial en un único request.");
+assert.match(html, /window\.loadOlderConversationMessages=async\(customerId\)=>/,
+  "Cada hilo debe poder recuperar mensajes anteriores bajo demanda.");
+assert.match(html, /created_at\.lt\.\$\{cursor\.created_at\},and\(created_at\.eq\.\$\{cursor\.created_at\},id\.lt\.\$\{cursor\.id\}\)/,
+  "La paginación global debe usar cursor estable (created_at, id) para no saltarse mensajes.");
+assert.match(html, /created_at\.lt\.\$\{oldest\.created_at\},and\(created_at\.eq\.\$\{oldest\.created_at\},id\.lt\.\$\{oldest\.id\}\)/,
+  "La paginación de hilos debe usar cursor estable (created_at, id) para recuperar el historial completo.");
+assert.match(html, /Cargar conversaciones anteriores/,
+  "La interfaz debe ofrecer una acción visible para recuperar conversaciones fuera de la ventana inicial de 200 mensajes.");
+assert.match(html, /Cargar mensajes anteriores/,
+  "La interfaz debe permitir leer el historial anterior del hilo seleccionado.");
+assert.match(html, /customers\.sort\(\(a,b\)=>/,
+  "Las conversaciones deben ordenarse por la actividad más reciente, no por el primer mensaje de su historial.");
+
 assert.match(
   html,
   /if\(\(overflow\|\|\[\]\)\.length\)throw new Error\('Este negocio supera el límite seguro de 100\.000 registros por consulta\. No se mostrarán totales parciales\.'\)/,
