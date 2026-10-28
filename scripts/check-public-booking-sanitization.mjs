@@ -91,8 +91,8 @@ assert.ok(
   checkout.indexOf("recordSubscriptionChange(businessId,prior)") < checkout.indexOf('fetch("https://api.mercadopago.com/preapproval",{'),
   "must reserve the per-business reconciliation lock before creating a provider subscription"
 );
-const reconciliationMigration = read("supabase/migrations/20261009004000_citabot_subscription_change_reconciliation.sql");
-const reconciliationLockMigration = read("supabase/migrations/20261009004100_citabot_serialize_subscription_changes.sql");
+const reconciliationMigration = read("supabase/migrations/20261009003958_citabot_subscription_change_reconciliation.sql");
+const reconciliationLockMigration = read("supabase/migrations/20261009004143_citabot_serialize_subscription_changes.sql");
 assert.match(reconciliationMigration, /enable row level security/);
 assert.match(reconciliationMigration, /revoke all on table public\.subscription_change_reconciliation from public, anon, authenticated/i);
 assert.match(reconciliationMigration, /grant all on table public\.subscription_change_reconciliation to service_role/i);
