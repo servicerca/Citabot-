@@ -1,3 +1,5 @@
+import { SUBSCRIPTION_MONTHLY_PRICES_COP } from "../_shared/citabot-pricing.ts";
+
 export type ProviderBoostPayment = {
   status?: unknown;
   transaction_amount?: unknown;
@@ -14,11 +16,6 @@ export type ProviderSubscriptionPayment = {
   status?: unknown;
   transaction_amount?: unknown;
   currency_id?: unknown;
-};
-
-const SUBSCRIPTION_MONTHLY_PRICES_COP: Readonly<Record<string, number>> = {
-  professional: 59900,
-  premium: 69900,
 };
 
 const BOOST_ORDER_STATUSES = new Set([
