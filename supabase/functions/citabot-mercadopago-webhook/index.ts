@@ -40,7 +40,12 @@ async function syncSubscription(id:string){
       currency_is_cop:typeof recurring?.currency_id==="string"&&recurring.currency_id.trim().toUpperCase()==="COP",
       monthly_frequency:recurring?.frequency===1&&recurring?.frequency_type==="months"
     }));
-    return {ignored:true,reason:"subscription_preapproval_configuration_mismatch"};
+    const blocked=await db.from('subscriptions').update({
+      status:'past_due',
+      updated_at:new Date().toISOString()
+    }).eq('id',local.id);
+    throwOnDbError("subscription_preapproval_mismatch_block",blocked.error);
+    return {ignored:true,reason:"subscription_preapproval_configuration_mismatch",status:"past_due"};
   }
 
   const updates={
@@ -89,7 +94,12 @@ async function syncAuthorizedPayment(id:string){
       amount_is_valid:Number.isFinite(amount)&&amount>0,
       currency_is_cop:typeof invoice?.currency_id==="string"&&invoice.currency_id.trim().toUpperCase()==="COP"
     }));
-    return {ignored:true,reason:"subscription_payment_amount_currency_mismatch"};
+    const blocked=await db.from("subscriptions").update({
+      status:"past_due",
+      updated_at:new Date().toISOString()
+    }).eq("id",sub.id);
+    throwOnDbError("authorized_payment_mismatch_block",blocked.error);
+    return {ignored:true,reason:"subscription_payment_amount_currency_mismatch",status:"past_due"};
   }
 
   if(paymentId){
@@ -273,7 +283,7 @@ async function syncPayment(id:string){
   if(!businessId)return {ignored:true};
 
   const {data:sub,error:subscriptionLookupError}=await db.from("subscriptions")
-    .select("plan")
+    .select("id,plan")
     .eq("business_id",businessId)
     .maybeSingle();
   throwOnDbError("payment_subscription_lookup",subscriptionLookupError);
@@ -293,7 +303,14 @@ async function syncPayment(id:string){
       amount_is_valid:Number.isFinite(amount)&&amount>0,
       currency_is_cop:typeof payment?.currency_id==="string"&&payment.currency_id.trim().toUpperCase()==="COP"
     }));
-    return {ignored:true,reason:"subscription_payment_amount_currency_mismatch"};
+    if(sub?.id){
+      const blocked=await db.from("subscriptions").update({
+        status:"past_due",
+        updated_at:new Date().toISOString()
+      }).eq("id",sub.id);
+      throwOnDbError("payment_mismatch_block",blocked.error);
+    }
+    return {ignored:true,reason:"subscription_payment_amount_currency_mismatch",status:"past_due"};
   }
 
   const paymentWrite=await db.from("payments").upsert({
