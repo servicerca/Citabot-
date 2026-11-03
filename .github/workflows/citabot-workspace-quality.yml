@@ -46,6 +46,9 @@ jobs:
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs
 
+      - name: Ensure paid plan features require an active subscription
+        run: node scripts/check-subscription-effective-plan.mjs
+
       - name: Check all inline JavaScript syntax
         shell: python
         run: |
