@@ -28,6 +28,10 @@
 .onboarding{position:fixed;inset:0;background:var(--bg);z-index:70;display:none;overflow:auto}.onboarding.open{display:block}.onboard-wrap{max-width:700px;margin:auto;padding:60px 20px}.progress{height:6px;background:#e7e7ef;border-radius:99px;margin:20px 0 40px}.progress i{display:block;height:100%;width:33%;background:var(--primary);border-radius:99px}.choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:25px}.choice{border:2px solid var(--line);background:#fff;border-radius:18px;padding:25px;text-align:left}.choice:hover,.choice.selected{border-color:var(--primary);background:#f7f6ff}.choice b{display:block;font-size:15px}.choice span{color:var(--muted);font-size:11px}
 @media(max-width:1050px){.app{grid-template-columns:78px 1fr}.sidebar{padding:18px 9px}.brand span:last-child,.workspace,.nav button span:not(.nav-icon),.side-bottom{display:none}.brand{justify-content:center}.nav button{text-align:center}.grid4{grid-template-columns:repeat(2,1fr)}.hero{grid-template-columns:1fr}.landing-features{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){#view-conversations .chat{height:calc(100dvh - 215px);max-height:calc(100dvh - 215px);min-height:460px;margin-bottom:0}#view-conversations .chat-main{height:100%;min-height:0;overflow:hidden}#view-conversations .messages{height:0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch}#view-conversations .composer{position:relative;z-index:2;flex-shrink:0}.app{grid-template-columns:1fr}.sidebar{position:fixed;bottom:0;top:auto;height:112px;width:100%;z-index:40;padding:8px 6px;background:var(--dark)}.brand,.workspace,.side-bottom{display:none}.nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:1fr 1fr;gap:4px;width:100%;height:100%;align-items:stretch}.nav button{min-width:0;padding:5px 2px;font-size:9px;line-height:1.1;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.nav .nav-icon{display:block;width:auto;font-size:18px;line-height:1}.nav button span:last-child{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}.nav button[data-view="ai"]{margin-top:0;border-top:1px solid #333745;padding-top:5px}.quick-actions{grid-template-columns:1fr 1fr}.recovery-item{align-items:flex-start}.plan-grid{grid-template-columns:1fr}.topbar{padding:0 15px;height:62px}.content{padding:20px 15px 125px}.grid4,.grid3,.grid2,.form-grid{grid-template-columns:1fr}.page-head{align-items:flex-start;flex-direction:column}.actions{width:100%}.actions .btn{flex:1}.calendar{min-width:760px}.calendar-wrap{overflow:auto}.chat{grid-template-columns:1fr;height:min(700px,calc(100dvh - 215px));min-height:420px}.chat-list{display:none}.hero{padding:60px 18px}.hero h1{font-size:52px}.landing-features{grid-template-columns:1fr;padding-bottom:70px}.hero-actions{flex-direction:column}.choice-grid{grid-template-columns:1fr}}
+
+/* Mantiene disponible el cierre de sesión cuando la barra lateral se compacta en tabletas y móviles. */
+.cb-mobile-logout{display:none!important}
+@media(max-width:1050px){.cb-mobile-logout{display:inline-flex!important;align-items:center;justify-content:center;min-height:38px;padding:8px 11px!important;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink);font-weight:750;font-size:12px}}
 </style>
 <style>
 /* Accesibilidad y legibilidad CitaBot: conserva el diseño, mejora lectura y toque en móvil. */
@@ -676,7 +680,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   <div class="side-bottom"><button onclick="logout()">Cerrar sesión</button></div>
 </aside>
 <main class="main">
-  <header class="topbar"><div class="crumb" id="crumb">Inicio</div><div class="top-actions"><span class="avatar">CB</span></div></header>
+  <header class="topbar"><div class="crumb" id="crumb">Inicio</div><div class="top-actions"><button type="button" class="cb-mobile-logout" onclick="logout()" aria-label="Cerrar sesión" title="Cerrar sesión">Salir</button><span class="avatar">CB</span></div></header>
   <div class="content">
 
     <section id="view-dashboard" class="view"><div class="card empty">Cargando datos reales…</div></section>
@@ -880,7 +884,23 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(document.g
   async function cbEnterApp(){const role=(await sb.from('business_members').select('role').eq('user_id',(await sb.auth.getUser()).data.user.id).eq('business_id',currentBusiness.id).maybeSingle()).data?.role;if(['owner','admin'].includes(role)){try{const metaSync=await sb.functions.invoke('citabot-meta-sync',{body:{business_id:currentBusiness.id}});if(metaSync?.error){integrationStatus.whatsapp='error';integrationStatus.whatsappMessage=metaSync.error.message||'No se pudo comprobar Meta.';}else if(metaSync?.data?.ok){integrationStatus.whatsapp='ready';integrationStatus.whatsappMessage='Meta respondió correctamente.';}else{integrationStatus.whatsapp='blocked';integrationStatus.whatsappMessage=metaSync?.data?.error||'Meta no autorizó la integración.';}}catch(e){integrationStatus.whatsapp='error';integrationStatus.whatsappMessage=e?.message||'No se pudo comprobar Meta.';console.warn('Meta sync pendiente',e);}}await cbRefresh();cbBootHide();document.getElementById('cbAuth').classList.remove('open');document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.remove('open');document.getElementById('app').style.display='grid';$('businessName').textContent=currentBusiness.name;$('setBusiness').value=currentBusiness.name;go('dashboard');showToast('CitaBot conectado correctamente');}
   window.finishOnboarding=async()=>{const name=state.business?.trim(),city=($('obCity')?.value||'').trim(),phone=($('obPhone')?.value||'').trim();if(!name){showToast('Escribe el nombre del negocio');return;}const {data:{user}}=await sb.auth.getUser();if(!user){showOnboarding();return;}try{cbBoot('Configurando CitaBot…','Creando tu negocio con solo los datos que proporcionaste…');const category=state.type==='restaurant'?'restaurant':'service';const {data,error}=await sb.rpc('create_citabot_business_onboarding',{p_name:name,p_category:category,p_city:city||null,p_phone:phone||null,p_email:user.email||null});if(error)throw error;const b=data?.business;if(!b)throw new Error('CitaBot no devolvió el negocio creado.');currentBusiness=b;localStorage.setItem('citabot.business_id',b.id);await cbEnterApp();go('settings');showToast('Cuenta creada. Configura tus datos reales del negocio.');}catch(e){console.error('CitaBot onboarding error:',e);cbBootHide();showToast(e.message||'No se pudo configurar el negocio');}};
   
-  window.logout=async()=>{try{await sb.auth.signOut();}catch(error){console.error(error);showToast('No se pudo cerrar la sesión remota.');}finally{currentBusiness=null;isPlatformAdmin=false;if($('navPlatformAdmin'))$('navPlatformAdmin').style.display='none';currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};document.getElementById('app').style.display='none';document.getElementById('landing').classList.add('active');}};
+  window.logout=async()=>{
+    try{
+      const {error}=await sb.auth.signOut();
+      if(error)throw error;
+    }catch(error){
+      console.error('CitaBot logout error:',error);
+      showToast('No se pudo cerrar la sesión. Tu cuenta sigue activa.');
+      return false;
+    }
+    currentBusiness=null;
+    isPlatformAdmin=false;
+    if($('navPlatformAdmin'))$('navPlatformAdmin').style.display='none';
+    currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};
+    document.getElementById('app').style.display='none';
+    document.getElementById('landing').classList.add('active');
+    return true;
+  };
   function cbTrialActive(){const s=currentData.subscription;return Boolean(s&&s.plan==='trial'&&s.status==='trialing'&&s.trial_ends_at&&new Date(s.trial_ends_at)>new Date());}
 function cbTrialDaysLeft(){if(!cbTrialActive())return 0;return Math.max(0,Math.ceil((new Date(currentData.subscription.trial_ends_at)-Date.now())/86400000));}
 function cbEffectivePlan(){return cbTrialActive()?'trial':(currentData.subscription?.plan||'free');}
