@@ -11,6 +11,7 @@ on:
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
       - "e2e/mobile-logout-layout.spec.cjs"
+      - "scripts/check-logout-flow.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -22,6 +23,7 @@ on:
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
       - "e2e/mobile-logout-layout.spec.cjs"
+      - "scripts/check-logout-flow.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -67,6 +69,9 @@ jobs:
               inline += 1
           assert inline >= 3, f"Se esperaban al menos 3 scripts inline, encontrados: {inline}"
           print(f"CitaBot workspace JavaScript syntax: OK ({inline} inline scripts)")
+
+      - name: Check logout success and failure behavior
+        run: node scripts/check-logout-flow.mjs
 
       - name: Install Playwright for mobile logout layout validation
         run: |
