@@ -17,13 +17,16 @@ test('mobile and tablet keep the shared logout action visible and unobstructed',
     element.style.display = 'grid';
   });
 
-  const mobileLogout = page.getByRole('button', { name: 'Cerrar sesión' });
+  // Scope this locator to the mobile-only top-bar control. The desktop sidebar
+  // has a different button with the same accessible label.
+  const mobileLogout = page.locator('.cb-mobile-logout');
   const desktopLogout = page.locator('.side-bottom button');
 
   for (const width of [390, 768, 1024]) {
     await page.setViewportSize({ width, height: 844 });
     await expect(mobileLogout).toBeVisible();
     await expect(desktopLogout).toBeHidden();
+    expect(await mobileLogout.getAttribute('aria-label')).toBe('Cerrar sesión');
 
     const buttonBox = await mobileLogout.boundingBox();
     const avatarBox = await page.locator('.top-actions .avatar').boundingBox();
