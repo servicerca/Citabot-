@@ -10,6 +10,17 @@ export type BoostOrderExpectation = {
   status?: unknown;
 };
 
+export type ProviderSubscriptionPayment = {
+  status?: unknown;
+  transaction_amount?: unknown;
+  currency_id?: unknown;
+};
+
+const SUBSCRIPTION_MONTHLY_PRICES_COP: Readonly<Record<string, number>> = {
+  professional: 59900,
+  premium: 69900,
+};
+
 const BOOST_ORDER_STATUSES = new Set([
   "pending",
   "paid",
@@ -29,6 +40,31 @@ function toMinorUnits(value: unknown): number | null {
 
   if (!Number.isFinite(amount) || amount <= 0) return null;
   return Math.round(amount * 100);
+}
+
+/**
+ * Subscription activation requires the exact server-configured monthly price
+ * for the plan and an explicit COP currency from Mercado Pago's authoritative
+ * payment response. A valid webhook signature alone does not prove price.
+ */
+export function matchesSubscriptionPayment(
+  payment: ProviderSubscriptionPayment,
+  plan: unknown,
+): boolean {
+  const expectedAmount = typeof plan === "string"
+    ? SUBSCRIPTION_MONTHLY_PRICES_COP[plan]
+    : undefined;
+  const paidCurrency =
+    typeof payment.currency_id === "string"
+      ? payment.currency_id.trim().toUpperCase()
+      : "";
+  const paidAmount = toMinorUnits(payment.transaction_amount);
+
+  return payment.status === "approved"
+    && expectedAmount !== undefined
+    && paidCurrency === "COP"
+    && paidAmount !== null
+    && paidAmount === Math.round(expectedAmount * 100);
 }
 
 /**
