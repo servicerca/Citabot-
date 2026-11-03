@@ -883,7 +883,12 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(document.g
   window.logout=async()=>{try{await sb.auth.signOut();}catch(error){console.error(error);showToast('No se pudo cerrar la sesión remota.');}finally{currentBusiness=null;isPlatformAdmin=false;if($('navPlatformAdmin'))$('navPlatformAdmin').style.display='none';currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};document.getElementById('app').style.display='none';document.getElementById('landing').classList.add('active');}};
   function cbTrialActive(){const s=currentData.subscription;return Boolean(s&&s.plan==='trial'&&s.status==='trialing'&&s.trial_ends_at&&new Date(s.trial_ends_at)>new Date());}
 function cbTrialDaysLeft(){if(!cbTrialActive())return 0;return Math.max(0,Math.ceil((new Date(currentData.subscription.trial_ends_at)-Date.now())/86400000));}
-function cbEffectivePlan(){return cbTrialActive()?'trial':(currentData.subscription?.plan||'free');}
+function cbEffectivePlan(){
+  if(cbTrialActive())return 'trial';
+  const subscription=currentData.subscription;
+  const plan=String(subscription?.plan||'').toLowerCase();
+  return subscription?.status==='active'&&['professional','premium'].includes(plan)?plan:'free';
+}
 function cbPlanLabel(){const p=cbEffectivePlan();return p==='trial'?'Prueba 7 días':p==='professional'?'Profesional':p==='premium'?'Premium':'Gratis';}
 async function cbFetchAllPages(makeQuery,pageSize=500,maxPages=200){
   const rows=[];
