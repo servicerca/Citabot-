@@ -1,6 +1,7 @@
 import {
   canSyncBoostOrderStatus,
   matchesBoostOrderPayment,
+  matchesSubscriptionConfiguration,
   matchesSubscriptionPayment,
 } from "./payment-validation.ts";
 
@@ -153,4 +154,48 @@ Deno.test("rejects unsupported plans, non-approved status and malformed subscrip
       "professional",
     ), "Invalid or non-positive subscription amount must fail closed.");
   }
+});
+
+
+Deno.test("accepts authorized monthly preapprovals matching each CitaBot plan", () => {
+  assert(matchesSubscriptionConfiguration({
+    status: "authorized",
+    auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 59900, currency_id: "COP" },
+  }, "professional"), "Professional preapproval must be COP 59,900 monthly.");
+  assert(matchesSubscriptionConfiguration({
+    status: "authorized",
+    auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 69900, currency_id: "COP" },
+  }, "premium"), "Premium preapproval must be COP 69,900 monthly.");
+});
+
+Deno.test("rejects preapprovals with a mismatched amount, currency or cadence", () => {
+  const base = { status: "authorized", auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 59900, currency_id: "COP" } };
+  assert(!matchesSubscriptionConfiguration({
+    ...base,
+    auto_recurring: { ...base.auto_recurring, transaction_amount: 59899 },
+  }, "professional"), "An underpriced preapproval must not activate Professional.");
+  assert(!matchesSubscriptionConfiguration({
+    ...base,
+    auto_recurring: { ...base.auto_recurring, transaction_amount: 59901 },
+  }, "professional"), "An overpriced preapproval must be reconciled.");
+  assert(!matchesSubscriptionConfiguration({
+    ...base,
+    auto_recurring: { ...base.auto_recurring, currency_id: "USD" },
+  }, "professional"), "A foreign-currency preapproval must fail closed.");
+  assert(!matchesSubscriptionConfiguration({
+    ...base,
+    auto_recurring: { ...base.auto_recurring, frequency: 2 },
+  }, "professional"), "A different billing frequency must fail closed.");
+  assert(!matchesSubscriptionConfiguration({
+    ...base,
+    auto_recurring: { ...base.auto_recurring, frequency_type: "days" },
+  }, "professional"), "A different frequency type must fail closed.");
+  assert(!matchesSubscriptionConfiguration({
+    ...base,
+    auto_recurring: { ...base.auto_recurring, currency_id: undefined },
+  }, "professional"), "A missing currency must fail closed.");
+  assert(!matchesSubscriptionConfiguration(base, "free"), "Unsupported plans must fail closed.");
+  assert(!matchesSubscriptionConfiguration({
+    ...base, status: "pending",
+  }, "professional"), "A pending preapproval must not activate.");
 });
