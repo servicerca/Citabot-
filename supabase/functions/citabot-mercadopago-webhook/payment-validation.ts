@@ -18,6 +18,16 @@ export type ProviderSubscriptionPayment = {
   currency_id?: unknown;
 };
 
+export type ProviderSubscriptionConfiguration = {
+  status?: unknown;
+  auto_recurring?: {
+    frequency?: unknown;
+    frequency_type?: unknown;
+    transaction_amount?: unknown;
+    currency_id?: unknown;
+  } | null;
+};
+
 const BOOST_ORDER_STATUSES = new Set([
   "pending",
   "paid",
@@ -26,6 +36,13 @@ const BOOST_ORDER_STATUSES = new Set([
   "expired",
   "refunded",
 ]);
+
+const subscriptionPriceLookup: Readonly<Record<string, number>> = SUBSCRIPTION_MONTHLY_PRICES_COP;
+
+function expectedSubscriptionPrice(plan: unknown): number | null {
+  if (typeof plan !== "string") return null;
+  return subscriptionPriceLookup[plan] ?? null;
+}
 
 function toMinorUnits(value: unknown): number | null {
   const amount =
@@ -48,9 +65,7 @@ export function matchesSubscriptionPayment(
   payment: ProviderSubscriptionPayment,
   plan: unknown,
 ): boolean {
-  const expectedAmount = typeof plan === "string"
-    ? SUBSCRIPTION_MONTHLY_PRICES_COP[plan]
-    : undefined;
+  const expectedAmount = expectedSubscriptionPrice(plan);
   const paidCurrency =
     typeof payment.currency_id === "string"
       ? payment.currency_id.trim().toUpperCase()
@@ -58,10 +73,37 @@ export function matchesSubscriptionPayment(
   const paidAmount = toMinorUnits(payment.transaction_amount);
 
   return payment.status === "approved"
-    && expectedAmount !== undefined
+    && expectedAmount !== null
     && paidCurrency === "COP"
     && paidAmount !== null
     && paidAmount === Math.round(expectedAmount * 100);
+}
+
+
+
+/**
+ * An "authorized" preapproval can activate a plan before the first invoice
+ * arrives. Validate the provider's recurring configuration too, so a signed
+ * notification cannot activate a different price, currency or billing cadence.
+ */
+export function matchesSubscriptionConfiguration(
+  preapproval: ProviderSubscriptionConfiguration,
+  plan: unknown,
+): boolean {
+  const expectedAmount = expectedSubscriptionPrice(plan);
+  const recurring = preapproval.auto_recurring;
+  const configuredCurrency = typeof recurring?.currency_id === "string"
+    ? recurring.currency_id.trim().toUpperCase()
+    : "";
+  const configuredAmount = toMinorUnits(recurring?.transaction_amount);
+
+  return preapproval.status === "authorized"
+    && expectedAmount !== null
+    && recurring?.frequency === 1
+    && recurring?.frequency_type === "months"
+    && configuredCurrency === "COP"
+    && configuredAmount !== null
+    && configuredAmount === Math.round(expectedAmount * 100);
 }
 
 /**
