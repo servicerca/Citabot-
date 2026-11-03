@@ -10,6 +10,7 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "e2e/mobile-logout-layout.spec.cjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -20,6 +21,7 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "e2e/mobile-logout-layout.spec.cjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -54,10 +56,10 @@ jobs:
           from pathlib import Path
 
           html = Path("index.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script\b([^>]*)>([\s\S]*?)</script>", html, flags=re.I)
+          scripts = re.findall(r"<script\\b([^>]*)>([\\s\\S]*?)</script>", html, flags=re.I)
           inline = 0
           for i, (attrs, body) in enumerate(scripts, 1):
-              if re.search(r"\bsrc\s*=", attrs, flags=re.I):
+              if re.search(r"\\bsrc\\s*=", attrs, flags=re.I):
                   continue
               path = Path(f"/tmp/citabot-inline-{i}.js")
               path.write_text(body, encoding="utf-8")
@@ -65,3 +67,28 @@ jobs:
               inline += 1
           assert inline >= 3, f"Se esperaban al menos 3 scripts inline, encontrados: {inline}"
           print(f"CitaBot workspace JavaScript syntax: OK ({inline} inline scripts)")
+
+      - name: Install Playwright for mobile logout layout validation
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Serve the PR HTML without a backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/citabot-mobile-layout-http.log 2>&1 &
+          echo "$!" >/tmp/citabot-mobile-layout-http.pid
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/citabot-mobile-layout-http.log
+          exit 1
+
+      - name: Check mobile/tablet logout visibility and touch target
+        env:
+          BASE_URL: http://127.0.0.1:4173/
+        run: npx playwright@1.55.0 test e2e/mobile-logout-layout.spec.cjs --reporter=line
