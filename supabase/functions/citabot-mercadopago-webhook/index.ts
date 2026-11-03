@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canSyncBoostOrderStatus, matchesBoostOrderPayment } from "./payment-validation.ts";
+import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionPayment } from "./payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,x-signature,x-request-id","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const MP_TOKEN=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");const MP_SECRET=Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
 if(!SUPABASE_URL||!SERVICE_ROLE_KEY)throw new Error("Supabase server configuration missing");
@@ -40,6 +40,23 @@ async function syncAuthorizedPayment(id:string){
   const amount=Number(invoice?.transaction_amount??0);
   if(!Number.isFinite(amount)||amount<0)throw new Error("AUTHORIZED_PAYMENT_AMOUNT_INVALID");
   const currency=String(invoice?.currency_id||"COP");
+
+  // A valid webhook signature and a matching preapproval ID do not prove
+  // that the authorized invoice charged the correct plan price in COP.
+  // Fail closed before writing the payment ledger/revenue or activating the plan.
+  if(status==="paid"&&!matchesSubscriptionPayment({
+    status:providerStatus,
+    transaction_amount:invoice?.transaction_amount,
+    currency_id:invoice?.currency_id
+  },sub.plan)){
+    console.error("CITABOT_SUBSCRIPTION_PAYMENT_MISMATCH",JSON.stringify({
+      business_id:sub.business_id,
+      plan_supported:sub.plan==="professional"||sub.plan==="premium",
+      amount_is_valid:Number.isFinite(amount)&&amount>0,
+      currency_is_cop:typeof invoice?.currency_id==="string"&&invoice.currency_id.trim().toUpperCase()==="COP"
+    }));
+    return {ignored:true,reason:"subscription_payment_amount_currency_mismatch"};
+  }
 
   if(paymentId){
     const concept=sub.plan==="premium"?"Suscripción CitaBot Premium":"Suscripción CitaBot Profesional";
@@ -227,6 +244,23 @@ async function syncPayment(id:string){
     .maybeSingle();
   throwOnDbError("payment_subscription_lookup",subscriptionLookupError);
   const concept=sub?.plan==="premium"?"Suscripción CitaBot Premium":"Suscripción CitaBot Profesional";
+
+  // The citabot:<business> reference is reserved for recurring subscriptions.
+  // Never activate or book subscription revenue from an approved charge whose
+  // amount, currency or local plan does not match the server's configured price.
+  if(status==="paid"&&!matchesSubscriptionPayment({
+    status:payment?.status,
+    transaction_amount:payment?.transaction_amount,
+    currency_id:payment?.currency_id
+  },sub?.plan)){
+    console.error("CITABOT_SUBSCRIPTION_PAYMENT_MISMATCH",JSON.stringify({
+      business_id:businessId,
+      plan_supported:sub?.plan==="professional"||sub?.plan==="premium",
+      amount_is_valid:Number.isFinite(amount)&&amount>0,
+      currency_is_cop:typeof payment?.currency_id==="string"&&payment.currency_id.trim().toUpperCase()==="COP"
+    }));
+    return {ignored:true,reason:"subscription_payment_amount_currency_mismatch"};
+  }
 
   const paymentWrite=await db.from("payments").upsert({
     business_id:businessId,
