@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SUBSCRIPTION_MONTHLY_PRICES_COP } from "../_shared/citabot-pricing.ts";
+import { matchesSubscriptionConfiguration } from "../_shared/citabot-payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const url=Deno.env.get("SUPABASE_URL"), key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), mp=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
@@ -27,7 +28,18 @@ function throwOnDbError(operation: string, error: { code?: unknown } | null | un
 function isCancelled(status: string | null) {
   return status === "cancelled" || status === "canceled";
 }
-async function checkPreapproval(id: string): Promise<{ status: string | null; initPoint: string | null; httpStatus: number | null }> {
+type AutoRecurringSnapshot = {
+  frequency?: unknown;
+  frequency_type?: unknown;
+  transaction_amount?: unknown;
+  currency_id?: unknown;
+};
+async function checkPreapproval(id: string): Promise<{
+  status: string | null;
+  initPoint: string | null;
+  autoRecurring: AutoRecurringSnapshot | null;
+  httpStatus: number | null;
+}> {
   try {
     const response = await fetch("https://api.mercadopago.com/preapproval/" + encodeURIComponent(id), {
       headers: { Authorization: "Bearer " + mp },
@@ -35,16 +47,17 @@ async function checkPreapproval(id: string): Promise<{ status: string | null; in
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       console.error("CITABOT_CHECKOUT_PREAPPROVAL_LOOKUP_FAILED", JSON.stringify({ status: response.status }));
-      return { status: null, initPoint: null, httpStatus: response.status };
+      return { status: null, initPoint: null, autoRecurring: null, httpStatus: response.status };
     }
     return {
       status: typeof data?.status === "string" ? data.status : null,
       initPoint: typeof data?.init_point === "string" && data.init_point ? data.init_point : null,
+      autoRecurring: data?.auto_recurring && typeof data.auto_recurring === "object" ? data.auto_recurring : null,
       httpStatus: response.status,
     };
   } catch {
     console.error("CITABOT_CHECKOUT_PREAPPROVAL_LOOKUP_FAILED", JSON.stringify({ code: "network_error" }));
-    return { status: null, initPoint: null, httpStatus: null };
+    return { status: null, initPoint: null, autoRecurring: null, httpStatus: null };
   }
 }
 async function cancelAndVerifyPreapproval(id: string): Promise<CancellationCheck> {
@@ -167,6 +180,21 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
    if(prior?.provider_subscription_id&&prior.plan==="premium"&&["active","pending"].includes(String(prior.status||""))){
      const remote=await checkPreapproval(String(prior.provider_subscription_id));
      if(remote.status==="authorized"){
+       if(!matchesSubscriptionConfiguration({
+         status:remote.status,
+         auto_recurring:remote.autoRecurring
+       },prior.plan)){
+         const blocked=await db.from("subscriptions").update({
+           status:"past_due",updated_at:new Date().toISOString()
+         }).eq("id",String(prior.id)).select("id").maybeSingle();
+         throwOnDbError("premium_preapproval_mismatch_block",blocked.error);
+         if(!blocked.data?.id)throw new Error("PREMIUM_PREAPPROVAL_MISMATCH_BLOCK_MISSING");
+         return json({
+           ok:false,
+           error:"La configuración de Mercado Pago no coincide con el precio y periodicidad del plan Premium. El acceso quedó en revisión y no se creó otro cobro.",
+           reconciliation_required:true
+         },409);
+       }
        if(prior.status!=="active"){
          const mark=await db.from("subscriptions").update({
            status:"active",updated_at:new Date().toISOString()
