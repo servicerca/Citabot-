@@ -884,7 +884,23 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(document.g
   async function cbEnterApp(){const role=(await sb.from('business_members').select('role').eq('user_id',(await sb.auth.getUser()).data.user.id).eq('business_id',currentBusiness.id).maybeSingle()).data?.role;if(['owner','admin'].includes(role)){try{const metaSync=await sb.functions.invoke('citabot-meta-sync',{body:{business_id:currentBusiness.id}});if(metaSync?.error){integrationStatus.whatsapp='error';integrationStatus.whatsappMessage=metaSync.error.message||'No se pudo comprobar Meta.';}else if(metaSync?.data?.ok){integrationStatus.whatsapp='ready';integrationStatus.whatsappMessage='Meta respondió correctamente.';}else{integrationStatus.whatsapp='blocked';integrationStatus.whatsappMessage=metaSync?.data?.error||'Meta no autorizó la integración.';}}catch(e){integrationStatus.whatsapp='error';integrationStatus.whatsappMessage=e?.message||'No se pudo comprobar Meta.';console.warn('Meta sync pendiente',e);}}await cbRefresh();cbBootHide();document.getElementById('cbAuth').classList.remove('open');document.getElementById('landing').classList.remove('active');document.getElementById('onboarding').classList.remove('open');document.getElementById('app').style.display='grid';$('businessName').textContent=currentBusiness.name;$('setBusiness').value=currentBusiness.name;go('dashboard');showToast('CitaBot conectado correctamente');}
   window.finishOnboarding=async()=>{const name=state.business?.trim(),city=($('obCity')?.value||'').trim(),phone=($('obPhone')?.value||'').trim();if(!name){showToast('Escribe el nombre del negocio');return;}const {data:{user}}=await sb.auth.getUser();if(!user){showOnboarding();return;}try{cbBoot('Configurando CitaBot…','Creando tu negocio con solo los datos que proporcionaste…');const category=state.type==='restaurant'?'restaurant':'service';const {data,error}=await sb.rpc('create_citabot_business_onboarding',{p_name:name,p_category:category,p_city:city||null,p_phone:phone||null,p_email:user.email||null});if(error)throw error;const b=data?.business;if(!b)throw new Error('CitaBot no devolvió el negocio creado.');currentBusiness=b;localStorage.setItem('citabot.business_id',b.id);await cbEnterApp();go('settings');showToast('Cuenta creada. Configura tus datos reales del negocio.');}catch(e){console.error('CitaBot onboarding error:',e);cbBootHide();showToast(e.message||'No se pudo configurar el negocio');}};
   
-  window.logout=async()=>{try{await sb.auth.signOut();}catch(error){console.error(error);showToast('No se pudo cerrar la sesión remota.');}finally{currentBusiness=null;isPlatformAdmin=false;if($('navPlatformAdmin'))$('navPlatformAdmin').style.display='none';currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};document.getElementById('app').style.display='none';document.getElementById('landing').classList.add('active');}};
+  window.logout=async()=>{
+    try{
+      const {error}=await sb.auth.signOut();
+      if(error)throw error;
+    }catch(error){
+      console.error('CitaBot logout error:',error);
+      showToast('No se pudo cerrar la sesión. Tu cuenta sigue activa.');
+      return false;
+    }
+    currentBusiness=null;
+    isPlatformAdmin=false;
+    if($('navPlatformAdmin'))$('navPlatformAdmin').style.display='none';
+    currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};
+    document.getElementById('app').style.display='none';
+    document.getElementById('landing').classList.add('active');
+    return true;
+  };
   function cbTrialActive(){const s=currentData.subscription;return Boolean(s&&s.plan==='trial'&&s.status==='trialing'&&s.trial_ends_at&&new Date(s.trial_ends_at)>new Date());}
 function cbTrialDaysLeft(){if(!cbTrialActive())return 0;return Math.max(0,Math.ceil((new Date(currentData.subscription.trial_ends_at)-Date.now())/86400000));}
 function cbEffectivePlan(){return cbTrialActive()?'trial':(currentData.subscription?.plan||'free');}
