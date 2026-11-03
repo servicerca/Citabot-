@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { SUBSCRIPTION_MONTHLY_PRICES_COP } from "../_shared/citabot-pricing.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -275,7 +276,7 @@ Deno.serve(async (req) => {
         }
         return json({
           ok: true, already_pending: true, subscription_id: prior.provider_subscription_id,
-          init_point: remote.initPoint, status: "pending", plan: "professional", amount: 59900,
+          init_point: remote.initPoint, status: "pending", plan: "professional", amount: SUBSCRIPTION_MONTHLY_PRICES_COP.professional,
         });
       }
       if (isCancelled(remote.status)) {
@@ -319,7 +320,7 @@ Deno.serve(async (req) => {
           reason: "CitaBot Profesional",
           external_reference: "citabot:" + businessId,
           payer_email: payerEmail,
-          auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 59900, currency_id: "COP" },
+          auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: SUBSCRIPTION_MONTHLY_PRICES_COP.professional, currency_id: "COP" },
           back_url: PUBLIC_URL,
           status: "pending",
         }),
@@ -493,7 +494,7 @@ Deno.serve(async (req) => {
     }
 
     return json({
-      ok: true, subscription_id: newProviderId, init_point: initPoint, status: "pending", plan: "professional", amount: 59900,
+      ok: true, subscription_id: newProviderId, init_point: initPoint, status: "pending", plan: "professional", amount: SUBSCRIPTION_MONTHLY_PRICES_COP.professional,
     });
   } catch (error) {
     logCheckoutFailure("CITABOT_PROFESSIONAL_CHECKOUT_FAILED", error);
