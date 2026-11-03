@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { SUBSCRIPTION_MONTHLY_PRICES_COP } from "../_shared/citabot-pricing.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const url=Deno.env.get("SUPABASE_URL"), key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), mp=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
@@ -181,7 +182,7 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
          }).eq("id",String(prior.id));
          throwOnDbError("pending_premium_status_update",mark.error);
        }
-       return json({ok:true,already_pending:true,plan:"premium",subscription_id:prior.provider_subscription_id,init_point:remote.initPoint,amount:69900});
+       return json({ok:true,already_pending:true,plan:"premium",subscription_id:prior.provider_subscription_id,init_point:remote.initPoint,amount:SUBSCRIPTION_MONTHLY_PRICES_COP.premium});
      }
      if(isCancelled(remote.status)){
        const mark=await db.from("subscriptions").update({
@@ -229,7 +230,7 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
        reason:"CitaBot Premium",
        external_reference:"citabot:"+businessId,
        payer_email:email,
-       auto_recurring:{frequency:1,frequency_type:"months",transaction_amount:69900,currency_id:"COP"},
+       auto_recurring:{frequency:1,frequency_type:"months",transaction_amount:SUBSCRIPTION_MONTHLY_PRICES_COP.premium,currency_id:"COP"},
        back_url:publicUrl,
        status:"pending"
      })
@@ -393,7 +394,7 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
    }
 
    await setChangeReconciliation(reconciliationId,{state:"resolved",phase:"finished",error_code:null});
-   return json({ok:true,plan:"premium",subscription_id:newProviderId,init_point:remoteInitPoint,amount:69900});
+   return json({ok:true,plan:"premium",subscription_id:newProviderId,init_point:remoteInitPoint,amount:SUBSCRIPTION_MONTHLY_PRICES_COP.premium});
  }
  if(mode==="boost"){
    const days=Number(b.duration_days);const prices:{[k:string]:number}={7:9900,15:19900,30:34900};if(!prices[days])return json({ok:false,error:"Duración no válida."},400);
