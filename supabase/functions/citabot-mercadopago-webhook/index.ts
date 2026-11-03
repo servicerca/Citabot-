@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionPayment } from "./payment-validation.ts";
+import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionConfiguration, matchesSubscriptionPayment } from "./payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,x-signature,x-request-id","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const MP_TOKEN=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");const MP_SECRET=Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
 if(!SUPABASE_URL||!SERVICE_ROLE_KEY)throw new Error("Supabase server configuration missing");
@@ -18,7 +18,41 @@ function parseSig(value:string|null){const out:{ts?:string,v1?:string}={};for(co
 async function verifySignature(req:Request,dataId:string){if(!MP_SECRET)return false;const sig=parseSig(req.headers.get('x-signature'));const requestId=req.headers.get('x-request-id')||'';if(!sig.ts||!sig.v1)return false;const manifest=`id:${dataId};request-id:${requestId};ts:${sig.ts};`;const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(MP_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);const digest=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(manifest));const hex=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');if(hex.length!==sig.v1.length)return false;let diff=0;for(let i=0;i<hex.length;i++)diff|=hex.charCodeAt(i)^sig.v1.charCodeAt(i);return diff===0;}
 async function mpGet(path:string){if(!MP_TOKEN)throw new Error('Mercado Pago no está configurado.');const r=await fetch(`https://api.mercadopago.com${path}`,{headers:{Authorization:`Bearer ${MP_TOKEN}`}});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`Mercado Pago ${r.status}`);return data;}
 function mapSubStatus(status:string){if(status==='authorized')return 'active';if(status==='paused')return 'paused';if(status==='cancelled'||status==='canceled')return 'cancelled';if(status==='pending')return 'pending';return 'past_due';}
-async function syncSubscription(id:string){const sub=await mpGet(`/preapproval/${encodeURIComponent(id)}`);const {data:local,error}=await db.from('subscriptions').select('id,business_id').eq('provider','mercadopago').eq('provider_subscription_id',String(id)).maybeSingle();if(error)throw error;if(!local?.business_id)return {ignored:true};const updates={status:mapSubStatus(String(sub.status||'pending')),provider_customer_id:sub?.payer_id?String(sub.payer_id):null,current_period_end:sub?.next_payment_date||sub?.auto_recurring?.end_date||null,updated_at:new Date().toISOString()};const {error:ue}=await db.from('subscriptions').update(updates).eq('id',local.id);if(ue)throw ue;return {business_id:local.business_id,status:updates.status};}
+async function syncSubscription(id:string){
+  const preapproval=await mpGet(`/preapproval/${encodeURIComponent(id)}`);
+  const {data:local,error}=await db.from('subscriptions')
+    .select('id,business_id,plan')
+    .eq('provider','mercadopago')
+    .eq('provider_subscription_id',String(id))
+    .maybeSingle();
+  if(error)throw error;
+  if(!local?.business_id)return {ignored:true};
+
+  // Mercado Pago can report the preapproval as authorized before the first
+  // authorized-payment invoice is emitted. Do not activate a plan unless the
+  // recurring price/currency/cadence still match the local plan policy.
+  if(preapproval?.status==="authorized"&&!matchesSubscriptionConfiguration(preapproval,local.plan)){
+    const recurring=preapproval?.auto_recurring;
+    console.error("CITABOT_SUBSCRIPTION_PREAPPROVAL_MISMATCH",JSON.stringify({
+      business_id:local.business_id,
+      plan_supported:local.plan==="professional"||local.plan==="premium",
+      amount_is_valid:Number.isFinite(Number(recurring?.transaction_amount))&&Number(recurring?.transaction_amount)>0,
+      currency_is_cop:typeof recurring?.currency_id==="string"&&recurring.currency_id.trim().toUpperCase()==="COP",
+      monthly_frequency:recurring?.frequency===1&&recurring?.frequency_type==="months"
+    }));
+    return {ignored:true,reason:"subscription_preapproval_configuration_mismatch"};
+  }
+
+  const updates={
+    status:mapSubStatus(String(preapproval.status||'pending')),
+    provider_customer_id:preapproval?.payer_id?String(preapproval.payer_id):null,
+    current_period_end:preapproval?.next_payment_date||preapproval?.auto_recurring?.end_date||null,
+    updated_at:new Date().toISOString()
+  };
+  const {error:ue}=await db.from('subscriptions').update(updates).eq('id',local.id);
+  if(ue)throw ue;
+  return {business_id:local.business_id,status:updates.status};
+}
 async function syncAuthorizedPayment(id:string){
   const invoice=await mpGet("/authorized_payments/"+encodeURIComponent(id));
   const preapproval=String(invoice?.preapproval_id||"");
