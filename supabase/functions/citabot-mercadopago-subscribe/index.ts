@@ -1,5 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { SUBSCRIPTION_MONTHLY_PRICES_COP } from "../_shared/citabot-pricing.ts";
+import { matchesSubscriptionConfiguration } from "../_shared/citabot-payment-validation.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -63,11 +65,19 @@ function isCancelled(status: string | null) {
   return status === "cancelled" || status === "canceled";
 }
 
+type AutoRecurringSnapshot = {
+  frequency?: unknown;
+  frequency_type?: unknown;
+  transaction_amount?: unknown;
+  currency_id?: unknown;
+};
+
 async function checkPreapproval(id: string): Promise<{
   status: string | null;
   initPoint: string | null;
   payerId: string | null;
   nextPaymentDate: string | null;
+  autoRecurring: AutoRecurringSnapshot | null;
   httpStatus: number | null;
 }> {
   try {
@@ -77,18 +87,19 @@ async function checkPreapproval(id: string): Promise<{
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       console.error("CITABOT_PROFESSIONAL_PREAPPROVAL_LOOKUP_FAILED", JSON.stringify({ status: response.status }));
-      return { status: null, initPoint: null, payerId: null, nextPaymentDate: null, httpStatus: response.status };
+      return { status: null, initPoint: null, payerId: null, nextPaymentDate: null, autoRecurring: null, httpStatus: response.status };
     }
     return {
       status: typeof data?.status === "string" ? data.status : null,
       initPoint: typeof data?.init_point === "string" && data.init_point ? data.init_point : null,
       payerId: data?.payer_id == null ? null : String(data.payer_id),
       nextPaymentDate: typeof data?.next_payment_date === "string" ? data.next_payment_date : null,
+      autoRecurring: data?.auto_recurring && typeof data.auto_recurring === "object" ? data.auto_recurring : null,
       httpStatus: response.status,
     };
   } catch {
     console.error("CITABOT_PROFESSIONAL_PREAPPROVAL_LOOKUP_FAILED", JSON.stringify({ code: "network_error" }));
-    return { status: null, initPoint: null, payerId: null, nextPaymentDate: null, httpStatus: null };
+    return { status: null, initPoint: null, payerId: null, nextPaymentDate: null, autoRecurring: null, httpStatus: null };
   }
 }
 
@@ -241,6 +252,22 @@ Deno.serve(async (req) => {
     if (prior?.provider_subscription_id) {
       const remote = await checkPreapproval(String(prior.provider_subscription_id));
       if (remote.status === "authorized") {
+        if (!matchesSubscriptionConfiguration({
+          status: remote.status,
+          auto_recurring: remote.autoRecurring,
+        }, prior.plan)) {
+          const blocked = await admin.from("subscriptions").update({
+            status: "past_due",
+            updated_at: new Date().toISOString(),
+          }).eq("id", prior.id).select("id").maybeSingle();
+          throwOnDbError("preapproval_configuration_mismatch_block", blocked.error);
+          if (!blocked.data?.id) throw new Error("PREAPPROVAL_MISMATCH_BLOCK_MISSING");
+          return json({
+            ok: false,
+            error: "La configuración de Mercado Pago no coincide con el precio y periodicidad del plan. El acceso quedó en revisión y no se creó otro cobro.",
+            reconciliation_required: true,
+          }, 409);
+        }
         if (!["professional", "premium"].includes(prior.plan)) {
           return json({
             ok: false,
@@ -275,7 +302,7 @@ Deno.serve(async (req) => {
         }
         return json({
           ok: true, already_pending: true, subscription_id: prior.provider_subscription_id,
-          init_point: remote.initPoint, status: "pending", plan: "professional", amount: 59900,
+          init_point: remote.initPoint, status: "pending", plan: "professional", amount: SUBSCRIPTION_MONTHLY_PRICES_COP.professional,
         });
       }
       if (isCancelled(remote.status)) {
@@ -319,7 +346,7 @@ Deno.serve(async (req) => {
           reason: "CitaBot Profesional",
           external_reference: "citabot:" + businessId,
           payer_email: payerEmail,
-          auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 59900, currency_id: "COP" },
+          auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: SUBSCRIPTION_MONTHLY_PRICES_COP.professional, currency_id: "COP" },
           back_url: PUBLIC_URL,
           status: "pending",
         }),
@@ -493,7 +520,7 @@ Deno.serve(async (req) => {
     }
 
     return json({
-      ok: true, subscription_id: newProviderId, init_point: initPoint, status: "pending", plan: "professional", amount: 59900,
+      ok: true, subscription_id: newProviderId, init_point: initPoint, status: "pending", plan: "professional", amount: SUBSCRIPTION_MONTHLY_PRICES_COP.professional,
     });
   } catch (error) {
     logCheckoutFailure("CITABOT_PROFESSIONAL_CHECKOUT_FAILED", error);
