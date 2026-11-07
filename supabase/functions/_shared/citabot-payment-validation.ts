@@ -109,6 +109,20 @@ export function matchesSubscriptionConfiguration(
 }
 
 /**
+ * A subscription can be activated only when both the individual invoice and
+ * the provider's current recurring preapproval match the local plan policy.
+ */
+export function matchesSubscriptionActivation(
+  payment: ProviderSubscriptionPayment,
+  preapproval: ProviderSubscriptionConfiguration | null | undefined,
+  plan: unknown,
+): boolean {
+  return Boolean(preapproval)
+    && matchesSubscriptionPayment(payment, plan)
+    && matchesSubscriptionConfiguration(preapproval as ProviderSubscriptionConfiguration, plan);
+}
+
+/**
  * Reject out-of-order provider updates that would resurrect a terminal order
  * or downgrade a paid/refunded order. Provider notifications are retried and
  * may arrive after a cancellation, expiration, or refund.
