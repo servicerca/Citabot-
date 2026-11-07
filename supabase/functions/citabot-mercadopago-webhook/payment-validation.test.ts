@@ -3,6 +3,7 @@ import {
   matchesBoostOrderPayment,
   matchesSubscriptionConfiguration,
   matchesSubscriptionPayment,
+  matchesSubscriptionActivation,
 } from "./payment-validation.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -198,4 +199,25 @@ Deno.test("rejects preapprovals with a mismatched amount, currency or cadence", 
   assert(!matchesSubscriptionConfiguration({
     ...base, status: "pending",
   }, "professional"), "A pending preapproval must not activate.");
+});
+Deno.test("subscription activation requires both the exact invoice and authorized recurring preapproval", () => {
+  const payment = { status: "approved", transaction_amount: 59900, currency_id: "COP" };
+  const validPreapproval = {
+    status: "authorized",
+    auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 59900, currency_id: "COP" },
+  };
+  const invalidPreapproval = {
+    status: "authorized",
+    auto_recurring: { frequency: 1, frequency_type: "months", transaction_amount: 59800, currency_id: "COP" },
+  };
+  const invalidPayment = { status: "approved", transaction_amount: 59800, currency_id: "COP" };
+
+  assert(matchesSubscriptionActivation(payment, validPreapproval, "professional"),
+    "Exact invoice plus matching authorized preapproval may activate.");
+  assert(!matchesSubscriptionActivation(payment, invalidPreapproval, "professional"),
+    "A correct invoice must not bypass a mismatched recurring preapproval.");
+  assert(!matchesSubscriptionActivation(invalidPayment, validPreapproval, "professional"),
+    "A matching preapproval must not bypass an incorrect invoice.");
+  assert(!matchesSubscriptionActivation(payment, null, "professional"),
+    "Missing provider preapproval must fail closed.");
 });
