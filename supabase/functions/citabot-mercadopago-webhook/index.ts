@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionActivation, matchesSubscriptionConfiguration, matchesSubscriptionPayment } from "./payment-validation.ts";
+import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionActivation, matchesSubscriptionConfiguration } from "./payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,x-signature,x-request-id","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const MP_TOKEN=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");const MP_SECRET=Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
 if(!SUPABASE_URL||!SERVICE_ROLE_KEY)throw new Error("Supabase server configuration missing");
@@ -303,8 +303,8 @@ async function syncPayment(id:string){
   const providerPreapproval=status==="paid"
     && sub?.provider==="mercadopago"
     && typeof sub?.provider_subscription_id==="string"
-    && sub.provider_subscription_id.length>0
-      ? await mpGet("/preapproval/"+encodeURIComponent(sub.provider_subscription_id))
+    && sub.provider_subscription_id.trim().length>0
+      ? await mpGet("/preapproval/"+encodeURIComponent(sub.provider_subscription_id.trim()))
       : null;
   if(status==="paid"&&!matchesSubscriptionActivation({
     status:payment?.status,
