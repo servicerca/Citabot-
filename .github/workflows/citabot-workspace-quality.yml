@@ -10,6 +10,7 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-logout-flow.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -20,6 +21,7 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-logout-flow.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -45,6 +47,9 @@ jobs:
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs
+
+      - name: Check logout success and failure behavior
+        run: node scripts/check-logout-flow.mjs
 
       - name: Ensure paid plan features require an active subscription
         run: node scripts/check-subscription-effective-plan.mjs
