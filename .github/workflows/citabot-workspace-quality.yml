@@ -10,6 +10,12 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-subscription-effective-plan.mjs"
+      - "scripts/check-premium-checkout-requires-paid-invoice.mjs"
+      - "supabase/functions/citabot-commercial-checkout/index.ts"
+      - "supabase/functions/_shared/citabot-payment-validation.ts"
+      - "e2e/mobile-logout-layout.spec.cjs"
+      - "scripts/check-logout-flow.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -20,6 +26,12 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-subscription-effective-plan.mjs"
+      - "scripts/check-premium-checkout-requires-paid-invoice.mjs"
+      - "supabase/functions/citabot-commercial-checkout/index.ts"
+      - "supabase/functions/_shared/citabot-payment-validation.ts"
+      - "e2e/mobile-logout-layout.spec.cjs"
+      - "scripts/check-logout-flow.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -45,6 +57,40 @@ jobs:
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs
+
+      - name: Check logout success and failure behavior
+        run: node scripts/check-logout-flow.mjs
+
+      - name: Ensure paid plan features require an active subscription
+        run: node scripts/check-subscription-effective-plan.mjs
+
+      - name: Ensure Premium checkout requires a paid current invoice
+        run: node scripts/check-premium-checkout-requires-paid-invoice.mjs
+
+      - name: Install Playwright for mobile logout layout validation
+        run: |
+          npm install --no-save --no-package-lock playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Serve the PR HTML without a backend
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 >/tmp/citabot-mobile-layout-http.log 2>&1 &
+          echo "$!" >/tmp/citabot-mobile-layout-http.pid
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/citabot-mobile-layout-http.log
+          exit 1
+
+      - name: Check mobile/tablet logout visibility and touch target
+        env:
+          BASE_URL: http://127.0.0.1:4173/
+        run: npx playwright@1.55.0 test e2e/mobile-logout-layout.spec.cjs --reporter=line
 
       - name: Check all inline JavaScript syntax
         shell: python

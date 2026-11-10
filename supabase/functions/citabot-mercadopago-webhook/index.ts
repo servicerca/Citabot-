@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canSyncBoostOrderStatus, matchesBoostOrderPayment } from "./payment-validation.ts";
+import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionActivation, matchesSubscriptionConfiguration, hasCurrentPaidSubscriptionPeriod } from "./payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,x-signature,x-request-id","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const MP_TOKEN=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");const MP_SECRET=Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
 if(!SUPABASE_URL||!SERVICE_ROLE_KEY)throw new Error("Supabase server configuration missing");
@@ -18,7 +18,83 @@ function parseSig(value:string|null){const out:{ts?:string,v1?:string}={};for(co
 async function verifySignature(req:Request,dataId:string){if(!MP_SECRET)return false;const sig=parseSig(req.headers.get('x-signature'));const requestId=req.headers.get('x-request-id')||'';if(!sig.ts||!sig.v1)return false;const manifest=`id:${dataId};request-id:${requestId};ts:${sig.ts};`;const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(MP_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);const digest=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(manifest));const hex=Array.from(new Uint8Array(digest)).map(x=>x.toString(16).padStart(2,'0')).join('');if(hex.length!==sig.v1.length)return false;let diff=0;for(let i=0;i<hex.length;i++)diff|=hex.charCodeAt(i)^sig.v1.charCodeAt(i);return diff===0;}
 async function mpGet(path:string){if(!MP_TOKEN)throw new Error('Mercado Pago no está configurado.');const r=await fetch(`https://api.mercadopago.com${path}`,{headers:{Authorization:`Bearer ${MP_TOKEN}`}});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`Mercado Pago ${r.status}`);return data;}
 function mapSubStatus(status:string){if(status==='authorized')return 'active';if(status==='paused')return 'paused';if(status==='cancelled'||status==='canceled')return 'cancelled';if(status==='pending')return 'pending';return 'past_due';}
-async function syncSubscription(id:string){const sub=await mpGet(`/preapproval/${encodeURIComponent(id)}`);const {data:local,error}=await db.from('subscriptions').select('id,business_id').eq('provider','mercadopago').eq('provider_subscription_id',String(id)).maybeSingle();if(error)throw error;if(!local?.business_id)return {ignored:true};const updates={status:mapSubStatus(String(sub.status||'pending')),provider_customer_id:sub?.payer_id?String(sub.payer_id):null,current_period_end:sub?.next_payment_date||sub?.auto_recurring?.end_date||null,updated_at:new Date().toISOString()};const {error:ue}=await db.from('subscriptions').update(updates).eq('id',local.id);if(ue)throw ue;return {business_id:local.business_id,status:updates.status};}
+async function syncSubscription(id:string){
+  const preapproval=await mpGet(`/preapproval/${encodeURIComponent(id)}`);
+  const {data:local,error}=await db.from('subscriptions')
+    .select('id,business_id,plan,status,current_period_end')
+    .eq('provider','mercadopago')
+    .eq('provider_subscription_id',String(id))
+    .maybeSingle();
+  if(error)throw error;
+  if(!local?.business_id)return {ignored:true};
+
+  // Mercado Pago can report the preapproval as authorized before the first
+  // authorized-payment invoice is emitted. Do not activate a plan unless the
+  // recurring price/currency/cadence still match the local plan policy.
+  if(preapproval?.status==="authorized"&&!matchesSubscriptionConfiguration(preapproval,local.plan)){
+    const recurring=preapproval?.auto_recurring;
+    console.error("CITABOT_SUBSCRIPTION_PREAPPROVAL_MISMATCH",JSON.stringify({
+      business_id:local.business_id,
+      plan_supported:local.plan==="professional"||local.plan==="premium",
+      amount_is_valid:Number.isFinite(Number(recurring?.transaction_amount))&&Number(recurring?.transaction_amount)>0,
+      currency_is_cop:typeof recurring?.currency_id==="string"&&recurring.currency_id.trim().toUpperCase()==="COP",
+      monthly_frequency:recurring?.frequency===1&&recurring?.frequency_type==="months"
+    }));
+    const blocked=await db.from('subscriptions').update({
+      status:'past_due',
+      updated_at:new Date().toISOString()
+    }).eq('id',local.id);
+    throwOnDbError("subscription_preapproval_mismatch_block",blocked.error);
+    return {ignored:true,reason:"subscription_preapproval_configuration_mismatch",status:"past_due"};
+  }
+
+  const nextPeriodEnd=preapproval?.next_payment_date
+    || preapproval?.auto_recurring?.end_date
+    || local.current_period_end
+    || null;
+  let subscriptionStatus=mapSubStatus(String(preapproval.status||'pending'));
+
+  if(preapproval?.status==="authorized"){
+    const {data:paidInvoice,error:paidInvoiceError}=await db.from("payments")
+      .select("id")
+      .eq("business_id",local.business_id)
+      .eq("provider","mercadopago")
+      .eq("provider_reference",String(id))
+      .eq("status","paid")
+      .limit(1)
+      .maybeSingle();
+    throwOnDbError("subscription_confirmed_invoice_lookup",paidInvoiceError);
+
+    const paidPeriodConfirmed=hasCurrentPaidSubscriptionPeriod(
+      preapproval.status,
+      Boolean(paidInvoice?.id),
+      nextPeriodEnd
+    );
+    subscriptionStatus=paidPeriodConfirmed
+      ? "active"
+      : local.status==="past_due"
+        ? "past_due"
+        : "pending";
+
+    if(!paidPeriodConfirmed){
+      console.info("CITABOT_SUBSCRIPTION_AWAITING_CONFIRMED_INVOICE",JSON.stringify({
+        business_id:local.business_id,
+        paid_invoice_found:Boolean(paidInvoice?.id),
+        current_period_confirmed:Boolean(nextPeriodEnd)
+      }));
+    }
+  }
+
+  const updates={
+    status:subscriptionStatus,
+    provider_customer_id:preapproval?.payer_id?String(preapproval.payer_id):null,
+    current_period_end:nextPeriodEnd,
+    updated_at:new Date().toISOString()
+  };
+  const {error:ue}=await db.from('subscriptions').update(updates).eq('id',local.id);
+  if(ue)throw ue;
+  return {business_id:local.business_id,status:updates.status};
+}
 async function syncAuthorizedPayment(id:string){
   const invoice=await mpGet("/authorized_payments/"+encodeURIComponent(id));
   const preapproval=String(invoice?.preapproval_id||"");
@@ -40,6 +116,37 @@ async function syncAuthorizedPayment(id:string){
   const amount=Number(invoice?.transaction_amount??0);
   if(!Number.isFinite(amount)||amount<0)throw new Error("AUTHORIZED_PAYMENT_AMOUNT_INVALID");
   const currency=String(invoice?.currency_id||"COP");
+
+  // Re-fetch the provider's current recurring configuration for this invoice.
+  // The invoice and the preapproval must both match before we write revenue or activate.
+  const providerPreapproval=status==="paid"
+    ? await mpGet("/preapproval/"+encodeURIComponent(preapproval))
+    : null;
+  if(status==="paid"&&!matchesSubscriptionActivation({
+    status:providerStatus,
+    transaction_amount:invoice?.transaction_amount,
+    currency_id:invoice?.currency_id
+  },providerPreapproval,sub.plan)){
+    const configurationMatches=matchesSubscriptionConfiguration(providerPreapproval,sub.plan);
+    console.error(configurationMatches
+      ? "CITABOT_SUBSCRIPTION_PAYMENT_MISMATCH"
+      : "CITABOT_SUBSCRIPTION_PREAPPROVAL_MISMATCH",
+      JSON.stringify({
+        business_id:sub.business_id,
+        plan_supported:sub.plan==="professional"||sub.plan==="premium",
+        amount_is_valid:Number.isFinite(amount)&&amount>0,
+        currency_is_cop:typeof invoice?.currency_id==="string"&&invoice.currency_id.trim().toUpperCase()==="COP",
+        recurring_configuration_matches:configurationMatches
+      }));
+    const blocked=await db.from("subscriptions").update({
+      status:"past_due",
+      updated_at:new Date().toISOString()
+    }).eq("id",sub.id);
+    throwOnDbError("authorized_payment_mismatch_block",blocked.error);
+    return {ignored:true,reason:configurationMatches
+      ? "subscription_payment_amount_currency_mismatch"
+      : "subscription_preapproval_configuration_mismatch",status:"past_due"};
+  }
 
   if(paymentId){
     const concept=sub.plan==="premium"?"Suscripción CitaBot Premium":"Suscripción CitaBot Profesional";
@@ -222,11 +329,47 @@ async function syncPayment(id:string){
   if(!businessId)return {ignored:true};
 
   const {data:sub,error:subscriptionLookupError}=await db.from("subscriptions")
-    .select("plan")
+    .select("id,plan,provider,provider_subscription_id")
     .eq("business_id",businessId)
     .maybeSingle();
   throwOnDbError("payment_subscription_lookup",subscriptionLookupError);
   const concept=sub?.plan==="premium"?"Suscripción CitaBot Premium":"Suscripción CitaBot Profesional";
+
+  // The citabot:<business> reference is reserved for recurring subscriptions.
+  // Require both the exact payment and the provider's current recurring configuration.
+  const providerPreapproval=status==="paid"
+    && sub?.provider==="mercadopago"
+    && typeof sub?.provider_subscription_id==="string"
+    && sub.provider_subscription_id.trim().length>0
+      ? await mpGet("/preapproval/"+encodeURIComponent(sub.provider_subscription_id.trim()))
+      : null;
+  if(status==="paid"&&!matchesSubscriptionActivation({
+    status:payment?.status,
+    transaction_amount:payment?.transaction_amount,
+    currency_id:payment?.currency_id
+  },providerPreapproval,sub?.plan)){
+    const configurationMatches=matchesSubscriptionConfiguration(providerPreapproval,sub?.plan);
+    console.error(configurationMatches
+      ? "CITABOT_SUBSCRIPTION_PAYMENT_MISMATCH"
+      : "CITABOT_SUBSCRIPTION_PREAPPROVAL_MISMATCH",
+      JSON.stringify({
+        business_id:businessId,
+        plan_supported:sub?.plan==="professional"||sub?.plan==="premium",
+        amount_is_valid:Number.isFinite(amount)&&amount>0,
+        currency_is_cop:typeof payment?.currency_id==="string"&&payment.currency_id.trim().toUpperCase()==="COP",
+        recurring_configuration_matches:configurationMatches
+      }));
+    if(sub?.id){
+      const blocked=await db.from("subscriptions").update({
+        status:"past_due",
+        updated_at:new Date().toISOString()
+      }).eq("id",sub.id);
+      throwOnDbError("payment_mismatch_block",blocked.error);
+    }
+    return {ignored:true,reason:configurationMatches
+      ? "subscription_payment_amount_currency_mismatch"
+      : "subscription_preapproval_configuration_mismatch",status:"past_due"};
+  }
 
   const paymentWrite=await db.from("payments").upsert({
     business_id:businessId,
