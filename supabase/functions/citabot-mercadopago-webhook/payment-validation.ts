@@ -4,4 +4,5 @@ export {
   matchesSubscriptionConfiguration,
   matchesSubscriptionPayment,
   matchesSubscriptionActivation,
+  hasCurrentPaidSubscriptionPeriod,
 } from "../_shared/citabot-payment-validation.ts";

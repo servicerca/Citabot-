@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionActivation, matchesSubscriptionConfiguration } from "./payment-validation.ts";
+import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionActivation, matchesSubscriptionConfiguration, hasCurrentPaidSubscriptionPeriod } from "./payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,x-signature,x-request-id","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const MP_TOKEN=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");const MP_SECRET=Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
 if(!SUPABASE_URL||!SERVICE_ROLE_KEY)throw new Error("Supabase server configuration missing");
@@ -21,7 +21,7 @@ function mapSubStatus(status:string){if(status==='authorized')return 'active';if
 async function syncSubscription(id:string){
   const preapproval=await mpGet(`/preapproval/${encodeURIComponent(id)}`);
   const {data:local,error}=await db.from('subscriptions')
-    .select('id,business_id,plan')
+    .select('id,business_id,plan,status,current_period_end')
     .eq('provider','mercadopago')
     .eq('provider_subscription_id',String(id))
     .maybeSingle();
@@ -48,10 +48,47 @@ async function syncSubscription(id:string){
     return {ignored:true,reason:"subscription_preapproval_configuration_mismatch",status:"past_due"};
   }
 
+  const nextPeriodEnd=preapproval?.next_payment_date
+    || preapproval?.auto_recurring?.end_date
+    || local.current_period_end
+    || null;
+  let subscriptionStatus=mapSubStatus(String(preapproval.status||'pending'));
+
+  if(preapproval?.status==="authorized"){
+    const {data:paidInvoice,error:paidInvoiceError}=await db.from("payments")
+      .select("id")
+      .eq("business_id",local.business_id)
+      .eq("provider","mercadopago")
+      .eq("provider_reference",String(id))
+      .eq("status","paid")
+      .limit(1)
+      .maybeSingle();
+    throwOnDbError("subscription_confirmed_invoice_lookup",paidInvoiceError);
+
+    const paidPeriodConfirmed=hasCurrentPaidSubscriptionPeriod(
+      preapproval.status,
+      Boolean(paidInvoice?.id),
+      nextPeriodEnd
+    );
+    subscriptionStatus=paidPeriodConfirmed
+      ? "active"
+      : local.status==="past_due"
+        ? "past_due"
+        : "pending";
+
+    if(!paidPeriodConfirmed){
+      console.info("CITABOT_SUBSCRIPTION_AWAITING_CONFIRMED_INVOICE",JSON.stringify({
+        business_id:local.business_id,
+        paid_invoice_found:Boolean(paidInvoice?.id),
+        current_period_confirmed:Boolean(nextPeriodEnd)
+      }));
+    }
+  }
+
   const updates={
-    status:mapSubStatus(String(preapproval.status||'pending')),
+    status:subscriptionStatus,
     provider_customer_id:preapproval?.payer_id?String(preapproval.payer_id):null,
-    current_period_end:preapproval?.next_payment_date||preapproval?.auto_recurring?.end_date||null,
+    current_period_end:nextPeriodEnd,
     updated_at:new Date().toISOString()
   };
   const {error:ue}=await db.from('subscriptions').update(updates).eq('id',local.id);
