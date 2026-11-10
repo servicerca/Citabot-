@@ -177,3 +177,22 @@ export function matchesBoostOrderPayment(
     && expectedAmount !== null
     && paidAmount === expectedAmount;
 }
+
+
+/**
+ * A preapproval is not proof that an invoice was paid. Paid access can remain
+ * active only when an approved invoice is recorded and the current period has
+ * not expired. Missing evidence must fail closed.
+ */
+export function hasCurrentPaidSubscriptionPeriod(
+  preapprovalStatus: unknown,
+  hasConfirmedInvoice: boolean,
+  periodEnd: unknown,
+  nowMs: number = Date.now(),
+): boolean {
+  if (preapprovalStatus !== "authorized" || !hasConfirmedInvoice) return false;
+  if (typeof periodEnd !== "string" || periodEnd.trim() === "") return false;
+
+  const endMs = Date.parse(periodEnd);
+  return Number.isFinite(endMs) && endMs > nowMs;
+}
