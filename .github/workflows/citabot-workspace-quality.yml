@@ -10,6 +10,10 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-subscription-effective-plan.mjs"
+      - "scripts/check-premium-checkout-requires-paid-invoice.mjs"
+      - "supabase/functions/citabot-commercial-checkout/index.ts"
+      - "supabase/functions/_shared/citabot-payment-validation.ts"
       - "e2e/mobile-logout-layout.spec.cjs"
       - "scripts/check-logout-flow.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
@@ -22,6 +26,10 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-subscription-effective-plan.mjs"
+      - "scripts/check-premium-checkout-requires-paid-invoice.mjs"
+      - "supabase/functions/citabot-commercial-checkout/index.ts"
+      - "supabase/functions/_shared/citabot-payment-validation.ts"
       - "e2e/mobile-logout-layout.spec.cjs"
       - "scripts/check-logout-flow.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
@@ -55,6 +63,9 @@ jobs:
 
       - name: Ensure paid plan features require an active subscription
         run: node scripts/check-subscription-effective-plan.mjs
+
+      - name: Ensure Premium checkout requires a paid current invoice
+        run: node scripts/check-premium-checkout-requires-paid-invoice.mjs
 
       - name: Install Playwright for mobile logout layout validation
         run: |
