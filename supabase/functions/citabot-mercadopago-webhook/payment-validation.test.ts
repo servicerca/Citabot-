@@ -4,6 +4,7 @@ import {
   matchesSubscriptionConfiguration,
   matchesSubscriptionPayment,
   matchesSubscriptionActivation,
+  hasCurrentPaidSubscriptionPeriod,
 } from "./payment-validation.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -220,4 +221,22 @@ Deno.test("subscription activation requires both the exact invoice and authorize
     "A matching preapproval must not bypass an incorrect invoice.");
   assert(!matchesSubscriptionActivation(payment, null, "professional"),
     "Missing provider preapproval must fail closed.");
+});
+
+
+Deno.test("authorized preapproval alone never unlocks a subscription without a paid current invoice", () => {
+  const now = Date.parse("2026-11-09T12:00:00.000Z");
+  const future = "2026-12-09T12:00:00.000Z";
+  const past = "2026-11-08T12:00:00.000Z";
+
+  assert(hasCurrentPaidSubscriptionPeriod("authorized", true, future, now),
+    "A confirmed paid invoice with a future current period may keep access active.");
+  assert(!hasCurrentPaidSubscriptionPeriod("authorized", false, future, now),
+    "An authorized preapproval without a paid invoice must not activate.");
+  assert(!hasCurrentPaidSubscriptionPeriod("pending", true, future, now),
+    "A pending preapproval must not activate.");
+  assert(!hasCurrentPaidSubscriptionPeriod("authorized", true, past, now),
+    "An expired paid period must not remain active.");
+  assert(!hasCurrentPaidSubscriptionPeriod("authorized", true, null, now),
+    "A missing period end must fail closed.");
 });
