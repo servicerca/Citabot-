@@ -154,4 +154,41 @@ test.describe('CitaBot production browser smoke', () => {
 
     expect(backendResponse.status()).toBe(400);
     await expect(page.locator('#pbMsg')).not.toContainText(/reserva confirmada/i);
-  });});
+  });
+
+  test('mobile app chrome respects phone safe areas', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const response = await page.goto(BASE_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+    expect(response && response.ok()).toBeTruthy();
+
+    const layout = await page.evaluate(() => {
+      const viewport = document.querySelector('meta[name="viewport"]');
+      const sidebar = document.querySelector('.sidebar');
+      const topbar = document.querySelector('.topbar');
+      const content = document.querySelector('.content');
+      if (!viewport || !sidebar || !topbar || !content) throw new Error('Mobile app shell is incomplete');
+      const sidebarStyle = getComputedStyle(sidebar);
+      const topbarStyle = getComputedStyle(topbar);
+      const contentStyle = getComputedStyle(content);
+      return {
+        viewport: viewport.getAttribute('content') || '',
+        sidebarPosition: sidebarStyle.position,
+        sidebarHeight: Number.parseFloat(sidebarStyle.height),
+        sidebarPaddingBottom: Number.parseFloat(sidebarStyle.paddingBottom),
+        topbarHeight: Number.parseFloat(topbarStyle.height),
+        contentPaddingBottom: Number.parseFloat(contentStyle.paddingBottom)
+      };
+    });
+
+    expect(layout.viewport).toContain('viewport-fit=cover');
+    expect(layout.sidebarPosition).toBe('fixed');
+    expect(layout.sidebarHeight).toBeGreaterThanOrEqual(122);
+    expect(layout.sidebarPaddingBottom).toBeGreaterThanOrEqual(9);
+    expect(layout.topbarHeight).toBeGreaterThanOrEqual(62);
+    expect(layout.contentPaddingBottom).toBeGreaterThanOrEqual(138);
+  });
+
+});
