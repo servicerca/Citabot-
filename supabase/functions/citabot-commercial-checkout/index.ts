@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { SUBSCRIPTION_MONTHLY_PRICES_COP } from "../_shared/citabot-pricing.ts";
-import { matchesSubscriptionConfiguration } from "../_shared/citabot-payment-validation.ts";
+import { hasCurrentPaidSubscriptionPeriod, matchesSubscriptionConfiguration } from "../_shared/citabot-payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...cors,"Content-Type":"application/json"}});
 const url=Deno.env.get("SUPABASE_URL"), key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), mp=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");
@@ -33,11 +33,13 @@ type AutoRecurringSnapshot = {
   frequency_type?: unknown;
   transaction_amount?: unknown;
   currency_id?: unknown;
+  end_date?: unknown;
 };
 async function checkPreapproval(id: string): Promise<{
   status: string | null;
   initPoint: string | null;
   autoRecurring: AutoRecurringSnapshot | null;
+  currentPeriodEnd: string | null;
   httpStatus: number | null;
 }> {
   try {
@@ -47,17 +49,22 @@ async function checkPreapproval(id: string): Promise<{
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       console.error("CITABOT_CHECKOUT_PREAPPROVAL_LOOKUP_FAILED", JSON.stringify({ status: response.status }));
-      return { status: null, initPoint: null, autoRecurring: null, httpStatus: response.status };
+      return { status: null, initPoint: null, autoRecurring: null, currentPeriodEnd: null, httpStatus: response.status };
     }
     return {
       status: typeof data?.status === "string" ? data.status : null,
       initPoint: typeof data?.init_point === "string" && data.init_point ? data.init_point : null,
       autoRecurring: data?.auto_recurring && typeof data.auto_recurring === "object" ? data.auto_recurring : null,
+      currentPeriodEnd: typeof data?.next_payment_date === "string"
+        ? data.next_payment_date
+        : typeof data?.auto_recurring?.end_date === "string"
+          ? data.auto_recurring.end_date
+          : null,
       httpStatus: response.status,
     };
   } catch {
     console.error("CITABOT_CHECKOUT_PREAPPROVAL_LOOKUP_FAILED", JSON.stringify({ code: "network_error" }));
-    return { status: null, initPoint: null, autoRecurring: null, httpStatus: null };
+    return { status: null, initPoint: null, autoRecurring: null, currentPeriodEnd: null, httpStatus: null };
   }
 }
 async function cancelAndVerifyPreapproval(id: string): Promise<CancellationCheck> {
@@ -195,11 +202,47 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
            reconciliation_required:true
          },409);
        }
+       const paidInvoice=await db.from("payments").select("id")
+         .eq("business_id",businessId)
+         .eq("provider","mercadopago")
+         .eq("provider_reference",String(prior.provider_subscription_id))
+         .eq("status","paid")
+         .limit(1)
+         .maybeSingle();
+       throwOnDbError("premium_confirmed_invoice_lookup",paidInvoice.error);
+
+       const confirmedPeriod=hasCurrentPaidSubscriptionPeriod(
+         remote.status,
+         Boolean(paidInvoice.data?.id),
+         remote.currentPeriodEnd || (typeof prior.current_period_end==="string" ? prior.current_period_end : null)
+       );
+       if(!confirmedPeriod){
+         if(prior.status!=="pending"){
+           const mark=await db.from("subscriptions").update({
+             status:"pending",
+             ...(remote.currentPeriodEnd ? {current_period_end:remote.currentPeriodEnd} : {}),
+             updated_at:new Date().toISOString()
+           }).eq("id",String(prior.id)).select("id").maybeSingle();
+           throwOnDbError("premium_awaiting_invoice_status_update",mark.error);
+           if(!mark.data?.id)throw new Error("PREMIUM_AWAITING_INVOICE_UPDATE_MISSING");
+         }
+         return json({
+           ok:true,
+           already_pending:true,
+           awaiting_first_invoice:true,
+           plan:"premium",
+           status:"pending",
+           subscription_id:prior.provider_subscription_id
+         });
+       }
        if(prior.status!=="active"){
          const mark=await db.from("subscriptions").update({
-           status:"active",updated_at:new Date().toISOString()
-         }).eq("id",String(prior.id));
+           status:"active",
+           ...(remote.currentPeriodEnd ? {current_period_end:remote.currentPeriodEnd} : {}),
+           updated_at:new Date().toISOString()
+         }).eq("id",String(prior.id)).select("id").maybeSingle();
          throwOnDbError("confirmed_premium_status_update",mark.error);
+         if(!mark.data?.id)throw new Error("CONFIRMED_PREMIUM_STATUS_UPDATE_MISSING");
        }
        return json({ok:true,already_active:true,plan:"premium"});
      }
