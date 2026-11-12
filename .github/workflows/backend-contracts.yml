@@ -204,7 +204,7 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261013045141_citabot_guard_onboarding_retries_and_slug_collisions.sql
 
       - name: Apply five-business 30-day pilot migration to disposable PostgreSQL
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112030000_citabot_five_business_30_day_pilot.sql
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112034422_citabot_five_business_30_day_pilot.sql
 
       - name: Apply direct-write restriction to disposable PostgreSQL
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261014015651_citabot_revoke_direct_business_creation.sql
