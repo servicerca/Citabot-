@@ -1,11 +1,8 @@
 import { createOpenAiResponse } from "./openai-client.ts";
 
-const noWait = async (_milliseconds: number) => {};
-
 Deno.test("no reintenta un 429 para evitar llamadas facturables no reservadas", async () => {
   let calls = 0;
   const result = await createOpenAiResponse("test-key", { model: "gpt-5-mini" }, {
-    wait: noWait,
     fetcher: async () => {
       calls++;
       if (calls === 1) {
