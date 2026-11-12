@@ -1,5 +1,3 @@
-const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
-
 export type OpenAiResponseResult = {
   ok: boolean;
   data: Record<string, unknown>;
