@@ -9,7 +9,7 @@ export type AiQuotaRpcResult = {
 
 export type AiQuotaDecision = {
   allowed: boolean;
-  status: 429 | 503;
+  status: 200 | 429 | 503;
   code: "AI_QUOTA_NOT_CONFIGURED" | "AI_MONTHLY_LIMIT_REACHED" | "AI_QUOTA_UNAVAILABLE";
   message: string;
   maxOutputTokens: number;
@@ -58,7 +58,7 @@ export function decideAiQuota(
   }
   return {
     allowed: true,
-    status: 503,
+    status: 200,
     code: "AI_QUOTA_UNAVAILABLE",
     message: "",
     maxOutputTokens,
