@@ -139,18 +139,6 @@ Deno.serve(async (req: Request) => {
         .map((part: any) => typeof part?.text === "string" ? part.text : "")
         .join("");
 
-    if (!responseText.trim()) {
-      console.error("CITABOT_AI_EMPTY_PROVIDER_OUTPUT", {
-        status: provider.status,
-        request_id: provider.requestId,
-      });
-      return json({
-        ok: false,
-        degraded: true,
-        error: "La IA no generó una respuesta utilizable. Inténtalo nuevamente.",
-      }, 503);
-    }
-
     const usage = provider.data.usage && typeof provider.data.usage === "object"
       ? provider.data.usage as Record<string, unknown>
       : {};
@@ -169,6 +157,18 @@ Deno.serve(async (req: Request) => {
       console.error("CITABOT_AI_USAGE_RECORD_FAILED", {
         code: typeof usageWrite.error.code === "string" ? usageWrite.error.code : "unknown",
       });
+    }
+
+    if (!responseText.trim()) {
+      console.error("CITABOT_AI_EMPTY_PROVIDER_OUTPUT", {
+        status: provider.status,
+        request_id: provider.requestId,
+      });
+      return json({
+        ok: false,
+        degraded: true,
+        error: "La IA no generó una respuesta utilizable. Inténtalo nuevamente.",
+      }, 503);
     }
 
     return json({
