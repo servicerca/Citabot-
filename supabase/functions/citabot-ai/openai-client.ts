@@ -14,7 +14,6 @@ export type OpenAiResponseResult = {
 export type OpenAiRequestOptions = {
   fetcher?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   timeoutMs?: number;
-  wait?: (milliseconds: number) => Promise<void>;
 };
 
 function safeProviderField(value: unknown): string | null {
@@ -45,8 +44,6 @@ export async function createOpenAiResponse(
 ): Promise<OpenAiResponseResult> {
   const fetcher = options.fetcher ?? fetch;
   const timeoutMs = options.timeoutMs ?? 15_000;
-  const wait = options.wait ?? ((milliseconds: number) =>
-    new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
 
   let lastData: Record<string, unknown> = {};
   let lastStatus: number | null = null;
@@ -94,7 +91,7 @@ export async function createOpenAiResponse(
       }
 
       failureKind = "http_error";
-      if (!RETRYABLE_STATUS_CODES.has(response.status)) break;
+      break;
     } catch (error) {
       failureKind = error instanceof Error
         ? (error.name === "AbortError" ? "timeout" : error.name)
@@ -107,7 +104,6 @@ export async function createOpenAiResponse(
       clearTimeout(timeout);
     }
 
-    if (attempt < 3) await wait(400 * attempt);
   }
 
   return {
