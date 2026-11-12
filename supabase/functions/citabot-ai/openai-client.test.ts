@@ -25,7 +25,6 @@ Deno.test("no reintenta un 429 para evitar llamadas facturables no reservadas", 
 Deno.test("no reintenta un 502 sin reservar una nueva unidad de consumo", async () => {
   let calls = 0;
   const result = await createOpenAiResponse("test-key", { model: "gpt-5-mini" }, {
-    wait: noWait,
     fetcher: async () => {
       calls++;
       if (calls === 1) return new Response("Bad Gateway", { status: 502 });
@@ -43,7 +42,6 @@ Deno.test("no reintenta un 502 sin reservar una nueva unidad de consumo", async 
 Deno.test("no reintenta errores de solicitud no recuperables", async () => {
   let calls = 0;
   const result = await createOpenAiResponse("test-key", { model: "invalid-model" }, {
-    wait: noWait,
     fetcher: async () => {
       calls++;
       return new Response(JSON.stringify({
@@ -63,7 +61,6 @@ Deno.test("no reintenta errores de solicitud no recuperables", async () => {
 Deno.test("clasifica fallos de red sin guardar el mensaje de la solicitud", async () => {
   let calls = 0;
   const result = await createOpenAiResponse("test-key", { input: "contenido privado" }, {
-    wait: noWait,
     fetcher: async () => {
       calls++;
       throw new TypeError("network failure with private request data");
@@ -81,7 +78,6 @@ Deno.test("clasifica fallos de red sin guardar el mensaje de la solicitud", asyn
 Deno.test("clasifica el timeout del proveedor", async () => {
   const result = await createOpenAiResponse("test-key", { model: "gpt-5-mini" }, {
     timeoutMs: 5,
-    wait: noWait,
     fetcher: async (_input, init) => await new Promise<Response>((_resolve, reject) => {
       init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")), {
         once: true,
