@@ -97,7 +97,8 @@ BEGIN
     'used', v_used,
     'limit', v_limit.monthly_request_limit,
     'remaining', greatest(v_limit.monthly_request_limit - v_used, 0),
-    'usage_month', v_month
+    'usage_month', v_month,
+    'max_output_tokens', v_limit.max_output_tokens
   );
 END;
 $function$;
