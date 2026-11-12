@@ -46,6 +46,34 @@ Deno.serve(async(req)=>{
     if(adminError) throw adminError;
     if(!adminRow) return Response.json({ok:false,error:"forbidden"},{status:403,headers:cors});
 
+    const requestBody=await req.json().catch(()=>({}));
+    if(requestBody?.action==="enroll_30_day_pilot"){
+      const businessId=typeof requestBody.business_id==="string"?requestBody.business_id.trim():"";
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(businessId)){
+        return Response.json({ok:false,error:"Selecciona un negocio válido."},{status:400,headers:cors});
+      }
+      const {data,error}=await admin.rpc("citabot_enroll_30_day_pilot",{
+        p_business_id:businessId,
+        p_enrolled_by:user.id
+      });
+      if(error){
+        const raw=String(error.message||"");
+        const pilotErrors:Record<string,string>={
+          PILOT_ADMIN_REQUIRED:"Tu cuenta no tiene permiso para asignar cupos del piloto.",
+          PILOT_BUSINESS_NOT_FOUND_OR_INACTIVE:"El negocio no existe o está inactivo.",
+          PILOT_SUBSCRIPTION_NOT_ELIGIBLE:"El negocio tiene un plan de pago o un estado que no permite esta invitación.",
+          PILOT_SLOTS_FULL:"Los cinco cupos del piloto ya fueron asignados.",
+          PILOT_INVALID_INPUT:"La solicitud de invitación no es válida."
+        };
+        const code=Object.keys(pilotErrors).find(key=>raw.includes(key));
+        return Response.json(
+          {ok:false,error:code?pilotErrors[code]:"No fue posible asignar el cupo del piloto."},
+          {status:code==="PILOT_ADMIN_REQUIRED"?403:code?409:500,headers:cors}
+        );
+      }
+      return Response.json({ok:true,action:"pilot_enrolled",enrollment:data},{status:200,headers:cors});
+    }
+
     // Keep the visible table bounded, but compute dashboard counts against the
     // complete tables so Supabase's response cap cannot make totals inaccurate.
     const [businessesResult,activeBusinessesResult,listedBusinessesResult,activeSubscriptionsResult]=await Promise.all([
@@ -70,7 +98,7 @@ Deno.serve(async(req)=>{
 
     const businesses=businessesResult.data||[];
     const businessIds=businesses.map((b)=>b.id);
-    const [subscriptionsRows,revenueRows,integrationsRows,boostRows]=await Promise.all([
+    const [subscriptionsRows,revenueRows,integrationsRows,boostRows,pilotEnrollmentsResult]=await Promise.all([
       businessIds.length
         ? fetchAllPages((from,to)=>admin.from("subscriptions")
             .select("id,business_id,plan,status,current_period_end")
@@ -99,8 +127,17 @@ Deno.serve(async(req)=>{
         .eq("status","pending")
         .order("created_at",{ascending:false})
         .order("id",{ascending:true})
-        .range(from,to))
+        .range(from,to)),
+      admin.from("citabot_pilot_enrollments")
+        .select("id,slot,business_id,business_name_snapshot,owner_user_id,enrolled_by,started_at,ends_at,created_at")
+        .order("slot",{ascending:true})
     ]);
+
+    if(pilotEnrollmentsResult.error) throw pilotEnrollmentsResult.error;
+    const pilotEnrollments=pilotEnrollmentsResult.data||[];
+    const pilotByBusiness=new Map((pilotEnrollments||[])
+      .filter((p:any)=>Boolean(p.business_id))
+      .map((p:any)=>[p.business_id,p]));
 
     const subscriptionByBusiness=new Map((subscriptionsRows||[]).map((s:any)=>[s.business_id,s]));
     const integrationsByBusiness=new Map<string,string[]>();
@@ -120,7 +157,8 @@ Deno.serve(async(req)=>{
       is_listed:Boolean(b.is_listed),
       created_at:b.created_at,
       subscription:subscriptionByBusiness.get(b.id)||null,
-      enabled_integrations:integrationsByBusiness.get(b.id)||[]
+      enabled_integrations:integrationsByBusiness.get(b.id)||[],
+      pilot_enrollment:pilotByBusiness.get(b.id)||null
     }));
 
     const paidRevenue=sumAmounts(revenueRows,"gross_amount");
@@ -136,8 +174,12 @@ Deno.serve(async(req)=>{
         subscriptions_active:activeSubscriptionsResult.count,
         paid_revenue:paidRevenue,
         pending_boost_amount:pendingBoosts,
-        paid_revenue_currency:"COP"
+        paid_revenue_currency:"COP",
+        pilot_slots_used:pilotEnrollments.length,
+        pilot_slots_total:5,
+        pilot_slots_remaining:Math.max(0,5-pilotEnrollments.length)
       },
+      pilot_enrollments:pilotEnrollments,
       businesses:mappedBusinesses,
       businesses_display_limit:ADMIN_BUSINESS_LIST_LIMIT,
       businesses_truncated:businessesResult.count>mappedBusinesses.length
