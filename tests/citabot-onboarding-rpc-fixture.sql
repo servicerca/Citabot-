@@ -2,6 +2,7 @@
 -- This file is used only by CI's temporary PostgreSQL service, never production.
 CREATE ROLE anon NOLOGIN;
 CREATE ROLE authenticated NOLOGIN;
+CREATE ROLE service_role NOLOGIN;
 
 CREATE SCHEMA auth;
 CREATE OR REPLACE FUNCTION auth.uid()
@@ -13,6 +14,12 @@ AS $$
 $$;
 GRANT USAGE ON SCHEMA auth TO PUBLIC;
 GRANT EXECUTE ON FUNCTION auth.uid() TO PUBLIC;
+
+CREATE TABLE public.platform_admins (
+  user_id uuid PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  is_active boolean NOT NULL DEFAULT true
+);
 
 CREATE TABLE public.businesses (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
