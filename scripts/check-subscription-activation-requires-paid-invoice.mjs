@@ -30,6 +30,7 @@ const authorizedSync = sync.slice(
 );
 assert.ok(authorizedSync.includes("hasCurrentPaidSubscriptionPeriod("));
 assert.ok(authorizedSync.includes("commercial_subscription_invoice_lookup"));
-assert.ok(authorizedSync.includes('status = "pending"') || authorizedSync.includes('status = "past_due"'));
+assert.ok(authorizedSync.includes('? "past_due"') && authorizedSync.includes(': "pending"'),
+  "Missing invoices must keep an unexpired subscription pending and an expired period past_due.");
 
 console.log("CitaBot subscription activation requires exact provider configuration plus a paid current-period ledger entry: OK");
