@@ -32,7 +32,6 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 // an unauthenticated caller. Unexpected PostgREST/Postgres errors stay private.
 const CLIENT_BOOKING_ERRORS = new Map<string, SafeClientError>([
   ["Debes aceptar la política de privacidad para reservar", { status: 400, message: "Debes aceptar la política de privacidad para reservar." }],
-  ["Debes aceptar el contacto por WhatsApp para gestionar esta reserva", { status: 400, message: "Debes aceptar el contacto por WhatsApp para gestionar esta reserva." }],
   ["Negocio no disponible", { status: 404, message: "Negocio no disponible." }],
   ["Servicio no disponible", { status: 404, message: "Servicio no disponible." }],
   ["Profesional no disponible", { status: 404, message: "Profesional no disponible." }],
@@ -166,8 +165,8 @@ Deno.serve(async (req) => {
     if (staffRaw && !UUID_PATTERN.test(staffRaw)) {
       return json({ ok: false, error: "El identificador del profesional no es válido." }, 400);
     }
-    if (!privacyConsent || !whatsappConsent) {
-      return json({ ok: false, error: "Debes aceptar privacidad y el uso de WhatsApp para gestionar la reserva." }, 400);
+    if (!privacyConsent) {
+      return json({ ok: false, error: "Debes aceptar la política de privacidad para reservar." }, 400);
     }
     if (customerName.length > 120 || customerPhone.length > 40 || customerEmail.length > 160 || customerNotes.length > 1000) {
       return json({ ok: false, error: "Datos demasiado largos." }, 400);
