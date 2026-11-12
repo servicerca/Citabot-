@@ -130,32 +130,32 @@ const pilotEnrollmentMigration = readFileSync(
 
 assert.match(
   pilotEnrollmentMigration,
-  /CREATE TABLE public\\.citabot_pilot_enrollments[\\s\\S]*slot smallint NOT NULL UNIQUE CHECK \\(slot BETWEEN 1 AND 5\\)/i,
+  /CREATE TABLE public\.citabot_pilot_enrollments[\s\S]*slot smallint NOT NULL UNIQUE CHECK \(slot BETWEEN 1 AND 5\)/i,
   "the pilot must be auditable and capped at five unique slots"
 );
 assert.match(
   pilotEnrollmentMigration,
-  /v_ends_at\\s*:=\\s*v_started_at\\s*\\+\\s*interval '30 days'/i,
+  /v_ends_at\s*:=\s*v_started_at\s*\+\s*interval '30 days'/i,
   "pilot access must last exactly 30 days from administrator approval"
 );
 assert.match(
   pilotEnrollmentMigration,
-  /public\\.platform_admins[\\s\\S]*is_active = true/i,
+  /public\.platform_admins[\s\S]*is_active = true/i,
   "only an active platform administrator may enroll a business"
 );
 assert.match(
   pilotEnrollmentMigration,
-  /ALTER TABLE public\\.citabot_pilot_enrollments ENABLE ROW LEVEL SECURITY/i,
+  /ALTER TABLE public\.citabot_pilot_enrollments ENABLE ROW LEVEL SECURITY/i,
   "pilot enrollment records must have row-level security enabled"
 );
 assert.match(
   pilotEnrollmentMigration,
-  /REVOKE ALL ON TABLE public\\.citabot_pilot_enrollments FROM PUBLIC, anon, authenticated/i,
+  /REVOKE ALL ON TABLE public\.citabot_pilot_enrollments FROM PUBLIC, anon, authenticated/i,
   "client roles must not read or write pilot enrollment records directly"
 );
 assert.match(
   pilotEnrollmentMigration,
-  /GRANT EXECUTE ON FUNCTION public\\.citabot_enroll_30_day_pilot\\(uuid, uuid\\)\\s+TO service_role/i,
+  /GRANT EXECUTE ON FUNCTION public\.citabot_enroll_30_day_pilot\(uuid, uuid\)\s+TO service_role/i,
   "only the trusted backend role may run the pilot enrollment RPC"
 );
 
