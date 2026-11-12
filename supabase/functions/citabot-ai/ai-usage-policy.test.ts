@@ -32,3 +32,17 @@ Deno.test("la configuración de salida debe respetar el máximo seguro", () => {
     throw new Error("La cuota debe bloquear configuraciones de salida fuera de rango.");
   }
 });
+
+Deno.test("el límite mensual global bloquea llamadas incluso para un segundo negocio", () => {
+  const result = decideAiQuota({ allowed: false, reason: "global_monthly_limit" }, null);
+  if (result.allowed || result.code !== "AI_MONTHLY_LIMIT_REACHED" || result.status !== 429) {
+    throw new Error("El límite global debe detener nuevas solicitudes.");
+  }
+});
+
+Deno.test("la falta de límite global también desactiva el proveedor", () => {
+  const result = decideAiQuota({ allowed: false, reason: "global_not_configured" }, null);
+  if (result.allowed || result.code !== "AI_QUOTA_NOT_CONFIGURED") {
+    throw new Error("El tope global sin configurar debe fallar cerrado.");
+  }
+});
