@@ -110,8 +110,7 @@ begin
 exception when exclusion_violation then
   raise exception 'Ese profesional ya tiene una cita en ese horario.';
 end;
-$function$
-
+$function$;
 
 REVOKE ALL ON FUNCTION public.book_appointment_v2(text,uuid,uuid,text,text,text,timestamptz,text,boolean,boolean) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.book_appointment_v2(text,uuid,uuid,text,text,text,timestamptz,text,boolean,boolean) TO service_role;
