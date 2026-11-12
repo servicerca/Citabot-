@@ -114,7 +114,13 @@ assert.match(reconciliationClientAccess, /FOR ALL\s+TO anon, authenticated\s+USI
 
 const citabotAi = read("supabase/functions/citabot-ai/index.ts");
 assert.match(citabotAi, /CITABOT_AI_PROVIDER_FAILED/);
-assert.match(citabotAi, /provider_status:rr\?\.status\|\|null[\s\S]*\{status:503,headers:\{\.\.\.cors,"Content-Type":"application\/json"\}\}/);
+assert.match(citabotAi, /provider_status:\s*provider\.status[\s\S]*\}, 503\)/);
+assert.match(citabotAi, /CITABOT_AI_CONFIGURATION_MISSING/);
+assert.match(citabotAi, /CITABOT_AI_EMPTY_PROVIDER_OUTPUT/);
+assert.match(citabotAi, /buildResponsesRequest/);
+assert.match(citabotAi, /createOpenAiResponse/);
+assert.match(citabotAi, /failure_kind:\s*provider\.failureKind/);
+assert.match(citabotAi, /request_id:\s*provider\.requestId/);
 assert.match(citabotAi, /CITABOT_AI_INTERNAL_FAILURE/);
 assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./);
 assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
@@ -122,8 +128,8 @@ assert.doesNotMatch(citabotAi, /error:lastProviderError/);
 
 
 // Browser calls carrying Authorization + JSON must pass the OPTIONS preflight.
-assert.match(citabotAi, /"Access-Control-Allow-Methods":"POST, OPTIONS"/);
-assert.match(citabotAi, /if\(req\.method==="OPTIONS"\) return new Response\("ok",\{headers:cors\}\)/);
+assert.match(citabotAi, /"Access-Control-Allow-Methods":\s*"POST, OPTIONS"/);
+assert.match(citabotAi, /if \(req\.method === "OPTIONS"\) return new Response\("ok", \{ headers: cors \}\)/);
 
 const whatsappSend = read("supabase/functions/citabot-whatsapp-send/index.ts");
 assert.match(whatsappSend, /"Access-Control-Allow-Methods": "POST, OPTIONS"/);
