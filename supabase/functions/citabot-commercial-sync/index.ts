@@ -230,7 +230,7 @@ Deno.serve(async (req) => {
     const boosts: any[] = [];
 
     const sub = await db.from("subscriptions")
-      .select("id,plan,status,provider,provider_subscription_id")
+      .select("id,plan,status,provider,provider_subscription_id,current_period_end")
       .eq("business_id", businessId).maybeSingle();
     throwOnDbError("subscription_lookup", sub.error);
 
