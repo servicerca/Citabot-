@@ -22,6 +22,13 @@ Deno.test("los errores de cuota fallan cerrados", () => {
 });
 
 Deno.test("una reserva autorizada permite continuar", () => {
-  const result = decideAiQuota({ allowed: true, remaining: 3, used: 1, limit: 4 }, null);
+  const result = decideAiQuota({ allowed: true, remaining: 3, used: 1, limit: 4, max_output_tokens: 300 }, null);
   if (!result.allowed) throw new Error("La reserva válida debe permitir continuar.");
+});
+
+Deno.test("la configuración de salida debe respetar el máximo seguro", () => {
+  const result = decideAiQuota({ allowed: true, max_output_tokens: 999 }, null);
+  if (result.allowed || result.code !== "AI_QUOTA_UNAVAILABLE") {
+    throw new Error("La cuota debe bloquear configuraciones de salida fuera de rango.");
+  }
 });
