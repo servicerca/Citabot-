@@ -10,6 +10,32 @@ CREATE TABLE IF NOT EXISTS public.citabot_ai_plan_limits (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS public.citabot_ai_global_limit (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  enabled boolean NOT NULL DEFAULT false,
+  monthly_request_limit integer NOT NULL DEFAULT 0 CHECK (monthly_request_limit >= 0),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.citabot_ai_global_usage (
+  usage_month date PRIMARY KEY,
+  requests_reserved integer NOT NULL DEFAULT 0 CHECK (requests_reserved >= 0),
+  input_tokens bigint NOT NULL DEFAULT 0 CHECK (input_tokens >= 0),
+  output_tokens bigint NOT NULL DEFAULT 0 CHECK (output_tokens >= 0),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE public.citabot_ai_global_limit ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.citabot_ai_global_usage ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.citabot_ai_global_limit FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE public.citabot_ai_global_usage FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.citabot_ai_global_limit TO service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.citabot_ai_global_usage TO service_role;
+
+INSERT INTO public.citabot_ai_global_limit(singleton, enabled, monthly_request_limit)
+VALUES (true, false, 0)
+ON CONFLICT (singleton) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS public.citabot_ai_usage (
   business_id uuid NOT NULL REFERENCES public.businesses(id) ON DELETE CASCADE,
   usage_month date NOT NULL,
@@ -49,6 +75,8 @@ SET search_path TO 'public', 'pg_temp'
 AS $function$
 DECLARE
   v_limit public.citabot_ai_plan_limits%rowtype;
+  v_global_limit public.citabot_ai_global_limit%rowtype;
+  v_global_used integer;
   v_month date := date_trunc('month', now() AT TIME ZONE 'UTC')::date;
   v_used integer;
 BEGIN
@@ -68,6 +96,31 @@ BEGIN
 
   IF p_input_chars > v_limit.max_input_chars OR p_context_chars > v_limit.max_context_chars THEN
     RETURN jsonb_build_object('allowed', false, 'reason', 'input_limit');
+  END IF;
+
+  SELECT * INTO v_global_limit
+  FROM public.citabot_ai_global_limit
+  WHERE singleton = true;
+
+  IF NOT FOUND OR NOT v_global_limit.enabled OR v_global_limit.monthly_request_limit <= 0 THEN
+    RETURN jsonb_build_object('allowed', false, 'reason', 'global_not_configured');
+  END IF;
+
+  -- Serialize reservations so concurrent businesses cannot exceed the application-wide monthly cap.
+  PERFORM pg_advisory_xact_lock(hashtext('citabot_ai_global_usage:' || v_month::text));
+  SELECT requests_reserved INTO v_global_used
+  FROM public.citabot_ai_global_usage
+  WHERE usage_month = v_month
+  FOR UPDATE;
+
+  IF coalesce(v_global_used, 0) >= v_global_limit.monthly_request_limit THEN
+    RETURN jsonb_build_object(
+      'allowed', false,
+      'reason', 'global_monthly_limit',
+      'used', v_global_used,
+      'limit', v_global_limit.monthly_request_limit,
+      'global_remaining', 0
+    );
   END IF;
 
   INSERT INTO public.citabot_ai_usage(business_id, usage_month, requests_reserved, updated_at)
@@ -92,11 +145,22 @@ BEGIN
     );
   END IF;
 
+  INSERT INTO public.citabot_ai_global_usage(usage_month, requests_reserved, updated_at)
+  VALUES (v_month, 1, now())
+  ON CONFLICT (usage_month)
+  DO UPDATE SET
+    requests_reserved = public.citabot_ai_global_usage.requests_reserved + 1,
+    updated_at = now()
+  RETURNING requests_reserved INTO v_global_used;
+
   RETURN jsonb_build_object(
     'allowed', true,
     'used', v_used,
     'limit', v_limit.monthly_request_limit,
     'remaining', greatest(v_limit.monthly_request_limit - v_used, 0),
+    'global_used', v_global_used,
+    'global_limit', v_global_limit.monthly_request_limit,
+    'global_remaining', greatest(v_global_limit.monthly_request_limit - v_global_used, 0),
     'usage_month', v_month,
     'max_output_tokens', v_limit.max_output_tokens
   );
@@ -125,6 +189,14 @@ BEGIN
       output_tokens = output_tokens + coalesce(p_output_tokens, 0),
       updated_at = now()
   WHERE business_id = p_business_id AND usage_month = v_month;
+
+  IF NOT FOUND THEN RETURN false; END IF;
+
+  UPDATE public.citabot_ai_global_usage
+  SET input_tokens = input_tokens + coalesce(p_input_tokens, 0),
+      output_tokens = output_tokens + coalesce(p_output_tokens, 0),
+      updated_at = now()
+  WHERE usage_month = v_month;
 
   RETURN FOUND;
 END;
