@@ -20,7 +20,7 @@ export function decideAiQuota(
   error: unknown,
 ): AiQuotaDecision {
   if (error || !data || data.allowed !== true) {
-    if (!error && data?.reason === "monthly_limit") {
+    if (!error && (data?.reason === "monthly_limit" || data?.reason === "global_monthly_limit")) {
       return {
         allowed: false,
         status: 429,
@@ -29,7 +29,7 @@ export function decideAiQuota(
         maxOutputTokens: 0,
       };
     }
-    if (!error && data?.reason === "not_configured") {
+    if (!error && (data?.reason === "not_configured" || data?.reason === "global_not_configured")) {
       return {
         allowed: false,
         status: 503,
