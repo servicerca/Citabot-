@@ -10,7 +10,7 @@ const [index, migration, helper] = await Promise.all([
 assert.match(index, /reserve_citabot_ai_request/);
 assert.match(index, /record_citabot_ai_usage/);
 assert.match(index, /decideAiQuota/);
-assert.match(index, /AI_QUOTA_UNAVAILABLE/);
+assert.match(helper, /AI_QUOTA_UNAVAILABLE/);
 assert.match(migration, /('professional', false, 0/);
 assert.match(migration, /('premium', false, 0/);
 assert.match(migration, /REVOKE ALL ON FUNCTION public\.reserve_citabot_ai_request/);
