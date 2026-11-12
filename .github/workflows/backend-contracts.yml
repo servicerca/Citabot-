@@ -9,6 +9,7 @@ on:
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
       - "scripts/check-trigger-function-privileges.mjs"
+      - "scripts/check-subscription-activation-requires-paid-invoice.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
       - "tests/citabot-profile-trigger-privilege-*.sql"
       - ".github/workflows/backend-contracts.yml"
@@ -19,6 +20,7 @@ on:
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
       - "scripts/check-trigger-function-privileges.mjs"
+      - "scripts/check-subscription-activation-requires-paid-invoice.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
       - "tests/citabot-profile-trigger-privilege-*.sql"
       - ".github/workflows/backend-contracts.yml"
@@ -80,6 +82,9 @@ jobs:
 
       - name: Guard trigger-only profile function privileges
         run: node scripts/check-trigger-function-privileges.mjs
+
+      - name: Guard subscription activation against missing paid invoice
+        run: node scripts/check-subscription-activation-requires-paid-invoice.mjs
 
       - name: Verify public and protected production function contracts
         if: github.event_name != 'pull_request'
