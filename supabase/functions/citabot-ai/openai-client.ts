@@ -56,7 +56,8 @@ export async function createOpenAiResponse(
   let failureKind: string | null = null;
   let attempts = 0;
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  // One provider attempt per reserved quota unit; client retries require a new reservation.
+  for (let attempt = 1; attempt <= 1; attempt++) {
     attempts = attempt;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
