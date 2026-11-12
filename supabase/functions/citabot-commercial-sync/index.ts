@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { canSyncBoostOrderStatus, hasCurrentPaidSubscriptionPeriod, matchesBoostOrderPayment, matchesSubscriptionConfiguration } from "../_shared/citabot-payment-validation.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -76,6 +77,30 @@ async function syncBoostOrder(order: any, payment: any) {
   }
 
   const status = paymentStatus(payment);
+
+  if (!canSyncBoostOrderStatus(order.status, status)) {
+    console.error("CITABOT_COMMERCIAL_BOOST_STATE_TRANSITION_REJECTED", JSON.stringify({
+      order_id: order.id,
+      current_status: order.status,
+      incoming_status: status,
+    }));
+    return { ignored: true, reason: "boost_order_state_transition" };
+  }
+
+  if (status === "paid" && !matchesBoostOrderPayment(payment, order)) {
+    const expectedAmount = Number(order.amount);
+    const receivedAmount = Number(payment?.transaction_amount);
+    const expectedCurrency = typeof order.currency === "string" ? order.currency.trim().toUpperCase() : "";
+    const receivedCurrency = typeof payment?.currency_id === "string" ? payment.currency_id.trim().toUpperCase() : "";
+    console.error("CITABOT_COMMERCIAL_BOOST_PAYMENT_MISMATCH", JSON.stringify({
+      order_id: order.id,
+      amount_matches: Number.isFinite(receivedAmount) && Number.isFinite(expectedAmount)
+        && Math.round(receivedAmount * 100) === Math.round(expectedAmount * 100),
+      currency_matches: Boolean(expectedCurrency) && expectedCurrency === receivedCurrency,
+    }));
+    return { ignored: true, reason: "boost_payment_amount_currency_mismatch" };
+  }
+
   const amount = Number(payment?.transaction_amount ?? order.amount ?? 0);
   if (!Number.isFinite(amount) || amount < 0) throw new Error("PAYMENT_AMOUNT_INVALID");
   const currency = String(payment?.currency_id || order.currency || "COP");
@@ -211,7 +236,43 @@ Deno.serve(async (req) => {
 
     if (sub.data?.provider === "mercadopago" && sub.data.provider_subscription_id) {
       const remote = await mpGet("/preapproval/" + encodeURIComponent(String(sub.data.provider_subscription_id)));
-      const status = subStatus(String(remote.status || "pending"));
+      let status = subStatus(String(remote.status || "pending"));
+
+      if (status === "active" && !matchesSubscriptionConfiguration(remote, sub.data.plan)) {
+        console.error("CITABOT_COMMERCIAL_SUBSCRIPTION_PREAPPROVAL_MISMATCH", JSON.stringify({
+          business_id: businessId,
+          plan_supported: sub.data.plan === "professional" || sub.data.plan === "premium",
+          amount_is_valid: Number.isFinite(Number(remote?.auto_recurring?.transaction_amount))
+            && Number(remote?.auto_recurring?.transaction_amount) > 0,
+          currency_is_cop: typeof remote?.auto_recurring?.currency_id === "string"
+            && remote.auto_recurring.currency_id.trim().toUpperCase() === "COP",
+          monthly_frequency: remote?.auto_recurring?.frequency === 1
+            && remote?.auto_recurring?.frequency_type === "months",
+        }));
+        status = "past_due";
+      }
+
+      if (status === "active" && matchesSubscriptionConfiguration(remote, sub.data.plan)) {
+        const paidInvoice = await db.from("payments").select("id")
+          .eq("provider", "mercadopago")
+          .eq("provider_reference", String(sub.data.provider_subscription_id))
+          .eq("status", "paid")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        throwOnDbError("commercial_subscription_invoice_lookup", paidInvoice.error);
+        const nextPeriodEnd = remote?.next_payment_date || remote?.auto_recurring?.end_date
+          || sub.data.current_period_end || null;
+        if (!hasCurrentPaidSubscriptionPeriod(remote.status, Boolean(paidInvoice.data?.id), nextPeriodEnd)) {
+          const previousPeriodEnd = typeof sub.data.current_period_end === "string"
+            ? Date.parse(sub.data.current_period_end)
+            : Number.NaN;
+          status = Number.isFinite(previousPeriodEnd) && previousPeriodEnd <= Date.now()
+            ? "past_due"
+            : "pending";
+        }
+      }
+
       if (sub.data.status !== status) {
         const update = await db.from("subscriptions").update({
           status,
@@ -220,8 +281,15 @@ Deno.serve(async (req) => {
         }).eq("id", sub.data.id);
         throwOnDbError("subscription_status_update", update.error);
       }
-      premium = { plan: sub.data.plan, status, provider_subscription_id: sub.data.provider_subscription_id };
+      premium = {
+        plan: sub.data.plan,
+        status,
+        provider_subscription_id: sub.data.provider_subscription_id,
+      };
       if (status === "active" && sub.data.plan === "premium") premium = { ...premium, verified: true };
+      if (status === "past_due" && remote.status === "authorized") {
+        premium = { ...premium, verified: false, reconciliation_required: true };
+      }
     }
 
     const orders = await db.from("directory_boost_orders")
