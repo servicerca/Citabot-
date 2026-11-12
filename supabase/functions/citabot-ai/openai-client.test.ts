@@ -28,6 +28,27 @@ Deno.test("reintenta un 429 y conserva el request id de la respuesta exitosa", a
   }
 });
 
+Deno.test("reintenta un error 502 de puerta de enlace", async () => {
+  let calls = 0;
+  const result = await createOpenAiResponse("test-key", { model: "gpt-5-mini" }, {
+    wait: noWait,
+    fetcher: async () => {
+      calls++;
+      if (calls === 1) return new Response("Bad Gateway", { status: 502 });
+      return new Response(JSON.stringify({ output_text: "Respuesta recuperada" }), {
+        status: 200,
+      });
+    },
+  });
+
+  if (!result.ok || result.status !== 200 || result.attempts !== 2 || calls !== 2) {
+    throw new Error("Un 502 recuperable debe reintentarse antes de fallar.");
+  }
+  if (result.data.output_text !== "Respuesta recuperada") {
+    throw new Error("No se devolvió la respuesta tras el reintento del 502.");
+  }
+});
+
 Deno.test("no reintenta errores de solicitud no recuperables", async () => {
   let calls = 0;
   const result = await createOpenAiResponse("test-key", { model: "invalid-model" }, {
