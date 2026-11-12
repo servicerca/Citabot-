@@ -5,6 +5,10 @@ on:
     branches: ["main"]
     paths:
       - "supabase/functions/**"
+      - "scripts/check-public-booking-whatsapp-consent.mjs"
+      - "tests/citabot-public-booking-consent-*.sql"
+      - "supabase/migrations/20261112170000_citabot_optional_booking_whatsapp_consent.sql"
+      - "supabase/functions/citabot-public-booking/index.ts"
       - "supabase/migrations/**"
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
@@ -77,6 +81,9 @@ jobs:
 
       - name: Guard secure business onboarding RPC privileges
         run: node scripts/check-onboarding-rpc-security.mjs
+
+      - name: Guard public booking privacy and optional WhatsApp consent
+        run: node scripts/check-public-booking-whatsapp-consent.mjs
 
       - name: Guard trigger-only profile function privileges
         run: node scripts/check-trigger-function-privileges.mjs
@@ -232,3 +239,37 @@ jobs:
 
       - name: Verify direct execute is revoked and trigger still works
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-profile-trigger-privilege-integration.sql
+
+  booking-consent-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: citabot_booking_consent_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d citabot_booking_consent_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/citabot_booking_consent_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Create disposable booking fixture
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-public-booking-consent-fixture.sql
+      - name: Apply optional WhatsApp consent migration
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112170000_citabot_optional_booking_whatsapp_consent.sql
+      - name: Verify privacy required and WhatsApp opt-in optional
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-public-booking-consent.sql
