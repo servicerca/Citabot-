@@ -9,6 +9,8 @@ on:
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
       - "scripts/check-trigger-function-privileges.mjs"
+      - "scripts/check-citabot-ai-usage-guard.mjs"
+      - "tests/citabot-ai-usage-*.sql"
       - "tests/citabot-onboarding-rpc-*.sql"
       - "tests/citabot-profile-trigger-privilege-*.sql"
       - ".github/workflows/backend-contracts.yml"
@@ -47,8 +49,8 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: Test CitaBot AI request validation boundaries
-        run: deno test supabase/functions/citabot-ai/request-validation.test.ts supabase/functions/citabot-ai/responses-request.test.ts supabase/functions/citabot-ai/openai-client.test.ts
+      - name: Test CitaBot AI request validation and quota policy boundaries
+        run: deno test supabase/functions/citabot-ai/request-validation.test.ts supabase/functions/citabot-ai/responses-request.test.ts supabase/functions/citabot-ai/openai-client.test.ts supabase/functions/citabot-ai/ai-usage-policy.test.ts
 
       - name: Test CitaBot platform-admin pagination boundaries
         run: deno test supabase/functions/citabot-platform-admin/pagination.test.ts 
@@ -71,6 +73,9 @@ jobs:
             exit 1
           fi
           echo "No obsolete appointment field references found."
+
+      - name: Guard CitaBot AI provider calls behind server-side monthly quotas
+        run: node scripts/check-citabot-ai-usage-guard.mjs
 
       - name: Check public Edge and payment reconciliation safeguards
         run: node scripts/check-public-booking-sanitization.mjs
@@ -232,3 +237,37 @@ jobs:
 
       - name: Verify direct execute is revoked and trigger still works
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-profile-trigger-privilege-integration.sql
+
+  ai-usage-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: citabot_ai_usage_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d citabot_ai_usage_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/citabot_ai_usage_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up PostgreSQL client
+        run: |
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+      - name: Create disposable AI usage fixture
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-ai-usage-fixture.sql
+      - name: Apply monthly AI quota migration
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112180000_citabot_ai_monthly_usage_limits.sql
+      - name: Verify disabled-by-default, atomic monthly quotas, usage ledger, and privileges
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-ai-usage.sql
