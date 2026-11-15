@@ -6,8 +6,11 @@ import { createOpenAiResponse } from "./openai-client.ts";
 import {
   CITABOT_AI_BUSINESS_LIMIT,
   CITABOT_AI_BUSINESS_WINDOW_SECONDS,
+  CITABOT_AI_PLATFORM_DAILY_LIMIT,
+  CITABOT_AI_PLATFORM_WINDOW_SECONDS,
   CITABOT_AI_USER_LIMIT,
   CITABOT_AI_USER_WINDOW_SECONDS,
+  createCitabotAiPlatformRateLimitKey,
   createCitabotAiRateLimitKeys,
 } from "../_shared/ai-rate-limit.ts";
 
@@ -110,6 +113,20 @@ Deno.serve(async (req: Request) => {
     }
     if (userLimit.data !== true) {
       return json({ error: "Has alcanzado el límite temporal de solicitudes de IA. Inténtalo de nuevo en unos minutos." }, 429);
+    }
+
+    const platformLimit = await admin.rpc("consume_public_booking_rate_limit", {
+      p_rate_key: await createCitabotAiPlatformRateLimitKey(),
+      p_limit: CITABOT_AI_PLATFORM_DAILY_LIMIT,
+      p_window_seconds: CITABOT_AI_PLATFORM_WINDOW_SECONDS,
+    });
+    if (platformLimit.error) {
+      const code = typeof platformLimit.error.code === "string" ? platformLimit.error.code : "unknown";
+      console.error("CITABOT_AI_RATE_LIMIT_UNAVAILABLE", { scope: "platform", code });
+      return json({ error: "No se pudo comprobar el límite diario global de IA. Inténtalo más tarde." }, 503);
+    }
+    if (platformLimit.data !== true) {
+      return json({ error: "CitaBot alcanzó su límite diario compartido de IA. La agenda y las demás funciones siguen disponibles." }, 429);
     }
 
     const businessLimit = await admin.rpc("consume_public_booking_rate_limit", {
