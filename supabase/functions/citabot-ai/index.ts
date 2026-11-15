@@ -3,6 +3,13 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { validateAiRequest } from "./request-validation.ts";
 import { buildResponsesRequest } from "./responses-request.ts";
 import { createOpenAiResponse } from "./openai-client.ts";
+import {
+  CITABOT_AI_BUSINESS_LIMIT,
+  CITABOT_AI_BUSINESS_WINDOW_SECONDS,
+  CITABOT_AI_USER_LIMIT,
+  CITABOT_AI_USER_WINDOW_SECONDS,
+  createCitabotAiRateLimitKeys,
+} from "../_shared/ai-rate-limit.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -88,6 +95,36 @@ Deno.serve(async (req: Request) => {
         model_configured: Boolean(model),
       });
       return json({ error: "IA no configurada" }, 503);
+    }
+
+    const rateKeys = await createCitabotAiRateLimitKeys(businessId, user.id);
+    const userLimit = await admin.rpc("consume_public_booking_rate_limit", {
+      p_rate_key: rateKeys.userKey,
+      p_limit: CITABOT_AI_USER_LIMIT,
+      p_window_seconds: CITABOT_AI_USER_WINDOW_SECONDS,
+    });
+    if (userLimit.error) {
+      const code = typeof userLimit.error.code === "string" ? userLimit.error.code : "unknown";
+      console.error("CITABOT_AI_RATE_LIMIT_UNAVAILABLE", { scope: "user", code });
+      return json({ error: "No se pudo comprobar el límite de uso de IA. Inténtalo más tarde." }, 503);
+    }
+    if (userLimit.data !== true) {
+      return json({ error: "Has alcanzado el límite temporal de solicitudes de IA. Inténtalo de nuevo en unos minutos." }, 429);
+    }
+
+    const businessLimit = await admin.rpc("consume_public_booking_rate_limit", {
+      p_rate_key: rateKeys.businessKey,
+      p_limit: CITABOT_AI_BUSINESS_LIMIT,
+      p_window_seconds: CITABOT_AI_BUSINESS_WINDOW_SECONDS,
+    });
+    if (businessLimit.error) {
+      const code = typeof businessLimit.error.code === "string" ? businessLimit.error.code : "unknown";
+      console.error("CITABOT_AI_RATE_LIMIT_UNAVAILABLE", { scope: "business", code });
+      return json({ error: "No se pudo comprobar el límite de uso de IA. Inténtalo más tarde." }, 503);
+    }
+    if (businessLimit.data !== true) {
+      console.info("CITABOT_AI_BUSINESS_DAILY_LIMIT_REACHED", { business_id: businessId });
+      return json({ error: "Este negocio alcanzó su límite diario de solicitudes de IA. La agenda y las demás funciones siguen disponibles." }, 429);
     }
 
     const payload = buildResponsesRequest(model, String(businessName), serializedContext, input);
