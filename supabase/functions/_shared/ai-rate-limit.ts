@@ -2,6 +2,8 @@ export const CITABOT_AI_USER_LIMIT = 6;
 export const CITABOT_AI_USER_WINDOW_SECONDS = 300;
 export const CITABOT_AI_BUSINESS_LIMIT = 25;
 export const CITABOT_AI_BUSINESS_WINDOW_SECONDS = 24 * 60 * 60;
+export const CITABOT_AI_PLATFORM_DAILY_LIMIT = 100;
+export const CITABOT_AI_PLATFORM_WINDOW_SECONDS = 24 * 60 * 60;
 
 async function hashRateKey(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -37,4 +39,10 @@ export async function createCitabotAiRateLimitKeys(businessId: string, userId: s
     createCitabotAiUserRateLimitKey(businessId, userId),
   ]);
   return { businessKey, userKey };
+}
+
+
+/** One shared, non-reversible daily budget across every CitaBot AI entry point. */
+export async function createCitabotAiPlatformRateLimitKey(): Promise<string> {
+  return await hashRateKey("citabot-ai:platform:daily");
 }
