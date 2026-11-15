@@ -1,5 +1,6 @@
 import {
   createCitabotAiBusinessRateLimitKey,
+  createCitabotAiPlatformRateLimitKey,
   createCitabotAiRateLimitKeys,
   createCitabotAiUserRateLimitKey,
 } from "./ai-rate-limit.ts";
@@ -41,4 +42,14 @@ Deno.test("AI rate-limit keys reject empty identifiers", async () => {
   try { await createCitabotAiUserRateLimitKey("business-a", " "); } catch { userRejected = true; }
   assert(businessRejected, "An empty business ID must not create a shared rate bucket.");
   assert(userRejected, "An empty user ID must not create a shared user bucket.");
+});
+
+
+Deno.test("the platform AI daily quota is shared across every business and channel", async () => {
+  const first = await createCitabotAiPlatformRateLimitKey();
+  const second = await createCitabotAiPlatformRateLimitKey();
+  const business = await createCitabotAiBusinessRateLimitKey("business-a");
+  assert(first === second, "The platform daily cap must be a single stable bucket.");
+  assert(first !== business, "The platform cap must not reuse a tenant's bucket.");
+  assert(/^[0-9a-f]{64}$/.test(first), "The platform rate key must be a SHA-256 digest.");
 });
