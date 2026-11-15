@@ -237,6 +237,9 @@ Deno.serve(async (req) => {
     if (sub.data?.provider === "mercadopago" && sub.data.provider_subscription_id) {
       const remote = await mpGet("/preapproval/" + encodeURIComponent(String(sub.data.provider_subscription_id)));
       let status = subStatus(String(remote.status || "pending"));
+      let nextPeriodEnd: string | null = typeof sub.data.current_period_end === "string"
+        ? sub.data.current_period_end
+        : null;
 
       if (status === "active" && !matchesSubscriptionConfiguration(remote, sub.data.plan)) {
         console.error("CITABOT_COMMERCIAL_SUBSCRIPTION_PREAPPROVAL_MISMATCH", JSON.stringify({
@@ -261,7 +264,7 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         throwOnDbError("commercial_subscription_invoice_lookup", paidInvoice.error);
-        const nextPeriodEnd = resolveCurrentSubscriptionPeriodEnd(
+        nextPeriodEnd = resolveCurrentSubscriptionPeriodEnd(
           remote?.next_payment_date,
           sub.data.current_period_end
         );
@@ -275,7 +278,7 @@ Deno.serve(async (req) => {
         }
       }
 
-      if (sub.data.status !== status) {
+      if (sub.data.status !== status || sub.data.current_period_end !== nextPeriodEnd) {
         const update = await db.from("subscriptions").update({
           status,
           current_period_end: nextPeriodEnd,
