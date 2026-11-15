@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionActivation, matchesSubscriptionConfiguration, hasCurrentPaidSubscriptionPeriod } from "./payment-validation.ts";
+import { canSyncBoostOrderStatus, matchesBoostOrderPayment, matchesSubscriptionActivation, matchesSubscriptionConfiguration, hasCurrentPaidSubscriptionPeriod, resolveCurrentSubscriptionPeriodEnd } from "./payment-validation.ts";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"content-type,x-signature,x-request-id","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const SUPABASE_URL=Deno.env.get("SUPABASE_URL");const SERVICE_ROLE_KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const MP_TOKEN=Deno.env.get("MERCADOPAGO_ACCESS_TOKEN");const MP_SECRET=Deno.env.get("MERCADOPAGO_WEBHOOK_SECRET");
 if(!SUPABASE_URL||!SERVICE_ROLE_KEY)throw new Error("Supabase server configuration missing");
@@ -48,10 +48,10 @@ async function syncSubscription(id:string){
     return {ignored:true,reason:"subscription_preapproval_configuration_mismatch",status:"past_due"};
   }
 
-  const nextPeriodEnd=preapproval?.next_payment_date
-    || preapproval?.auto_recurring?.end_date
-    || local.current_period_end
-    || null;
+  const nextPeriodEnd=resolveCurrentSubscriptionPeriodEnd(
+    preapproval?.next_payment_date,
+    local.current_period_end
+  );
   let subscriptionStatus=mapSubStatus(String(preapproval.status||'pending'));
 
   if(preapproval?.status==="authorized"){
@@ -101,7 +101,7 @@ async function syncAuthorizedPayment(id:string){
   if(!preapproval)return {ignored:true};
 
   const {data:sub,error:subscriptionLookupError}=await db.from("subscriptions")
-    .select("id,business_id,plan")
+    .select("id,business_id,plan,status,current_period_end")
     .eq("provider","mercadopago")
     .eq("provider_subscription_id",preapproval)
     .maybeSingle();
@@ -121,6 +121,12 @@ async function syncAuthorizedPayment(id:string){
   // The invoice and the preapproval must both match before we write revenue or activate.
   const providerPreapproval=status==="paid"
     ? await mpGet("/preapproval/"+encodeURIComponent(preapproval))
+    : null;
+  const currentPeriodEnd = status==="paid"
+    ? resolveCurrentSubscriptionPeriodEnd(
+        providerPreapproval?.next_payment_date,
+        sub.current_period_end
+      )
     : null;
   if(status==="paid"&&!matchesSubscriptionActivation({
     status:providerStatus,
@@ -176,10 +182,32 @@ async function syncAuthorizedPayment(id:string){
   }
 
   if(status==="paid"){
+    const paidPeriodConfirmed=hasCurrentPaidSubscriptionPeriod(
+      providerPreapproval?.status,
+      Boolean(paymentId),
+      currentPeriodEnd
+    );
+    const subscriptionStatus=paidPeriodConfirmed
+      ? "active"
+      : sub.status==="past_due"
+        ? "past_due"
+        : "pending";
     const activation=await db.from("subscriptions")
-      .update({status:"active",updated_at:new Date().toISOString()})
-      .eq("id",sub.id);
-    throwOnDbError("authorized_payment_subscription_activation",activation.error);
+      .update({
+        status:subscriptionStatus,
+        current_period_end:currentPeriodEnd,
+        updated_at:new Date().toISOString()
+      })
+      .eq("id",sub.id)
+      .select("id").maybeSingle();
+    throwOnDbError("authorized_payment_subscription_period_update",activation.error);
+    if(!activation.data?.id)throw new Error("AUTHORIZED_PAYMENT_SUBSCRIPTION_UPDATE_MISSING");
+    return {
+      business_id:sub.business_id,
+      status:subscriptionStatus,
+      plan:sub.plan,
+      awaiting_period_confirmation:!paidPeriodConfirmed
+    };
   }
   return {business_id:sub.business_id,status,plan:sub.plan};
 }
@@ -329,7 +357,7 @@ async function syncPayment(id:string){
   if(!businessId)return {ignored:true};
 
   const {data:sub,error:subscriptionLookupError}=await db.from("subscriptions")
-    .select("id,plan,provider,provider_subscription_id")
+    .select("id,plan,provider,provider_subscription_id,status,current_period_end")
     .eq("business_id",businessId)
     .maybeSingle();
   throwOnDbError("payment_subscription_lookup",subscriptionLookupError);
@@ -343,6 +371,9 @@ async function syncPayment(id:string){
     && sub.provider_subscription_id.trim().length>0
       ? await mpGet("/preapproval/"+encodeURIComponent(sub.provider_subscription_id.trim()))
       : null;
+  const currentPeriodEnd = status==="paid"
+    ? resolveCurrentSubscriptionPeriodEnd(providerPreapproval?.next_payment_date, sub?.current_period_end)
+    : null;
   if(status==="paid"&&!matchesSubscriptionActivation({
     status:payment?.status,
     transaction_amount:payment?.transaction_amount,
@@ -379,7 +410,8 @@ async function syncPayment(id:string){
     concept,
     status,
     provider:"mercadopago",
-    provider_reference:payment?.order?.id?String(payment.order.id):null,
+    provider_reference:sub?.provider_subscription_id
+      || (payment?.order?.id?String(payment.order.id):null),
     provider_transaction_id:transactionId
   },{onConflict:"provider,provider_transaction_id"});
   throwOnDbError("payment_ledger",paymentWrite.error);
@@ -395,11 +427,33 @@ async function syncPayment(id:string){
   },{onConflict:"source,source_reference"});
   throwOnDbError("payment_revenue",revenueWrite.error);
 
-  if(status==="paid"){
+  if(status==="paid" && sub?.id){
+    const paidPeriodConfirmed=hasCurrentPaidSubscriptionPeriod(
+      providerPreapproval?.status,
+      true,
+      currentPeriodEnd
+    );
+    const subscriptionStatus=paidPeriodConfirmed
+      ? "active"
+      : sub.status==="past_due"
+        ? "past_due"
+        : "pending";
     const activation=await db.from("subscriptions")
-      .update({status:"active",updated_at:new Date().toISOString()})
-      .eq("business_id",businessId);
-    throwOnDbError("payment_subscription_activation",activation.error);
+      .update({
+        status:subscriptionStatus,
+        current_period_end:currentPeriodEnd,
+        updated_at:new Date().toISOString()
+      })
+      .eq("id",sub.id)
+      .select("id").maybeSingle();
+    throwOnDbError("payment_subscription_period_update",activation.error);
+    if(!activation.data?.id)throw new Error("PAYMENT_SUBSCRIPTION_UPDATE_MISSING");
+    return {
+      business_id:businessId,
+      status:subscriptionStatus,
+      payment_status:status,
+      awaiting_period_confirmation:!paidPeriodConfirmed
+    };
   }
   return {business_id:businessId,status};
 }
