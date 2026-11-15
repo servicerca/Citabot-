@@ -52,7 +52,7 @@ for (const operation of [
   "payment_subscription_lookup",
   "payment_ledger",
   "payment_revenue",
-  "payment_subscription_activation",
+  "payment_subscription_period_update",
 ]) {
   assert.ok(mercadoPago.includes('throwOnDbError("' + operation + '"'), "missing DB error check: " + operation);
 }
