@@ -196,3 +196,22 @@ export function hasCurrentPaidSubscriptionPeriod(
   const endMs = Date.parse(periodEnd);
   return Number.isFinite(endMs) && endMs > nowMs;
 }
+
+
+/**
+ * Resolve the end of the currently paid subscription period.
+ * Mercado Pago's auto_recurring.end_date is the contract end, not the next
+ * billing date, so it must never be used to grant a billing period.
+ * A malformed provider date fails closed instead of falling back to stale data.
+ */
+export function resolveCurrentSubscriptionPeriodEnd(
+  providerNextPaymentDate: unknown,
+  storedPeriodEnd: unknown,
+): string | null {
+  const hasProviderDate = typeof providerNextPaymentDate === "string"
+    && providerNextPaymentDate.trim() !== "";
+  const candidate = hasProviderDate ? providerNextPaymentDate : storedPeriodEnd;
+
+  if (typeof candidate !== "string" || candidate.trim() === "") return null;
+  return Number.isFinite(Date.parse(candidate)) ? candidate : null;
+}
