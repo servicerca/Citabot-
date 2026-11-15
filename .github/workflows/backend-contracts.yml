@@ -9,6 +9,7 @@ on:
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
       - "scripts/check-trigger-function-privileges.mjs"
+      - "scripts/check-subscription-activation-requires-paid-invoice.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
       - "tests/citabot-profile-trigger-privilege-*.sql"
       - ".github/workflows/backend-contracts.yml"
@@ -19,6 +20,7 @@ on:
       - "scripts/check-public-booking-sanitization.mjs"
       - "scripts/check-onboarding-rpc-security.mjs"
       - "scripts/check-trigger-function-privileges.mjs"
+      - "scripts/check-subscription-activation-requires-paid-invoice.mjs"
       - "tests/citabot-onboarding-rpc-*.sql"
       - "tests/citabot-profile-trigger-privilege-*.sql"
       - ".github/workflows/backend-contracts.yml"
@@ -48,7 +50,7 @@ jobs:
           deno-version: v2.x
 
       - name: Test CitaBot AI request validation boundaries
-        run: deno test supabase/functions/citabot-ai/request-validation.test.ts supabase/functions/citabot-ai/responses-request.test.ts supabase/functions/citabot-ai/openai-client.test.ts
+        run: deno test supabase/functions/citabot-ai/request-validation.test.ts supabase/functions/citabot-ai/responses-request.test.ts supabase/functions/citabot-ai/openai-client.test.ts supabase/functions/_shared/ai-rate-limit.test.ts
 
       - name: Test CitaBot platform-admin pagination boundaries
         run: deno test supabase/functions/citabot-platform-admin/pagination.test.ts 
@@ -80,6 +82,9 @@ jobs:
 
       - name: Guard trigger-only profile function privileges
         run: node scripts/check-trigger-function-privileges.mjs
+
+      - name: Guard subscription activation against missing paid invoice
+        run: node scripts/check-subscription-activation-requires-paid-invoice.mjs
 
       - name: Verify public and protected production function contracts
         if: github.event_name != 'pull_request'

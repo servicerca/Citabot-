@@ -40,7 +40,7 @@ assert.match(mercadoPago, /function throwOnDbError/);
 for (const operation of [
   "authorized_payment_ledger",
   "authorized_payment_revenue",
-  "authorized_payment_subscription_activation",
+  "authorized_payment_subscription_period_update",
   "boost_order_status_update",
   "boost_order_dates",
   "boost_order_paid_status",
@@ -52,7 +52,7 @@ for (const operation of [
   "payment_subscription_lookup",
   "payment_ledger",
   "payment_revenue",
-  "payment_subscription_activation",
+  "payment_subscription_period_update",
 ]) {
   assert.ok(mercadoPago.includes('throwOnDbError("' + operation + '"'), "missing DB error check: " + operation);
 }
@@ -125,6 +125,17 @@ assert.match(citabotAi, /CITABOT_AI_INTERNAL_FAILURE/);
 assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./);
 assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
+assert.match(citabotAi, /consume_public_booking_rate_limit/);
+assert.match(citabotAi, /CITABOT_AI_USER_LIMIT/);
+assert.match(citabotAi, /CITABOT_AI_BUSINESS_LIMIT/);
+const aiRateLimit = read("supabase/functions/_shared/ai-rate-limit.ts");
+assert.match(aiRateLimit, /CITABOT_AI_BUSINESS_LIMIT = 25/);
+assert.match(aiRateLimit, /CITABOT_AI_USER_LIMIT = 6/);
+assert.match(aiRateLimit, /CITABOT_AI_PLATFORM_DAILY_LIMIT = 100/);
+assert.match(citabotAi, /createCitabotAiPlatformRateLimitKey/);
+const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
+assert.match(aiOpenAiClient, /new Set\(\[429\]\)/,
+  "Only provider rate limits may be retried automatically; network/5xx outcomes are ambiguous for billing.");
 
 
 // Browser calls carrying Authorization + JSON must pass the OPTIONS preflight.
@@ -161,6 +172,10 @@ assert.match(customerServiceWindow, /function parseWhatsAppProviderTimestamp/);
 assert.match(customerServiceWindow, /timestampMs\s*>\s*nowMs/);
 
 const whatsappWebhook = read("supabase/functions/citabot-whatsapp-webhook/index.ts");
+assert.match(whatsappWebhook, /createCitabotAiBusinessRateLimitKey/);
+assert.match(whatsappWebhook, /consume_public_booking_rate_limit/);
+assert.match(whatsappWebhook, /CITABOT_AI_BUSINESS_LIMIT/);
+assert.match(whatsappWebhook, /createCitabotAiPlatformRateLimitKey/);
 assert.match(whatsappWebhook, /from ["']\.\/opt-out\.ts["']/);
 assert.match(whatsappWebhook, /from ["']\.\.\/_shared\/whatsapp-compliance\.ts["']/);
 assert.match(whatsappWebhook, /parseWhatsAppProviderTimestamp\(m\.timestamp\)/);
