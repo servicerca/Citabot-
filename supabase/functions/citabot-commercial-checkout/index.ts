@@ -33,7 +33,6 @@ type AutoRecurringSnapshot = {
   frequency_type?: unknown;
   transaction_amount?: unknown;
   currency_id?: unknown;
-  end_date?: unknown;
 };
 async function checkPreapproval(id: string): Promise<{
   status: string | null;
@@ -55,11 +54,11 @@ async function checkPreapproval(id: string): Promise<{
       status: typeof data?.status === "string" ? data.status : null,
       initPoint: typeof data?.init_point === "string" && data.init_point ? data.init_point : null,
       autoRecurring: data?.auto_recurring && typeof data.auto_recurring === "object" ? data.auto_recurring : null,
+      // Only the provider's next invoice date can establish a current period.
+      // auto_recurring.end_date is the contract end, not a paid billing period.
       currentPeriodEnd: typeof data?.next_payment_date === "string"
         ? data.next_payment_date
-        : typeof data?.auto_recurring?.end_date === "string"
-          ? data.auto_recurring.end_date
-          : null,
+        : null,
       httpStatus: response.status,
     };
   } catch {
