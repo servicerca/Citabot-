@@ -125,6 +125,18 @@ assert.match(citabotAi, /CITABOT_AI_INTERNAL_FAILURE/);
 assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./);
 assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
+assert.match(citabotAi, /consume_public_booking_rate_limit/);
+assert.match(citabotAi, /CITABOT_AI_USER_LIMIT/);
+assert.match(citabotAi, /CITABOT_AI_BUSINESS_LIMIT/);
+assert.match(whatsappWebhook, /createCitabotAiBusinessRateLimitKey/);
+assert.match(whatsappWebhook, /consume_public_booking_rate_limit/);
+assert.match(whatsappWebhook, /CITABOT_AI_BUSINESS_LIMIT/);
+const aiRateLimit = read("supabase/functions/_shared/ai-rate-limit.ts");
+assert.match(aiRateLimit, /CITABOT_AI_BUSINESS_LIMIT = 25/);
+assert.match(aiRateLimit, /CITABOT_AI_USER_LIMIT = 6/);
+const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
+assert.match(aiOpenAiClient, /new Set\(\[429\]\)/,
+  "Only provider rate limits may be retried automatically; network/5xx outcomes are ambiguous for billing.");
 
 
 // Browser calls carrying Authorization + JSON must pass the OPTIONS preflight.
