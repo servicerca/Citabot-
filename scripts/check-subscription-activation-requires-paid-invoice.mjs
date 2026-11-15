@@ -2,11 +2,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
-const [subscribe, sync, webhook, validation] = await Promise.all([
+const [subscribe, sync, webhook, validation, checkout] = await Promise.all([
   readFile(new URL("supabase/functions/citabot-mercadopago-subscribe/index.ts", root), "utf8"),
   readFile(new URL("supabase/functions/citabot-commercial-sync/index.ts", root), "utf8"),
   readFile(new URL("supabase/functions/citabot-mercadopago-webhook/index.ts", root), "utf8"),
   readFile(new URL("supabase/functions/_shared/citabot-payment-validation.ts", root), "utf8"),
+  readFile(new URL("supabase/functions/citabot-commercial-checkout/index.ts", root), "utf8"),
 ]);
 
 assert.match(validation, /export function hasCurrentPaidSubscriptionPeriod\(/);
