@@ -1,4 +1,4 @@
-const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
+const RETRYABLE_STATUS_CODES = new Set([429]);
 
 export type OpenAiResponseResult = {
   ok: boolean;
@@ -102,6 +102,9 @@ export async function createOpenAiResponse(
       lastRequestId = null;
       lastErrorCode = null;
       lastErrorType = null;
+      // A network/timeout failure may happen after the provider accepted and
+      // billed the request. Do not retry an ambiguous result automatically.
+      break;
     } finally {
       clearTimeout(timeout);
     }
