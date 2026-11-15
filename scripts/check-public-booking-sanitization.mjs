@@ -40,7 +40,7 @@ assert.match(mercadoPago, /function throwOnDbError/);
 for (const operation of [
   "authorized_payment_ledger",
   "authorized_payment_revenue",
-  "authorized_payment_subscription_activation",
+  "authorized_payment_subscription_period_update",
   "boost_order_status_update",
   "boost_order_dates",
   "boost_order_paid_status",
