@@ -5,6 +5,7 @@ import {
   matchesSubscriptionPayment,
   matchesSubscriptionActivation,
   hasCurrentPaidSubscriptionPeriod,
+  resolveCurrentSubscriptionPeriodEnd,
 } from "./payment-validation.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -239,4 +240,19 @@ Deno.test("authorized preapproval alone never unlocks a subscription without a p
     "An expired paid period must not remain active.");
   assert(!hasCurrentPaidSubscriptionPeriod("authorized", true, null, now),
     "A missing period end must fail closed.");
+});
+
+
+Deno.test("subscription period uses next billing date and rejects invalid dates", () => {
+  const nextCharge = "2026-12-09T12:00:00.000Z";
+  const storedPeriod = "2026-11-30T12:00:00.000Z";
+
+  assert(resolveCurrentSubscriptionPeriodEnd(nextCharge, storedPeriod) === nextCharge,
+    "A valid provider next-payment date must take precedence over the stored period.");
+  assert(resolveCurrentSubscriptionPeriodEnd(null, storedPeriod) === storedPeriod,
+    "A missing provider next-payment date may preserve the last verified period.");
+  assert(resolveCurrentSubscriptionPeriodEnd(null, null) === null,
+    "Missing provider and stored period dates must fail closed.");
+  assert(resolveCurrentSubscriptionPeriodEnd("not-a-date", storedPeriod) === null,
+    "A malformed provider date must not fall back to a stale stored period.");
 });
