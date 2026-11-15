@@ -131,6 +131,9 @@ assert.match(citabotAi, /CITABOT_AI_BUSINESS_LIMIT/);
 const aiRateLimit = read("supabase/functions/_shared/ai-rate-limit.ts");
 assert.match(aiRateLimit, /CITABOT_AI_BUSINESS_LIMIT = 25/);
 assert.match(aiRateLimit, /CITABOT_AI_USER_LIMIT = 6/);
+assert.match(aiRateLimit, /CITABOT_AI_PLATFORM_DAILY_LIMIT = 100/);
+assert.match(citabotAi, /createCitabotAiPlatformRateLimitKey/);
+assert.match(whatsappWebhook, /createCitabotAiPlatformRateLimitKey/);
 const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
 assert.match(aiOpenAiClient, /new Set\(\[429\]\)/,
   "Only provider rate limits may be retried automatically; network/5xx outcomes are ambiguous for billing.");
