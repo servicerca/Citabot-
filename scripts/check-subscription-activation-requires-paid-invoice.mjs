@@ -22,6 +22,18 @@ assert.match(webhook, /resolveCurrentSubscriptionPeriodEnd\(/);
 assert.doesNotMatch(sync, /auto_recurring\?\.end_date/);
 assert.doesNotMatch(webhook, /auto_recurring\?\.end_date/);
 
+// Checkout must never confuse contract end with the next paid billing-period boundary.
+assert.match(
+  checkout,
+  /currentPeriodEnd:\s*typeof data\?\.next_payment_date === "string"/,
+  "Checkout must source the billing-period end only from Mercado Pago's next_payment_date."
+);
+assert.doesNotMatch(
+  checkout,
+  /auto_recurring\?\.end_date|auto_recurring\.end_date|end_date:\s*unknown/,
+  "Checkout must not use the contract end as proof of a paid billing period."
+);
+
 const authorizedInvoiceWebhook = webhook.slice(
   webhook.indexOf("async function syncAuthorizedPayment"),
   webhook.indexOf("async function syncPayment")
