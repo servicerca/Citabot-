@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { canSyncBoostOrderStatus, hasCurrentPaidSubscriptionPeriod, matchesBoostOrderPayment, matchesSubscriptionConfiguration } from "../_shared/citabot-payment-validation.ts";
+import { canSyncBoostOrderStatus, hasCurrentPaidSubscriptionPeriod, matchesBoostOrderPayment, matchesSubscriptionConfiguration, resolveCurrentSubscriptionPeriodEnd } from "../_shared/citabot-payment-validation.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -261,8 +261,10 @@ Deno.serve(async (req) => {
           .limit(1)
           .maybeSingle();
         throwOnDbError("commercial_subscription_invoice_lookup", paidInvoice.error);
-        const nextPeriodEnd = remote?.next_payment_date || remote?.auto_recurring?.end_date
-          || sub.data.current_period_end || null;
+        const nextPeriodEnd = resolveCurrentSubscriptionPeriodEnd(
+          remote?.next_payment_date,
+          sub.data.current_period_end
+        );
         if (!hasCurrentPaidSubscriptionPeriod(remote.status, Boolean(paidInvoice.data?.id), nextPeriodEnd)) {
           const previousPeriodEnd = typeof sub.data.current_period_end === "string"
             ? Date.parse(sub.data.current_period_end)
@@ -276,7 +278,7 @@ Deno.serve(async (req) => {
       if (sub.data.status !== status) {
         const update = await db.from("subscriptions").update({
           status,
-          current_period_end: remote?.next_payment_date || remote?.auto_recurring?.end_date || null,
+          current_period_end: nextPeriodEnd,
           updated_at: new Date().toISOString(),
         }).eq("id", sub.data.id);
         throwOnDbError("subscription_status_update", update.error);
