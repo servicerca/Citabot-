@@ -2,7 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import {
   CITABOT_AI_BUSINESS_LIMIT,
   CITABOT_AI_BUSINESS_WINDOW_SECONDS,
+  CITABOT_AI_PLATFORM_DAILY_LIMIT,
+  CITABOT_AI_PLATFORM_WINDOW_SECONDS,
   createCitabotAiBusinessRateLimitKey,
+  createCitabotAiPlatformRateLimitKey,
 } from "../_shared/ai-rate-limit.ts";
 import { ensureWhatsAppOptOutRecorded, isWhatsAppOptOut } from "./opt-out.ts";
 import { isInsideWhatsAppCustomerServiceWindow, parseWhatsAppProviderTimestamp } from "../_shared/whatsapp-compliance.ts";
@@ -43,6 +46,19 @@ async function aiReply(businessId:string,text:string,customerId:string,customerN
  }
  if(allowed!==true){
   console.info("CITABOT_AI_BUSINESS_DAILY_LIMIT_REACHED",JSON.stringify({business_id:businessId,channel:"whatsapp"}));
+  return automaticReply(text,businessName);
+ }
+ const {data:platformAllowed,error:platformError}=await sb.rpc("consume_public_booking_rate_limit",{
+  p_rate_key:await createCitabotAiPlatformRateLimitKey(),
+  p_limit:CITABOT_AI_PLATFORM_DAILY_LIMIT,
+  p_window_seconds:CITABOT_AI_PLATFORM_WINDOW_SECONDS
+ });
+ if(platformError){
+  logBackendFailure("CITABOT_WHATSAPP_AI_PLATFORM_LIMIT_FAILED",platformError);
+  return automaticReply(text,businessName);
+ }
+ if(platformAllowed!==true){
+  console.info("CITABOT_AI_PLATFORM_DAILY_LIMIT_REACHED",JSON.stringify({channel:"whatsapp"}));
   return automaticReply(text,businessName);
  }
  const [biz,services,hours,recent]=await Promise.all([
