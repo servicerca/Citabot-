@@ -28,8 +28,9 @@ assert.match(
   /currentPeriodEnd:\s*typeof data\?\.next_payment_date === "string"/,
   "Checkout must source the billing-period end only from Mercado Pago's next_payment_date."
 );
+const checkoutCode = checkout.replace(/^\s*\/\/.*$/gm, "");
 assert.doesNotMatch(
-  checkout,
+  checkoutCode,
   /auto_recurring\?\.end_date|auto_recurring\.end_date|end_date:\s*unknown/,
   "Checkout must not use the contract end as proof of a paid billing period."
 );
