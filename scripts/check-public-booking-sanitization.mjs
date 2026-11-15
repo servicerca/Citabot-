@@ -133,7 +133,6 @@ assert.match(aiRateLimit, /CITABOT_AI_BUSINESS_LIMIT = 25/);
 assert.match(aiRateLimit, /CITABOT_AI_USER_LIMIT = 6/);
 assert.match(aiRateLimit, /CITABOT_AI_PLATFORM_DAILY_LIMIT = 100/);
 assert.match(citabotAi, /createCitabotAiPlatformRateLimitKey/);
-assert.match(whatsappWebhook, /createCitabotAiPlatformRateLimitKey/);
 const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
 assert.match(aiOpenAiClient, /new Set\(\[429\]\)/,
   "Only provider rate limits may be retried automatically; network/5xx outcomes are ambiguous for billing.");
@@ -176,6 +175,7 @@ const whatsappWebhook = read("supabase/functions/citabot-whatsapp-webhook/index.
 assert.match(whatsappWebhook, /createCitabotAiBusinessRateLimitKey/);
 assert.match(whatsappWebhook, /consume_public_booking_rate_limit/);
 assert.match(whatsappWebhook, /CITABOT_AI_BUSINESS_LIMIT/);
+assert.match(whatsappWebhook, /createCitabotAiPlatformRateLimitKey/);
 assert.match(whatsappWebhook, /from ["']\.\/opt-out\.ts["']/);
 assert.match(whatsappWebhook, /from ["']\.\.\/_shared\/whatsapp-compliance\.ts["']/);
 assert.match(whatsappWebhook, /parseWhatsAppProviderTimestamp\(m\.timestamp\)/);
