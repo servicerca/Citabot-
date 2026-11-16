@@ -53,8 +53,7 @@ async function checkPreapproval(id: string): Promise<{
       status: typeof data?.status === "string" ? data.status : null,
       initPoint: typeof data?.init_point === "string" && data.init_point ? data.init_point : null,
       autoRecurring: data?.auto_recurring && typeof data.auto_recurring === "object" ? data.auto_recurring : null,
-      // Only the provider's next invoice date can establish a current period.
-      // auto_recurring.end_date is the contract end, not a paid billing period.
+      // Retry lookup omits scheduled dates; only a confirmed invoice event advances a paid period.
       httpStatus: response.status,
     };
   } catch {
@@ -381,7 +380,7 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
      provider:"mercadopago",
      provider_customer_id:d?.payer_id?String(d.payer_id):null,
      provider_subscription_id:newProviderId,
-     current_period_end:d?.next_payment_date||null,
+     current_period_end:null,
      updated_at:new Date().toISOString()
    };
 
