@@ -75,7 +75,7 @@ assert.ok(authorizedInvoiceWebhook.includes("hasCurrentPaidSubscriptionPeriod(")
 assert.ok(authorizedInvoiceWebhook.includes("current_period_end:currentPeriodEnd"),
   "The authorized invoice must persist only the resolved billing period.");
 assert.match(authorizedInvoiceWebhook, /providerPreapproval\?\.next_payment_date/,
-  "Only the approved invoice handler may use the provider's next period boundary.");
+  "The approved invoice handler may use the provider's next period boundary after verifying that invoice.");
 
 const authorizedSubscribe = subscribe.slice(
   subscribe.indexOf('if (remote.status === "authorized")'),
