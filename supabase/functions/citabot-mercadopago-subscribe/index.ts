@@ -484,7 +484,7 @@ Deno.serve(async (req) => {
       provider: "mercadopago",
       provider_customer_id: providerData?.payer_id == null ? null : String(providerData.payer_id),
       provider_subscription_id: newProviderId,
-      current_period_end: providerData?.next_payment_date || null,
+      current_period_end: null,
       updated_at: new Date().toISOString(),
     };
 
