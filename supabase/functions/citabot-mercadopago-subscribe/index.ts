@@ -76,7 +76,6 @@ async function checkPreapproval(id: string): Promise<{
   status: string | null;
   initPoint: string | null;
   payerId: string | null;
-  nextPaymentDate: string | null;
   autoRecurring: AutoRecurringSnapshot | null;
   httpStatus: number | null;
 }> {
@@ -87,19 +86,18 @@ async function checkPreapproval(id: string): Promise<{
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       console.error("CITABOT_PROFESSIONAL_PREAPPROVAL_LOOKUP_FAILED", JSON.stringify({ status: response.status }));
-      return { status: null, initPoint: null, payerId: null, nextPaymentDate: null, autoRecurring: null, httpStatus: response.status };
+      return { status: null, initPoint: null, payerId: null, autoRecurring: null, httpStatus: response.status };
     }
     return {
       status: typeof data?.status === "string" ? data.status : null,
       initPoint: typeof data?.init_point === "string" && data.init_point ? data.init_point : null,
       payerId: data?.payer_id == null ? null : String(data.payer_id),
-      nextPaymentDate: typeof data?.next_payment_date === "string" ? data.next_payment_date : null,
       autoRecurring: data?.auto_recurring && typeof data.auto_recurring === "object" ? data.auto_recurring : null,
       httpStatus: response.status,
     };
   } catch {
     console.error("CITABOT_PROFESSIONAL_PREAPPROVAL_LOOKUP_FAILED", JSON.stringify({ code: "network_error" }));
-    return { status: null, initPoint: null, payerId: null, nextPaymentDate: null, autoRecurring: null, httpStatus: null };
+    return { status: null, initPoint: null, payerId: null, autoRecurring: null, httpStatus: null };
   }
 }
 
@@ -284,13 +282,12 @@ Deno.serve(async (req) => {
         throwOnDbError("confirmed_subscription_invoice_lookup", paidInvoice.error);
         const confirmedPeriod = hasCurrentPaidSubscriptionPeriod(
           remote.status,
-          Boolean(paidInvoice.data?.id),
-          remote.nextPaymentDate || (typeof prior.current_period_end === "string" ? prior.current_period_end : null)
+          Boolean(paidInvoice.data?.id) && prior.status === "active",
+          typeof prior.current_period_end === "string" ? prior.current_period_end : null
         );
         if (!confirmedPeriod) {
           const mark = await admin.from("subscriptions").update({
             status: "pending",
-            ...(remote.nextPaymentDate ? { current_period_end: remote.nextPaymentDate } : {}),
             updated_at: new Date().toISOString(),
           }).eq("id", prior.id).select("id").maybeSingle();
           throwOnDbError("awaiting_subscription_invoice_update", mark.error);
@@ -487,7 +484,7 @@ Deno.serve(async (req) => {
       provider: "mercadopago",
       provider_customer_id: providerData?.payer_id == null ? null : String(providerData.payer_id),
       provider_subscription_id: newProviderId,
-      current_period_end: providerData?.next_payment_date || null,
+      current_period_end: null,
       updated_at: new Date().toISOString(),
     };
 

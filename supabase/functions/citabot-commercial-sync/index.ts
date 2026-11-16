@@ -265,10 +265,14 @@ Deno.serve(async (req) => {
           .maybeSingle();
         throwOnDbError("commercial_subscription_invoice_lookup", paidInvoice.error);
         nextPeriodEnd = resolveCurrentSubscriptionPeriodEnd(
-          remote?.next_payment_date,
+          null,
           sub.data.current_period_end
         );
-        if (!hasCurrentPaidSubscriptionPeriod(remote.status, Boolean(paidInvoice.data?.id), nextPeriodEnd)) {
+        if (!hasCurrentPaidSubscriptionPeriod(
+          remote.status,
+          Boolean(paidInvoice.data?.id) && sub.data.status === "active",
+          nextPeriodEnd
+        )) {
           const previousPeriodEnd = typeof sub.data.current_period_end === "string"
             ? Date.parse(sub.data.current_period_end)
             : Number.NaN;
