@@ -48,8 +48,10 @@ async function syncSubscription(id:string){
     return {ignored:true,reason:"subscription_preapproval_configuration_mismatch",status:"past_due"};
   }
 
-  const nextPeriodEnd=resolveCurrentSubscriptionPeriodEnd(
-    preapproval?.next_payment_date,
+  // A preapproval-status notification is not proof that a new invoice was paid.
+  // Keep the already-confirmed local period; only an approved invoice event may extend it.
+  const persistedPeriodEnd=resolveCurrentSubscriptionPeriodEnd(
+    null,
     local.current_period_end
   );
   let subscriptionStatus=mapSubStatus(String(preapproval.status||'pending'));
@@ -67,8 +69,8 @@ async function syncSubscription(id:string){
 
     const paidPeriodConfirmed=hasCurrentPaidSubscriptionPeriod(
       preapproval.status,
-      Boolean(paidInvoice?.id),
-      nextPeriodEnd
+      Boolean(paidInvoice?.id) && local.status==="active",
+      persistedPeriodEnd
     );
     subscriptionStatus=paidPeriodConfirmed
       ? "active"
@@ -80,7 +82,7 @@ async function syncSubscription(id:string){
       console.info("CITABOT_SUBSCRIPTION_AWAITING_CONFIRMED_INVOICE",JSON.stringify({
         business_id:local.business_id,
         paid_invoice_found:Boolean(paidInvoice?.id),
-        current_period_confirmed:Boolean(nextPeriodEnd)
+        current_period_confirmed:Boolean(persistedPeriodEnd)
       }));
     }
   }
@@ -88,7 +90,7 @@ async function syncSubscription(id:string){
   const updates={
     status:subscriptionStatus,
     provider_customer_id:preapproval?.payer_id?String(preapproval.payer_id):null,
-    current_period_end:nextPeriodEnd,
+    current_period_end:persistedPeriodEnd,
     updated_at:new Date().toISOString()
   };
   const {error:ue}=await db.from('subscriptions').update(updates).eq('id',local.id);
