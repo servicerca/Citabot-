@@ -23,15 +23,39 @@ assert.doesNotMatch(sync, /auto_recurring\?\.end_date/);
 assert.doesNotMatch(webhook, /auto_recurring\?\.end_date/);
 
 // A preapproval lookup or retry is not an invoice receipt and cannot extend access.
-assert.doesNotMatch(checkout, /next_payment_date|currentPeriodEnd/,
-  "Checkout recovery must rely on the already persisted paid period, not the next scheduled charge.");
-assert.match(checkout, /Boolean\(paidInvoice\.data\?\.id\) && prior\.status==="active"/);
-assert.match(checkout, /typeof prior\.current_period_end==="string" \? prior\.current_period_end : null/);
+const checkoutPreapprovalLookup = checkout.slice(
+  checkout.indexOf("async function checkPreapproval"),
+  checkout.indexOf("async function cancelAndVerifyPreapproval")
+);
+assert.doesNotMatch(checkoutPreapprovalLookup, /next_payment_date|currentPeriodEnd/);
+const checkoutPremiumRecovery = checkout.slice(
+  checkout.indexOf('if(prior?.provider_subscription_id&&prior.plan==="premium"'),
+  checkout.indexOf("let reconciliationId")
+);
+assert.doesNotMatch(checkoutPremiumRecovery, /next_payment_date|currentPeriodEnd/,
+  "Premium recovery must rely on the already persisted paid period, not the next scheduled charge.");
+assert.match(checkoutPremiumRecovery, /Boolean\(paidInvoice\.data\?\.id\) && prior\.status==="active"/);
+assert.match(checkoutPremiumRecovery, /typeof prior\.current_period_end==="string" \? prior\.current_period_end : null/);
+assert.match(checkout, /const row=\{[\s\S]{0,500}status:"pending"[\s\S]{0,400}current_period_end:null/);
 
+const subscribePreapprovalLookup = subscribe.slice(
+  subscribe.indexOf("async function checkPreapproval"),
+  subscribe.indexOf("async function cancelAndVerifyPreapproval")
+);
+assert.doesNotMatch(subscribePreapprovalLookup, /next_payment_date|nextPaymentDate/);
 assert.doesNotMatch(subscribe, /remote\.nextPaymentDate/,
-  "Subscription retry must not use the next scheduled payment date as paid-period evidence.");
+  "Professional retry must not use the next scheduled payment date as paid-period evidence.");
 assert.match(subscribe, /Boolean\(paidInvoice\.data\?\.id\) && prior\.status === "active"/);
 assert.match(subscribe, /typeof prior\.current_period_end === "string" \? prior\.current_period_end : null/);
+assert.match(subscribe, /const row = \{[\s\S]{0,500}status: "pending"[\s\S]{0,400}current_period_end: null/);
+
+const commercialSubscriptionRefresh = sync.slice(
+  sync.indexOf('if (sub.data?.provider === "mercadopago"'),
+  sync.indexOf("if (sub.data.status !== status)")
+);
+assert.doesNotMatch(commercialSubscriptionRefresh, /remote\?\.next_payment_date/);
+assert.match(commercialSubscriptionRefresh, /Boolean\(paidInvoice\.data\?\.id\) && sub\.data\.status === "active"/);
+assert.match(commercialSubscriptionRefresh, /resolveCurrentSubscriptionPeriodEnd\(\s*null,\s*sub\.data\.current_period_end/s);
 
 const preapprovalRefresh = webhook.slice(
   webhook.indexOf("async function syncSubscription"),
