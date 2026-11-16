@@ -22,18 +22,25 @@ assert.match(webhook, /resolveCurrentSubscriptionPeriodEnd\(/);
 assert.doesNotMatch(sync, /auto_recurring\?\.end_date/);
 assert.doesNotMatch(webhook, /auto_recurring\?\.end_date/);
 
-// Checkout must never confuse contract end with the next paid billing-period boundary.
-assert.match(
-  checkout,
-  /currentPeriodEnd:\s*typeof data\?\.next_payment_date === "string"/,
-  "Checkout must source the billing-period end only from Mercado Pago's next_payment_date."
+// A preapproval lookup or retry is not an invoice receipt and cannot extend access.
+assert.doesNotMatch(checkout, /next_payment_date|currentPeriodEnd/,
+  "Checkout recovery must rely on the already persisted paid period, not the next scheduled charge.");
+assert.match(checkout, /Boolean\(paidInvoice\.data\?\.id\) && prior\.status==="active"/);
+assert.match(checkout, /typeof prior\.current_period_end==="string" \? prior\.current_period_end : null/);
+
+assert.doesNotMatch(subscribe, /remote\.nextPaymentDate/,
+  "Subscription retry must not use the next scheduled payment date as paid-period evidence.");
+assert.match(subscribe, /Boolean\(paidInvoice\.data\?\.id\) && prior\.status === "active"/);
+assert.match(subscribe, /typeof prior\.current_period_end === "string" \? prior\.current_period_end : null/);
+
+const preapprovalRefresh = webhook.slice(
+  webhook.indexOf("async function syncSubscription"),
+  webhook.indexOf("async function syncAuthorizedPayment")
 );
-const checkoutCode = checkout.replace(/^\s*\/\/.*$/gm, "");
-assert.doesNotMatch(
-  checkoutCode,
-  /auto_recurring\?\.end_date|auto_recurring\.end_date|end_date:\s*unknown/,
-  "Checkout must not use the contract end as proof of a paid billing period."
-);
+assert.doesNotMatch(preapprovalRefresh, /next_payment_date/,
+  "A preapproval status event must not extend a paid period without a new invoice.");
+assert.match(preapprovalRefresh, /Boolean\(paidInvoice\?\.id\) && local\.status==="active"/);
+assert.match(preapprovalRefresh, /resolveCurrentSubscriptionPeriodEnd\(\s*null,\s*local\.current_period_end/s);
 
 const authorizedInvoiceWebhook = webhook.slice(
   webhook.indexOf("async function syncAuthorizedPayment"),
@@ -43,6 +50,8 @@ assert.ok(authorizedInvoiceWebhook.includes("hasCurrentPaidSubscriptionPeriod(")
   "An approved authorized-payment invoice must not activate without a verified current period.");
 assert.ok(authorizedInvoiceWebhook.includes("current_period_end:currentPeriodEnd"),
   "The authorized invoice must persist only the resolved billing period.");
+assert.match(authorizedInvoiceWebhook, /providerPreapproval\?\.next_payment_date/,
+  "Only the approved invoice handler may use the provider's next period boundary.");
 
 const authorizedSubscribe = subscribe.slice(
   subscribe.indexOf('if (remote.status === "authorized")'),
