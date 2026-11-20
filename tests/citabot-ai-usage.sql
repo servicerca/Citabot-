@@ -121,7 +121,7 @@ BEGIN
   END IF;
 
   INSERT INTO public.public_booking_rate_limits(rate_key, window_started_at, hits, updated_at)
-  VALUES ('ai:02:platform-blocked', now(), 1, now());
+  VALUES ('ai:02:platform-blocked', now(), 100, now());
 
   BEGIN
     PERFORM public.reserve_citabot_ai_daily_rate_limits(
@@ -147,7 +147,7 @@ BEGIN
   FROM public.public_booking_rate_limits
   WHERE rate_key = 'ai:03:business-new';
 
-  IF v_user_hits <> 0 OR v_business_hits <> 0 OR v_platform_hits <> 1 THEN
+  IF v_user_hits <> 0 OR v_business_hits <> 0 OR v_platform_hits <> 100 THEN
     RAISE EXCEPTION 'ATOMIC_DAILY_LIMIT_PARTIAL_UPDATES_NOT_ROLLED_BACK: user %, platform %, business %',
       v_user_hits, v_platform_hits, v_business_hits;
   END IF;
