@@ -125,7 +125,7 @@ assert.match(citabotAi, /CITABOT_AI_INTERNAL_FAILURE/);
 assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./);
 assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
-assert.match(citabotAi, /consume_public_booking_rate_limit/);
+assert.match(citabotAi, /reserve_citabot_ai_daily_rate_limits/);
 assert.match(citabotAi, /CITABOT_AI_USER_LIMIT/);
 assert.match(citabotAi, /CITABOT_AI_BUSINESS_LIMIT/);
 const aiRateLimit = read("supabase/functions/_shared/ai-rate-limit.ts");
@@ -134,6 +134,13 @@ assert.match(aiRateLimit, /CITABOT_AI_USER_LIMIT = 6/);
 assert.match(aiRateLimit, /CITABOT_AI_PLATFORM_DAILY_LIMIT = 100/);
 assert.match(citabotAi, /createCitabotAiPlatformRateLimitKey/);
 const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
+const dailyAiLimitMigration = read("supabase/migrations/20261120100000_citabot_atomic_ai_daily_rate_limits.sql");
+assert.match(dailyAiLimitMigration, /SECURITY DEFINER/);
+assert.match(dailyAiLimitMigration, /ORDER BY p_rate_keys\\[s\\.i\\]/);
+assert.match(dailyAiLimitMigration, /CITABOT_AI_RATE_LIMIT_REACHED/);
+assert.match(dailyAiLimitMigration, /REVOKE ALL ON FUNCTION public\\.reserve_citabot_ai_daily_rate_limits/);
+assert.match(dailyAiLimitMigration, /GRANT EXECUTE ON FUNCTION public\\.reserve_citabot_ai_daily_rate_limits.*TO service_role/);
+
 assert.match(aiOpenAiClient, /attempt <= 1/,
   "One provider attempt is permitted per reserved monthly quota unit.");
 assert.match(aiOpenAiClient, /One provider attempt per reserved quota unit/);
@@ -178,7 +185,7 @@ assert.match(customerServiceWindow, /timestampMs\s*>\s*nowMs/);
 
 const whatsappWebhook = read("supabase/functions/citabot-whatsapp-webhook/index.ts");
 assert.match(whatsappWebhook, /createCitabotAiBusinessRateLimitKey/);
-assert.match(whatsappWebhook, /consume_public_booking_rate_limit/);
+assert.match(whatsappWebhook, /reserve_citabot_ai_daily_rate_limits/);
 assert.match(whatsappWebhook, /CITABOT_AI_BUSINESS_LIMIT/);
 assert.match(whatsappWebhook, /createCitabotAiPlatformRateLimitKey/);
 assert.match(whatsappWebhook, /from ["']\.\/opt-out\.ts["']/);
