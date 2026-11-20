@@ -12,7 +12,7 @@ assert.match(index, /reserve_citabot_ai_request/);
 assert.match(index, /record_citabot_ai_usage/);
 assert.match(index, /decideAiQuota/);
 assert.match(index, /quotaDecision\.maxOutputTokens/);
-assert.ok(index.indexOf("reserve_citabot_ai_request") < index.indexOf("createCitabotAiRateLimitKeys"),
+assert.ok(index.indexOf("reserve_citabot_ai_request") < index.indexOf("const rateKeys = await createCitabotAiRateLimitKeys"),
   "The monthly hard stop must run before daily buckets can be consumed.");
 assert.match(index, /CITABOT_AI_USER_LIMIT/);
 assert.match(index, /CITABOT_AI_BUSINESS_LIMIT/);
