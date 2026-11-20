@@ -136,10 +136,11 @@ assert.match(citabotAi, /createCitabotAiPlatformRateLimitKey/);
 const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
 const dailyAiLimitMigration = read("supabase/migrations/20261120100000_citabot_atomic_ai_daily_rate_limits.sql");
 assert.match(dailyAiLimitMigration, /SECURITY DEFINER/);
-assert.match(dailyAiLimitMigration, /ORDER BY p_rate_keys\\[s\\.i\\]/);
-assert.match(dailyAiLimitMigration, /CITABOT_AI_RATE_LIMIT_REACHED/);
-assert.match(dailyAiLimitMigration, /REVOKE ALL ON FUNCTION public\\.reserve_citabot_ai_daily_rate_limits/);
-assert.match(dailyAiLimitMigration, /GRANT EXECUTE ON FUNCTION public\\.reserve_citabot_ai_daily_rate_limits.*TO service_role/);
+assert.ok(dailyAiLimitMigration.includes("ORDER BY p_rate_keys[s.i]"));
+assert.ok(dailyAiLimitMigration.includes("CITABOT_AI_RATE_LIMIT_REACHED"));
+assert.ok(dailyAiLimitMigration.includes("REVOKE ALL ON FUNCTION public.reserve_citabot_ai_daily_rate_limits"));
+assert.ok(dailyAiLimitMigration.includes("GRANT EXECUTE ON FUNCTION public.reserve_citabot_ai_daily_rate_limits"));
+assert.ok(dailyAiLimitMigration.includes("TO service_role"));
 
 assert.match(aiOpenAiClient, /attempt <= 1/,
   "One provider attempt is permitted per reserved monthly quota unit.");
