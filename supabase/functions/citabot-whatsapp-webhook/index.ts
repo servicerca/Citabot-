@@ -8,6 +8,7 @@ import {
   createCitabotAiPlatformRateLimitKey,
 } from "../_shared/ai-rate-limit.ts";
 import { ensureWhatsAppOptOutRecorded, isWhatsAppOptOut } from "./opt-out.ts";
+import { decideAiQuota } from "../citabot-ai/ai-usage-policy.ts";
 import { isInsideWhatsAppCustomerServiceWindow, parseWhatsAppProviderTimestamp } from "../_shared/whatsapp-compliance.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-hub-signature-256"};
@@ -32,41 +33,26 @@ async function verifySignature(raw:string,s:string|null){if(!APP_SECRET||!s?.sta
 async function graphPost(phoneId:string,path:string,payload:unknown){if(!ACCESS_TOKEN)throw new Error("WHATSAPP_ACCESS_TOKEN is missing");const r=await fetch(`https://graph.facebook.com/v26.0/${phoneId}/${path}`,{method:"POST",headers:{Authorization:`Bearer ${ACCESS_TOKEN}`,"Content-Type":"application/json"},body:JSON.stringify(payload)});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(`Meta Graph API ${path} failed (${r.status})`);return data}
 async function sendWhatsAppText(phoneId:string,to:string,body:string){return graphPost(phoneId,"messages",{messaging_product:"whatsapp",recipient_type:"individual",to,type:"text",text:{preview_url:false,body}})}async function markRead(phoneId:string,messageId:string){try{await graphPost(phoneId,"messages",{messaging_product:"whatsapp",status:"read",message_id:messageId})}catch(e){logBackendFailure("CITABOT_READ_RECEIPT_FAILED",e)}}
 function automaticReply(t:string,businessName:string){const n=t.trim().toLowerCase();if(/\b(hola|buenas|hey|buenos días|buenas tardes|buenas noches)\b/.test(n))return `Hola 👋 Soy CitaBot de ${businessName}. Puedo ayudarte con citas, servicios y reservas. ¿Qué necesitas?`;if(/\b(cita|reserva|agenda|disponib|horario)\b/.test(n))return `Claro 👍 Puedo ayudarte a gestionar una cita o reserva. Dime qué servicio necesitas y qué día te interesa.`;if(/\b(servicio|servicios|precio|precios|costo|costos)\b/.test(n))return `Con gusto. Dime qué servicio te interesa y te doy la información disponible.`;return `Gracias por escribir a ${businessName} 👋. Puedo ayudarte con citas, reservas y servicios. Cuéntame qué necesitas.`}
-async function aiReply(businessId:string,text:string,customerId:string,customerName:string,businessName:string){
+
+async function aiReply(
+ businessId:string,
+ text:string,
+ customerId:string,
+ customerName:string,
+ businessName:string,
+ plan:string
+){
  if(!OPENAI_API_KEY)return automaticReply(text,businessName);
- const rateKey=await createCitabotAiBusinessRateLimitKey(businessId);
- const {data:allowed,error:rateError}=await sb.rpc("consume_public_booking_rate_limit",{
-  p_rate_key:rateKey,
-  p_limit:CITABOT_AI_BUSINESS_LIMIT,
-  p_window_seconds:CITABOT_AI_BUSINESS_WINDOW_SECONDS
- });
- if(rateError){
-  logBackendFailure("CITABOT_WHATSAPP_AI_RATE_LIMIT_FAILED",rateError);
-  return automaticReply(text,businessName);
- }
- if(allowed!==true){
-  console.info("CITABOT_AI_BUSINESS_DAILY_LIMIT_REACHED",JSON.stringify({business_id:businessId,channel:"whatsapp"}));
-  return automaticReply(text,businessName);
- }
- const {data:platformAllowed,error:platformError}=await sb.rpc("consume_public_booking_rate_limit",{
-  p_rate_key:await createCitabotAiPlatformRateLimitKey(),
-  p_limit:CITABOT_AI_PLATFORM_DAILY_LIMIT,
-  p_window_seconds:CITABOT_AI_PLATFORM_WINDOW_SECONDS
- });
- if(platformError){
-  logBackendFailure("CITABOT_WHATSAPP_AI_PLATFORM_LIMIT_FAILED",platformError);
-  return automaticReply(text,businessName);
- }
- if(platformAllowed!==true){
-  console.info("CITABOT_AI_PLATFORM_DAILY_LIMIT_REACHED",JSON.stringify({channel:"whatsapp"}));
-  return automaticReply(text,businessName);
- }
  const [biz,services,hours,recent]=await Promise.all([
   sb.from("businesses").select("name,description,category,city,timezone").eq("id",businessId).maybeSingle(),
   sb.from("services").select("name,description,duration_minutes,price,active").eq("business_id",businessId).eq("active",true).order("name").limit(15),
   sb.from("business_hours").select("day_of_week,opening_time,closing_time,is_open,closed").eq("business_id",businessId).order("day_of_week"),
   sb.from("messages").select("direction,body,created_at").eq("business_id",businessId).eq("customer_id",customerId).order("created_at",{ascending:false}).limit(8)
  ]);
+ if(biz.error||services.error||hours.error||recent.error){
+  logBackendFailure("CITABOT_WHATSAPP_AI_CONTEXT_FAILED",biz.error||services.error||hours.error||recent.error);
+  return automaticReply(text,businessName);
+ }
  const business=biz.data?{
   name:String(biz.data.name||businessName).slice(0,120),
   description:String(biz.data.description||"").slice(0,350),
@@ -85,21 +71,60 @@ async function aiReply(businessId:string,text:string,customerId:string,customerN
   body:String(message.body||"").slice(0,350),
   created_at:message.created_at
  }));
- const context={
-  business,
-  services:safeServices,
-  hours:hours.data||[],
-  recent_messages:safeRecent,
-  customer_name:String(customerName||"Cliente").slice(0,100)
- };
- const prompt=`Eres CitaBot, el asistente comercial de un pequeño negocio en Colombia. Responde en español, breve, amable y útil. Solo puedes afirmar precios, servicios, horarios o disponibilidad que aparezcan en los datos del negocio. Nunca inventes datos ni prometas una reserva que todavía no se haya confirmado. Si faltan datos, pide únicamente los necesarios. Datos: ${JSON.stringify(context)}. Mensaje: ${String(text).slice(0,3000)}`;
+ const context={business,services:safeServices,hours:hours.data||[],recent_messages:safeRecent,customer_name:String(customerName||"Cliente").slice(0,100)};
+ const serializedContext=JSON.stringify(context);
+ const safeInput=String(text).slice(0,3000);
+
+ // Check monthly configuration first: disabled or unavailable quotas use a deterministic reply
+ // without consuming the daily request buckets or calling an external provider.
+ const quota=await sb.rpc("reserve_citabot_ai_request",{
+  p_business_id:businessId,
+  p_plan:String(plan||"").trim().toLowerCase(),
+  p_input_chars:safeInput.length,
+  p_context_chars:serializedContext.length
+ });
+ const quotaDecision=decideAiQuota(quota.data,quota.error);
+ if(!quotaDecision.allowed){
+  console.info("CITABOT_WHATSAPP_AI_QUOTA_BLOCKED",JSON.stringify({business_id:businessId,reason:quotaDecision.code}));
+  return automaticReply(text,businessName);
+ }
+
+ const rateKey=await createCitabotAiBusinessRateLimitKey(businessId);
+ const businessLimit=await sb.rpc("consume_public_booking_rate_limit",{
+  p_rate_key:rateKey,
+  p_limit:CITABOT_AI_BUSINESS_LIMIT,
+  p_window_seconds:CITABOT_AI_BUSINESS_WINDOW_SECONDS
+ });
+ if(businessLimit.error){
+  logBackendFailure("CITABOT_WHATSAPP_AI_RATE_LIMIT_FAILED",businessLimit.error);
+  return automaticReply(text,businessName);
+ }
+ if(businessLimit.data!==true){
+  console.info("CITABOT_AI_BUSINESS_DAILY_LIMIT_REACHED",JSON.stringify({business_id:businessId,channel:"whatsapp"}));
+  return automaticReply(text,businessName);
+ }
+ const platformLimit=await sb.rpc("consume_public_booking_rate_limit",{
+  p_rate_key:await createCitabotAiPlatformRateLimitKey(),
+  p_limit:CITABOT_AI_PLATFORM_DAILY_LIMIT,
+  p_window_seconds:CITABOT_AI_PLATFORM_WINDOW_SECONDS
+ });
+ if(platformLimit.error){
+  logBackendFailure("CITABOT_WHATSAPP_AI_PLATFORM_LIMIT_FAILED",platformLimit.error);
+  return automaticReply(text,businessName);
+ }
+ if(platformLimit.data!==true){
+  console.info("CITABOT_AI_PLATFORM_DAILY_LIMIT_REACHED",JSON.stringify({channel:"whatsapp"}));
+  return automaticReply(text,businessName);
+ }
+
+ const prompt="Eres CitaBot, el asistente comercial de un pequeño negocio en Colombia. Responde en español, breve, amable y útil. Solo puedes afirmar precios, servicios, horarios o disponibilidad que aparezcan en los datos del negocio. Nunca inventes datos ni prometas una reserva que todavía no se haya confirmado. Si faltan datos, pide únicamente los necesarios. Datos: "+serializedContext+". Mensaje: "+safeInput;
  const controller=new AbortController();
  const timeout=setTimeout(()=>controller.abort(),15000);
  try{
   const response=await fetch("https://api.openai.com/v1/responses",{
    method:"POST",
-   headers:{Authorization:`Bearer ${OPENAI_API_KEY}`,"Content-Type":"application/json"},
-   body:JSON.stringify({model:OPENAI_MODEL,input:prompt,max_output_tokens:220}),
+   headers:{Authorization:"Bearer "+OPENAI_API_KEY,"Content-Type":"application/json"},
+   body:JSON.stringify({model:OPENAI_MODEL,input:prompt,max_output_tokens:quotaDecision.maxOutputTokens}),
    signal:controller.signal
   });
   const data=await response.json().catch(()=>({}));
@@ -107,6 +132,15 @@ async function aiReply(businessId:string,text:string,customerId:string,customerN
    console.error("CITABOT_WHATSAPP_AI_PROVIDER_FAILED",JSON.stringify({status:response.status}));
    return automaticReply(text,businessName);
   }
+  const usage=data.usage&&typeof data.usage==="object"?data.usage as Record<string,unknown>:{};
+  const inputTokens=Number.isSafeInteger(Number(usage.input_tokens))&&Number(usage.input_tokens)>=0?Number(usage.input_tokens):0;
+  const outputTokens=Number.isSafeInteger(Number(usage.output_tokens))&&Number(usage.output_tokens)>=0?Number(usage.output_tokens):0;
+  const usageWrite=await sb.rpc("record_citabot_ai_usage",{
+   p_business_id:businessId,
+   p_input_tokens:inputTokens,
+   p_output_tokens:outputTokens
+  });
+  if(usageWrite.error)logBackendFailure("CITABOT_WHATSAPP_AI_USAGE_RECORD_FAILED",usageWrite.error);
   const out=typeof data.output_text==="string"?data.output_text.trim():"";
   return out||automaticReply(text,businessName);
  }catch(error){
@@ -133,4 +167,4 @@ if(isWhatsAppOptOut(text)){
  console.log("CITABOT_WHATSAPP_OPTOUT_RECORDED",JSON.stringify({business_id:businessId,source:"inbound_keyword"}));
  continue;
 }
-if(paidPlan){if(!isInsideWhatsAppCustomerServiceWindow(providerTimestamp)){console.log("CITABOT_AUTOREPLY_SKIPPED_CLOSED_WINDOW",JSON.stringify({business_id:businessId,provider_timestamp_valid:Boolean(providerTimestamp)}));continue;}let response="";try{response=await aiReply(businessId,text,customerId,customerName,businessName)}catch(e){logBackendFailure("CITABOT_AI_FALLBACK",e);response=automaticReply(text,businessName)}const sent=await sendWhatsAppText(phoneId,from,response);const outId=sent.messages?.[0]?.id??null;const out=await sb.from("messages").insert({business_id:businessId,customer_id:customerId,channel:"whatsapp",direction:"outbound",body:response,provider_message_id:outId,status:"sent"});if(out.error&&out.error.code!=="23505")throw out.error;}}}console.log("CITABOT_WEBHOOK_COMPLETED",JSON.stringify({ok:true}));return new Response(JSON.stringify({ok:true}),{status:200,headers:{...cors,"Content-Type":"application/json"}})}catch(e){logBackendFailure("CITABOT_WEBHOOK_ERROR",e);return new Response(JSON.stringify({error:"No se pudo procesar el webhook."}),{status:500,headers:{...cors,"Content-Type":"application/json"}})}});
+if(paidPlan){if(!isInsideWhatsAppCustomerServiceWindow(providerTimestamp)){console.log("CITABOT_AUTOREPLY_SKIPPED_CLOSED_WINDOW",JSON.stringify({business_id:businessId,provider_timestamp_valid:Boolean(providerTimestamp)}));continue;}let response="";try{response=await aiReply(businessId,text,customerId,customerName,businessName,String(sub?.plan||""))}catch(e){logBackendFailure("CITABOT_AI_FALLBACK",e);response=automaticReply(text,businessName)}const sent=await sendWhatsAppText(phoneId,from,response);const outId=sent.messages?.[0]?.id??null;const out=await sb.from("messages").insert({business_id:businessId,customer_id:customerId,channel:"whatsapp",direction:"outbound",body:response,provider_message_id:outId,status:"sent"});if(out.error&&out.error.code!=="23505")throw out.error;}}}console.log("CITABOT_WEBHOOK_COMPLETED",JSON.stringify({ok:true}));return new Response(JSON.stringify({ok:true}),{status:200,headers:{...cors,"Content-Type":"application/json"}})}catch(e){logBackendFailure("CITABOT_WEBHOOK_ERROR",e);return new Response(JSON.stringify({error:"No se pudo procesar el webhook."}),{status:500,headers:{...cors,"Content-Type":"application/json"}})}});
