@@ -134,8 +134,11 @@ assert.match(aiRateLimit, /CITABOT_AI_USER_LIMIT = 6/);
 assert.match(aiRateLimit, /CITABOT_AI_PLATFORM_DAILY_LIMIT = 100/);
 assert.match(citabotAi, /createCitabotAiPlatformRateLimitKey/);
 const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
-assert.match(aiOpenAiClient, /new Set\(\[429\]\)/,
-  "Only provider rate limits may be retried automatically; network/5xx outcomes are ambiguous for billing.");
+assert.match(aiOpenAiClient, /attempt <= 1/,
+  "One provider attempt is permitted per reserved monthly quota unit.");
+assert.match(aiOpenAiClient, /One provider attempt per reserved quota unit/);
+assert.doesNotMatch(aiOpenAiClient, /RETRYABLE_STATUS_CODES|wait\\(/,
+  "Automatic retries must not bypass the one-reservation/one-provider-attempt budget.");
 
 
 // Browser calls carrying Authorization + JSON must pass the OPTIONS preflight.
