@@ -40,7 +40,7 @@ assert.match(mercadoPago, /function throwOnDbError/);
 for (const operation of [
   "authorized_payment_ledger",
   "authorized_payment_revenue",
-  "authorized_payment_subscription_activation",
+  "authorized_payment_subscription_period_update",
   "boost_order_status_update",
   "boost_order_dates",
   "boost_order_paid_status",
@@ -52,7 +52,7 @@ for (const operation of [
   "payment_subscription_lookup",
   "payment_ledger",
   "payment_revenue",
-  "payment_subscription_activation",
+  "payment_subscription_period_update",
 ]) {
   assert.ok(mercadoPago.includes('throwOnDbError("' + operation + '"'), "missing DB error check: " + operation);
 }
@@ -125,6 +125,30 @@ assert.match(citabotAi, /CITABOT_AI_INTERNAL_FAILURE/);
 assert.match(citabotAi, /No se pudo procesar la solicitud de IA temporalmente\./);
 assert.doesNotMatch(citabotAi, /JSON\.stringify\(\{error:e instanceof Error\?e\.message/);
 assert.doesNotMatch(citabotAi, /error:lastProviderError/);
+assert.match(citabotAi, /reserve_citabot_ai_daily_rate_limits/);
+assert.match(citabotAi, /CITABOT_AI_USER_LIMIT/);
+assert.match(citabotAi, /CITABOT_AI_BUSINESS_LIMIT/);
+const aiRateLimit = read("supabase/functions/_shared/ai-rate-limit.ts");
+assert.match(aiRateLimit, /CITABOT_AI_BUSINESS_LIMIT = 25/);
+assert.match(aiRateLimit, /CITABOT_AI_USER_LIMIT = 6/);
+assert.match(aiRateLimit, /CITABOT_AI_PLATFORM_DAILY_LIMIT = 100/);
+assert.match(citabotAi, /createCitabotAiPlatformRateLimitKey/);
+const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
+const dailyAiLimitMigration = read("supabase/migrations/20261120100000_citabot_atomic_ai_daily_rate_limits.sql");
+assert.match(dailyAiLimitMigration, /SECURITY DEFINER/);
+assert.ok(dailyAiLimitMigration.includes("ORDER BY p_rate_keys[s.i]"));
+assert.ok(dailyAiLimitMigration.includes("CITABOT_AI_RATE_LIMIT_REACHED"));
+assert.ok(dailyAiLimitMigration.includes("REVOKE ALL ON FUNCTION public.reserve_citabot_ai_daily_rate_limits"));
+assert.ok(dailyAiLimitMigration.includes("GRANT EXECUTE ON FUNCTION public.reserve_citabot_ai_daily_rate_limits"));
+assert.ok(dailyAiLimitMigration.includes("TO service_role"));
+
+assert.match(aiOpenAiClient, /attempt <= 1/,
+  "One provider attempt is permitted per reserved monthly quota unit.");
+assert.match(aiOpenAiClient, /One provider attempt per reserved quota unit/);
+assert.ok(
+  !aiOpenAiClient.includes("RETRYABLE_STATUS_CODES") && !aiOpenAiClient.includes("wait("),
+  "Automatic retries must not bypass the one-reservation/one-provider-attempt budget."
+);
 
 
 // Browser calls carrying Authorization + JSON must pass the OPTIONS preflight.
@@ -161,6 +185,10 @@ assert.match(customerServiceWindow, /function parseWhatsAppProviderTimestamp/);
 assert.match(customerServiceWindow, /timestampMs\s*>\s*nowMs/);
 
 const whatsappWebhook = read("supabase/functions/citabot-whatsapp-webhook/index.ts");
+assert.match(whatsappWebhook, /createCitabotAiBusinessRateLimitKey/);
+assert.match(whatsappWebhook, /reserve_citabot_ai_daily_rate_limits/);
+assert.match(whatsappWebhook, /CITABOT_AI_BUSINESS_LIMIT/);
+assert.match(whatsappWebhook, /createCitabotAiPlatformRateLimitKey/);
 assert.match(whatsappWebhook, /from ["']\.\/opt-out\.ts["']/);
 assert.match(whatsappWebhook, /from ["']\.\.\/_shared\/whatsapp-compliance\.ts["']/);
 assert.match(whatsappWebhook, /parseWhatsAppProviderTimestamp\(m\.timestamp\)/);

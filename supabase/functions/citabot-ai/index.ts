@@ -3,6 +3,17 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { validateAiRequest } from "./request-validation.ts";
 import { buildResponsesRequest } from "./responses-request.ts";
 import { createOpenAiResponse } from "./openai-client.ts";
+import { decideAiQuota } from "./ai-usage-policy.ts";
+import {
+  CITABOT_AI_BUSINESS_LIMIT,
+  CITABOT_AI_BUSINESS_WINDOW_SECONDS,
+  CITABOT_AI_PLATFORM_DAILY_LIMIT,
+  CITABOT_AI_PLATFORM_WINDOW_SECONDS,
+  CITABOT_AI_USER_LIMIT,
+  CITABOT_AI_USER_WINDOW_SECONDS,
+  createCitabotAiPlatformRateLimitKey,
+  createCitabotAiRateLimitKeys,
+} from "../_shared/ai-rate-limit.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -90,7 +101,54 @@ Deno.serve(async (req: Request) => {
       return json({ error: "IA no configurada" }, 503);
     }
 
-    const payload = buildResponsesRequest(model, String(businessName), serializedContext, input);
+    const quotaResult = await admin.rpc("reserve_citabot_ai_request", {
+      p_business_id: businessId,
+      p_plan: subscription?.status === "trialing" ? "trial" : String(subscription?.plan || "").toLowerCase(),
+      p_input_chars: input.length,
+      p_context_chars: serializedContext.length,
+    });
+    const quotaDecision = decideAiQuota(quotaResult.data, quotaResult.error);
+    if (!quotaDecision.allowed) {
+      return json({ ok: false, code: quotaDecision.code, error: quotaDecision.message }, quotaDecision.status);
+    }
+
+    const rateKeys = await createCitabotAiRateLimitKeys(businessId, user.id);
+    const dailyLimits = await admin.rpc("reserve_citabot_ai_daily_rate_limits", {
+      p_rate_keys: [
+        rateKeys.userKey,
+        await createCitabotAiPlatformRateLimitKey(),
+        rateKeys.businessKey,
+      ],
+      p_limits: [
+        CITABOT_AI_USER_LIMIT,
+        CITABOT_AI_PLATFORM_DAILY_LIMIT,
+        CITABOT_AI_BUSINESS_LIMIT,
+      ],
+      p_window_seconds: [
+        CITABOT_AI_USER_WINDOW_SECONDS,
+        CITABOT_AI_PLATFORM_WINDOW_SECONDS,
+        CITABOT_AI_BUSINESS_WINDOW_SECONDS,
+      ],
+    });
+    if (dailyLimits.error) {
+      const code = typeof dailyLimits.error.code === "string" ? dailyLimits.error.code : "unknown";
+      if (code === "P0001" && String(dailyLimits.error.message || "").includes("CITABOT_AI_RATE_LIMIT_REACHED")) {
+        return json({ error: "Se alcanzó un límite diario de solicitudes de IA. Inténtalo más tarde." }, 429);
+      }
+      console.error("CITABOT_AI_RATE_LIMIT_UNAVAILABLE", { code });
+      return json({ error: "No se pudo comprobar el límite de uso de IA. Inténtalo más tarde." }, 503);
+    }
+    if (dailyLimits.data !== true) {
+      return json({ error: "No se pudo confirmar la reserva del límite de IA." }, 503);
+    }
+
+    const payload = buildResponsesRequest(
+      model,
+      String(businessName),
+      serializedContext,
+      input,
+      quotaDecision.maxOutputTokens,
+    );
     const provider = await createOpenAiResponse(apiKey, payload);
 
     if (!provider.ok) {
@@ -120,6 +178,26 @@ Deno.serve(async (req: Request) => {
         .flatMap((item: any) => Array.isArray(item?.content) ? item.content : [])
         .map((part: any) => typeof part?.text === "string" ? part.text : "")
         .join("");
+
+    const usage = provider.data.usage && typeof provider.data.usage === "object"
+      ? provider.data.usage as Record<string, unknown>
+      : {};
+    const inputTokens = Number.isSafeInteger(Number(usage.input_tokens)) && Number(usage.input_tokens) >= 0
+      ? Number(usage.input_tokens)
+      : 0;
+    const outputTokens = Number.isSafeInteger(Number(usage.output_tokens)) && Number(usage.output_tokens) >= 0
+      ? Number(usage.output_tokens)
+      : 0;
+    const usageWrite = await admin.rpc("record_citabot_ai_usage", {
+      p_business_id: businessId,
+      p_input_tokens: inputTokens,
+      p_output_tokens: outputTokens,
+    });
+    if (usageWrite.error) {
+      console.error("CITABOT_AI_USAGE_RECORD_FAILED", {
+        code: typeof usageWrite.error.code === "string" ? usageWrite.error.code : "unknown",
+      });
+    }
 
     if (!responseText.trim()) {
       console.error("CITABOT_AI_EMPTY_PROVIDER_OUTPUT", {
