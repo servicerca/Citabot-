@@ -276,5 +276,7 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-ai-usage-fixture.sql
       - name: Apply monthly AI quota migration
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261112180000_citabot_ai_monthly_usage_limits.sql
+      - name: Apply atomic daily AI rate-limit migration
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261120100000_citabot_atomic_ai_daily_rate_limits.sql
       - name: Verify disabled-by-default, atomic monthly quotas, usage ledger, and privileges
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-ai-usage.sql
