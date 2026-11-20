@@ -101,6 +101,17 @@ Deno.serve(async (req: Request) => {
       return json({ error: "IA no configurada" }, 503);
     }
 
+    const quotaResult = await admin.rpc("reserve_citabot_ai_request", {
+      p_business_id: businessId,
+      p_plan: subscription?.status === "trialing" ? "trial" : String(subscription?.plan || "").toLowerCase(),
+      p_input_chars: input.length,
+      p_context_chars: serializedContext.length,
+    });
+    const quotaDecision = decideAiQuota(quotaResult.data, quotaResult.error);
+    if (!quotaDecision.allowed) {
+      return json({ ok: false, code: quotaDecision.code, error: quotaDecision.message }, quotaDecision.status);
+    }
+
     const rateKeys = await createCitabotAiRateLimitKeys(businessId, user.id);
     const userLimit = await admin.rpc("consume_public_booking_rate_limit", {
       p_rate_key: rateKeys.userKey,
@@ -143,17 +154,6 @@ Deno.serve(async (req: Request) => {
     if (businessLimit.data !== true) {
       console.info("CITABOT_AI_BUSINESS_DAILY_LIMIT_REACHED", { business_id: businessId });
       return json({ error: "Este negocio alcanzó su límite diario de solicitudes de IA. La agenda y las demás funciones siguen disponibles." }, 429);
-    }
-
-    const quotaResult = await admin.rpc("reserve_citabot_ai_request", {
-      p_business_id: businessId,
-      p_plan: subscription?.status === "trialing" ? "trial" : String(subscription?.plan || "").toLowerCase(),
-      p_input_chars: input.length,
-      p_context_chars: serializedContext.length,
-    });
-    const quotaDecision = decideAiQuota(quotaResult.data, quotaResult.error);
-    if (!quotaDecision.allowed) {
-      return json({ ok: false, code: quotaDecision.code, error: quotaDecision.message }, quotaDecision.status);
     }
 
     const payload = buildResponsesRequest(
