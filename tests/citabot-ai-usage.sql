@@ -94,3 +94,72 @@ BEGIN
   RAISE NOTICE 'AI_QUOTA_HARD_STOP_INTEGRATION_OK';
 END
 $$;
+
+
+-- Multi-bucket daily AI reservations are all-or-nothing.
+DO $$
+DECLARE
+  v_allowed boolean;
+  v_blocked boolean := false;
+  v_user_hits integer;
+  v_platform_hits integer;
+  v_business_hits integer;
+BEGIN
+  v_allowed := public.reserve_citabot_ai_daily_rate_limits(
+    ARRAY['ai:user:atomic-success', 'ai:platform:atomic-success', 'ai:business:atomic-success'],
+    ARRAY[6, 100, 25],
+    ARRAY[300, 86400, 86400]
+  );
+  IF v_allowed IS DISTINCT FROM true THEN
+    RAISE EXCEPTION 'ATOMIC_DAILY_LIMIT_SUCCESS_CASE_REJECTED';
+  END IF;
+
+  IF (SELECT count(*) FROM public.public_booking_rate_limits
+      WHERE rate_key IN ('ai:user:atomic-success', 'ai:platform:atomic-success', 'ai:business:atomic-success')
+        AND hits = 1) <> 3 THEN
+    RAISE EXCEPTION 'ATOMIC_DAILY_LIMIT_SUCCESS_DID_NOT_RESERVE_ALL_BUCKETS';
+  END IF;
+
+  INSERT INTO public.public_booking_rate_limits(rate_key, window_started_at, hits, updated_at)
+  VALUES ('ai:02:platform-blocked', now(), 1, now());
+
+  BEGIN
+    PERFORM public.reserve_citabot_ai_daily_rate_limits(
+      ARRAY['ai:01:user-new', 'ai:02:platform-blocked', 'ai:03:business-new'],
+      ARRAY[6, 100, 25],
+      ARRAY[300, 86400, 86400]
+    );
+  EXCEPTION WHEN SQLSTATE 'P0001' THEN
+    v_blocked := SQLERRM = 'CITABOT_AI_RATE_LIMIT_REACHED';
+  END;
+
+  IF NOT v_blocked THEN
+    RAISE EXCEPTION 'ATOMIC_DAILY_LIMIT_DID_NOT_REJECT_EXHAUSTED_BUCKET';
+  END IF;
+
+  SELECT count(*) INTO v_user_hits
+  FROM public.public_booking_rate_limits
+  WHERE rate_key = 'ai:01:user-new';
+  SELECT hits INTO v_platform_hits
+  FROM public.public_booking_rate_limits
+  WHERE rate_key = 'ai:02:platform-blocked';
+  SELECT count(*) INTO v_business_hits
+  FROM public.public_booking_rate_limits
+  WHERE rate_key = 'ai:03:business-new';
+
+  IF v_user_hits <> 0 OR v_business_hits <> 0 OR v_platform_hits <> 1 THEN
+    RAISE EXCEPTION 'ATOMIC_DAILY_LIMIT_PARTIAL_UPDATES_NOT_ROLLED_BACK: user %, platform %, business %',
+      v_user_hits, v_platform_hits, v_business_hits;
+  END IF;
+
+  IF has_function_privilege('anon', 'public.reserve_citabot_ai_daily_rate_limits(text[],integer[],integer[])', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.reserve_citabot_ai_daily_rate_limits(text[],integer[],integer[])', 'EXECUTE') THEN
+    RAISE EXCEPTION 'ATOMIC_DAILY_LIMIT_RPC_MUST_NOT_BE_CLIENT_EXECUTABLE';
+  END IF;
+  IF NOT has_function_privilege('service_role', 'public.reserve_citabot_ai_daily_rate_limits(text[],integer[],integer[])', 'EXECUTE') THEN
+    RAISE EXCEPTION 'SERVICE_ROLE_ATOMIC_DAILY_LIMIT_EXECUTE_REQUIRED';
+  END IF;
+
+  RAISE NOTICE 'ATOMIC_DAILY_AI_RATE_LIMITS_INTEGRATION_OK';
+END
+$$;
