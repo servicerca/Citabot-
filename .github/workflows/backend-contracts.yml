@@ -23,6 +23,8 @@ on:
       - "scripts/check-onboarding-rpc-security.mjs"
       - "scripts/check-trigger-function-privileges.mjs"
       - "scripts/check-subscription-activation-requires-paid-invoice.mjs"
+      - "scripts/check-citabot-ai-usage-guard.mjs"
+      - "tests/citabot-ai-usage-*.sql"
       - "tests/citabot-onboarding-rpc-*.sql"
       - "tests/citabot-profile-trigger-privilege-*.sql"
       - ".github/workflows/backend-contracts.yml"
