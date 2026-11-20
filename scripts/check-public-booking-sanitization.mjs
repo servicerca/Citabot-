@@ -137,9 +137,10 @@ const aiOpenAiClient = read("supabase/functions/citabot-ai/openai-client.ts");
 assert.match(aiOpenAiClient, /attempt <= 1/,
   "One provider attempt is permitted per reserved monthly quota unit.");
 assert.match(aiOpenAiClient, /One provider attempt per reserved quota unit/);
-assert.doesNotMatch(aiOpenAiClient, /RETRYABLE_STATUS_CODES/);
-assert.doesNotMatch(aiOpenAiClient, /wait\\s*\\(/,
-  "Automatic retries must not bypass the one-reservation/one-provider-attempt budget.");
+assert.ok(
+  !aiOpenAiClient.includes("RETRYABLE_STATUS_CODES") && !aiOpenAiClient.includes("wait("),
+  "Automatic retries must not bypass the one-reservation/one-provider-attempt budget."
+);
 
 
 // Browser calls carrying Authorization + JSON must pass the OPTIONS preflight.
