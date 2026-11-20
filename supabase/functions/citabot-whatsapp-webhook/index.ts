@@ -89,31 +89,25 @@ async function aiReply(
   return automaticReply(text,businessName);
  }
 
- const rateKey=await createCitabotAiBusinessRateLimitKey(businessId);
- const businessLimit=await sb.rpc("consume_public_booking_rate_limit",{
-  p_rate_key:rateKey,
-  p_limit:CITABOT_AI_BUSINESS_LIMIT,
-  p_window_seconds:CITABOT_AI_BUSINESS_WINDOW_SECONDS
+ const dailyLimits=await sb.rpc("reserve_citabot_ai_daily_rate_limits",{
+  p_rate_keys:[
+   await createCitabotAiBusinessRateLimitKey(businessId),
+   await createCitabotAiPlatformRateLimitKey()
+  ],
+  p_limits:[CITABOT_AI_BUSINESS_LIMIT,CITABOT_AI_PLATFORM_DAILY_LIMIT],
+  p_window_seconds:[CITABOT_AI_BUSINESS_WINDOW_SECONDS,CITABOT_AI_PLATFORM_WINDOW_SECONDS]
  });
- if(businessLimit.error){
-  logBackendFailure("CITABOT_WHATSAPP_AI_RATE_LIMIT_FAILED",businessLimit.error);
+ if(dailyLimits.error){
+  const code=typeof dailyLimits.error.code==="string"?dailyLimits.error.code:"unknown";
+  if(code==="P0001"&&String(dailyLimits.error.message||"").includes("CITABOT_AI_RATE_LIMIT_REACHED")){
+   console.info("CITABOT_WHATSAPP_AI_DAILY_LIMIT_REACHED",JSON.stringify({business_id:businessId}));
+   return automaticReply(text,businessName);
+  }
+  logBackendFailure("CITABOT_WHATSAPP_AI_RATE_LIMIT_FAILED",dailyLimits.error);
   return automaticReply(text,businessName);
  }
- if(businessLimit.data!==true){
-  console.info("CITABOT_AI_BUSINESS_DAILY_LIMIT_REACHED",JSON.stringify({business_id:businessId,channel:"whatsapp"}));
-  return automaticReply(text,businessName);
- }
- const platformLimit=await sb.rpc("consume_public_booking_rate_limit",{
-  p_rate_key:await createCitabotAiPlatformRateLimitKey(),
-  p_limit:CITABOT_AI_PLATFORM_DAILY_LIMIT,
-  p_window_seconds:CITABOT_AI_PLATFORM_WINDOW_SECONDS
- });
- if(platformLimit.error){
-  logBackendFailure("CITABOT_WHATSAPP_AI_PLATFORM_LIMIT_FAILED",platformLimit.error);
-  return automaticReply(text,businessName);
- }
- if(platformLimit.data!==true){
-  console.info("CITABOT_AI_PLATFORM_DAILY_LIMIT_REACHED",JSON.stringify({channel:"whatsapp"}));
+ if(dailyLimits.data!==true){
+  console.error("CITABOT_WHATSAPP_AI_RATE_LIMIT_UNAVAILABLE",JSON.stringify({business_id:businessId}));
   return automaticReply(text,businessName);
  }
 
