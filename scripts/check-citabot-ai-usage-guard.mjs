@@ -17,13 +17,15 @@ assert.ok(index.indexOf("reserve_citabot_ai_request") < index.indexOf("const rat
 assert.match(index, /CITABOT_AI_USER_LIMIT/);
 assert.match(index, /CITABOT_AI_BUSINESS_LIMIT/);
 assert.match(index, /CITABOT_AI_PLATFORM_DAILY_LIMIT/);
+assert.match(index, /reserve_citabot_ai_daily_rate_limits/);
 assert.match(whatsapp, /decideAiQuota/);
 assert.match(whatsapp, /reserve_citabot_ai_request/);
 assert.match(whatsapp, /record_citabot_ai_usage/);
 assert.match(whatsapp, /max_output_tokens:quotaDecision\.maxOutputTokens/);
 assert.match(whatsapp, /CITABOT_AI_BUSINESS_LIMIT/);
 assert.match(whatsapp, /CITABOT_AI_PLATFORM_DAILY_LIMIT/);
-assert.match(whatsapp, /consume_public_booking_rate_limit/);
+assert.match(whatsapp, /reserve_citabot_ai_daily_rate_limits/);
+assert.match(whatsapp, /reserve_citabot_ai_daily_rate_limits/);
 const whatsappAi = whatsapp.slice(whatsapp.indexOf("async function aiReply("), whatsapp.indexOf("\nDeno.serve"));
 assert.ok(whatsappAi.indexOf("reserve_citabot_ai_request") < whatsappAi.indexOf('fetch("https://api.openai.com/v1/responses"'),
   "WhatsApp must reserve monthly quota before calling the AI provider.");
