@@ -17,6 +17,9 @@ assert.match(renderer, /button\.addEventListener\('click'/);
 assert.match(renderer, /select\?\.addEventListener\('change'/);
 assert.match(renderer, /search\?\.addEventListener\('input'/);
 assert.match(renderer, /if\(composer\)composer\.disabled=true/);
+assert.match(renderer, /void cbLoadConversationHistory\(customer.id,false\)/);
+assert.doesNotMatch(renderer, /rows\.slice\(-50\)/);
+
 assert.match(html, /\.chat-item\[hidden\]\{display:none\}/);
 assert.match(html, /#view-conversations \.chat-picker-mobile\{display:grid/);
 assert.match(html, /#view-conversations \.chat-list\{display:none\}/);
@@ -101,7 +104,7 @@ const makeHarness = (customers, messages) => {
   const currentData = { customers, messages };
   const esc = value => String(value ?? '').replace(/[&<>"]/g, '');
   runInNewContext(renderer + '\ncbRenderConversations();', {
-    document, window: {}, currentData, esc, String, Map, Intl,
+    document, window: {}, currentData, esc, String, Map, Intl, cbLoadConversationHistory: () => {},
   });
   return { list, picker, main, head, messagesPane, composer, send, search, select };
 };
