@@ -1054,8 +1054,15 @@ function cbRenderAI(){const sec=document.getElementById('view-ai');if(!sec)retur
     });
 
     rows.sort((a,b)=>{
-      const delta=new Date(a.starts_at)-new Date(b.starts_at);
-      return period==='all'?-delta:delta;
+      const aTime=new Date(a.starts_at).getTime();
+      const bTime=new Date(b.starts_at).getTime();
+      if(period==='all'){
+        const aUpcoming=aTime>=now.getTime();
+        const bUpcoming=bTime>=now.getTime();
+        if(aUpcoming!==bUpcoming)return aUpcoming?-1:1;
+        return aUpcoming?aTime-bTime:bTime-aTime;
+      }
+      return aTime-bTime;
     });
 
     const total=rows.length;
