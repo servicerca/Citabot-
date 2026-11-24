@@ -11,6 +11,7 @@ on:
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
       - "scripts/check-conversation-ux.mjs"
+      - "scripts/check-conversation-history.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -22,6 +23,7 @@ on:
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
       - "scripts/check-conversation-ux.mjs"
+      - "scripts/check-conversation-history.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -47,6 +49,9 @@ jobs:
 
       - name: Check responsive conversation navigation
         run: node scripts/check-conversation-ux.mjs
+
+      - name: Check conversation history pagination and tenant isolation
+        run: node scripts/check-conversation-history.mjs
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs
