@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { runInNewContext } from 'node:vm';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const agendaStart = html.indexOf('function cbRenderAgenda()');
@@ -35,5 +36,104 @@ assert.doesNotMatch(html, /Tu cuenta está creada\.<\/h1>/,
 for (const id of ['obName', 'obCity', 'obPhone']) {
   assert.match(html, new RegExp('for="' + id + '"'));
 }
+
+
+assert.match(agenda, /if\(aUpcoming!==bUpcoming\)return aUpcoming\?-1:1/);
+assert.match(agenda, /return aUpcoming\?aTime-bTime:bTime-aTime/);
+
+// Execute the actual Agenda renderer in a minimal DOM harness to verify paging and filters.
+const agendaElements = {
+  agendaSearch: { value: '' },
+  agendaPeriod: { value: 'upcoming' },
+  agendaStatus: { value: '' },
+  agendaRows: { innerHTML: '' },
+  agendaCount: { textContent: '' },
+  agendaPagination: { innerHTML: '' },
+};
+const fakeSection = { innerHTML: '' };
+const makeAppointment = (id, startsAt, customer, status = 'confirmed') => ({
+  id,
+  starts_at: new Date(startsAt).toISOString(),
+  status,
+  payment_method: 'cash',
+  customers: { name: customer, phone: '+573000000000' },
+  services: { name: 'Corte' },
+  staff: { name: 'Profesional' },
+});
+const now = Date.now();
+const day = 24 * 60 * 60 * 1000;
+const appointments = [
+  ...Array.from({ length: 40 }, (_, i) => makeAppointment(
+    'future-' + (i + 1),
+    now + (i + 1) * day,
+    'UPCOMING_' + String(i + 1).padStart(3, '0')
+  )),
+  ...Array.from({ length: 110 }, (_, i) => makeAppointment(
+    'past-' + (i + 1),
+    now - (i + 1) * day,
+    'PAST_' + String(i + 1).padStart(3, '0'),
+    'completed'
+  )),
+  makeAppointment('today-test', now + 60 * 60 * 1000, 'TODAY_APPOINTMENT'),
+  makeAppointment('no-show-test', now + 2 * day, 'NO_SHOW_APPOINTMENT', 'no_show'),
+];
+const fakeWindow = {};
+const fakeDocument = {
+  querySelector(selector) {
+    return selector === '#view-agenda' ? fakeSection : null;
+  },
+  getElementById(id) {
+    return agendaElements[id] || null;
+  },
+};
+runInNewContext(agenda + '\\ncbRenderAgenda();', {
+  document: fakeDocument,
+  window: fakeWindow,
+  currentData: { appointments, services: [] },
+  currentBusiness: { timezone: 'UTC' },
+  esc: value => String(value ?? '').replace(/[&<>"]/g, ''),
+  cbMoney: value => String(value ?? 0),
+  cbPaymentLabel: value => value === 'cash' ? 'Efectivo' : '—',
+  Intl,
+  Date,
+  Number,
+  Math,
+});
+
+const countRows = () => (agendaElements.agendaRows.innerHTML.match(/<tr>/g) || []).length;
+assert.equal(countRows(), 25, 'La Agenda debe mostrar 25 citas por página.');
+assert.match(agendaElements.agendaCount.textContent, /de 41 cita\(s\)/,
+  'El filtro Próximas debe excluir el historial y los estados cancelados/no asistió.');
+fakeWindow.changeAgendaPage(2);
+assert.equal(countRows(), 16, 'La segunda página debe mostrar las 16 citas restantes.');
+assert.match(agendaElements.agendaRows.innerHTML, /UPCOMING_026/);
+assert.doesNotMatch(agendaElements.agendaRows.innerHTML, /PAST_001/);
+
+agendaElements.agendaPeriod.value = 'today';
+fakeWindow.filterAgenda();
+assert.equal(countRows(), 1, 'El filtro Hoy debe devolver solo la cita de hoy.');
+assert.match(agendaElements.agendaRows.innerHTML, /TODAY_APPOINTMENT/);
+
+agendaElements.agendaPeriod.value = 'upcoming';
+agendaElements.agendaStatus.value = 'no_show';
+fakeWindow.filterAgenda();
+assert.equal(countRows(), 1, 'El filtro de estado debe poder mostrar citas no asistidas por separado.');
+assert.match(agendaElements.agendaRows.innerHTML, /NO_SHOW_APPOINTMENT/);
+
+agendaElements.agendaStatus.value = '';
+agendaElements.agendaSearch.value = 'UPCOMING_020';
+fakeWindow.filterAgenda();
+assert.equal(countRows(), 1, 'La búsqueda debe filtrar por nombre de cliente.');
+assert.match(agendaElements.agendaRows.innerHTML, /UPCOMING_020/);
+
+agendaElements.agendaSearch.value = '';
+agendaElements.agendaPeriod.value = 'all';
+fakeWindow.filterAgenda();
+assert.match(agendaElements.agendaCount.textContent, /de 152 cita\(s\)/);
+assert.match(agendaElements.agendaRows.innerHTML, /TODAY_APPOINTMENT/,
+  'El resultado completo debe priorizar citas futuras próximas antes del historial.');
+fakeWindow.changeAgendaPage(7);
+assert.match(agendaElements.agendaRows.innerHTML, /PAST_001/,
+  'El historial debe quedar ordenado de la cita pasada más reciente a la más antigua.');
 
 console.log('CitaBot agenda usability, pagination and onboarding: OK');
