@@ -86,7 +86,7 @@ const fakeDocument = {
     return agendaElements[id] || null;
   },
 };
-runInNewContext(agenda + '\\ncbRenderAgenda();', {
+runInNewContext(agenda + '\ncbRenderAgenda();', {
   document: fakeDocument,
   window: fakeWindow,
   currentData: { appointments, services: [] },
