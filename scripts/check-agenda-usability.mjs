@@ -132,8 +132,14 @@ fakeWindow.filterAgenda();
 assert.match(agendaElements.agendaCount.textContent, /de 152 cita\(s\)/);
 assert.match(agendaElements.agendaRows.innerHTML, /TODAY_APPOINTMENT/,
   'El resultado completo debe priorizar citas futuras próximas antes del historial.');
-fakeWindow.changeAgendaPage(7);
-assert.match(agendaElements.agendaRows.innerHTML, /PAST_001/,
-  'El historial debe quedar ordenado de la cita pasada más reciente a la más antigua.');
+fakeWindow.changeAgendaPage(2);
+assert.ok(
+  agendaElements.agendaRows.innerHTML.indexOf('UPCOMING_040') < agendaElements.agendaRows.innerHTML.indexOf('PAST_001'),
+  'Las próximas citas deben preceder al historial en la vista completa.'
+);
+assert.ok(
+  agendaElements.agendaRows.innerHTML.indexOf('PAST_001') < agendaElements.agendaRows.innerHTML.indexOf('PAST_002'),
+  'El historial debe quedar ordenado de la cita pasada más reciente a la más antigua.'
+);
 
 console.log('CitaBot agenda usability, pagination and onboarding: OK');
