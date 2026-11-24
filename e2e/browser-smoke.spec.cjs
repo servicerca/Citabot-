@@ -187,6 +187,7 @@ test.describe('CitaBot production browser smoke', () => {
     await expect(page.locator('#view-reports')).toHaveClass(/active/);
     await expect(more).toHaveAttribute('aria-expanded', 'false');
     await expect(menu).toBeHidden();
+    await expect(more).toBeFocused();
 
     await more.click();
     await page.keyboard.press('Escape');
@@ -196,6 +197,10 @@ test.describe('CitaBot production browser smoke', () => {
     await more.click();
     await page.locator('#crumb').click();
     await expect(menu).toBeHidden();
+
+    await page.locator('.nav button[data-view="conversations"]').click();
+    await expect(page.locator('#view-conversations h1')).toHaveText('Mensajes');
+    await expect(page.locator('#crumb')).toHaveText('Mensajes');
 
     // Tablet: retain readable labels rather than an icon-only navigation rail.
     await page.setViewportSize({ width: 800, height: 900 });
