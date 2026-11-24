@@ -42,4 +42,7 @@ assert.match(html, /<style id="citabot-tablet-navigation">[\s\S]*?@media \(min-w
 assert.match(html, /\.app\{grid-template-columns:210px minmax\(0,1fr\)\}/);
 assert.match(html, /\.nav button span:last-child\{white-space:normal;overflow:visible/);
 
+assert.match(html, /<\/style>\s*<style id="citabot-tablet-navigation">[\s\S]*?<\/style>\s*<\/head>/,
+  'Los estilos de tablet deben ser bloques hermanos válidos, no etiquetas style anidadas.');
+
 console.log('CitaBot simple navigation and responsive breakpoints: OK');
