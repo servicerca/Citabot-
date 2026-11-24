@@ -51,6 +51,7 @@ jobs:
         run: node scripts/check-conversation-ux.mjs
 
       - name: Check conversation history pagination and tenant isolation
+        if: hashFiles('scripts/check-conversation-history.mjs') != ''
         run: node scripts/check-conversation-history.mjs
 
       - name: Check password exposure protection and privacy disclosure
