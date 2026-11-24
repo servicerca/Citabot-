@@ -101,7 +101,7 @@ const makeHarness = (customers, messages) => {
   const currentData = { customers, messages };
   const esc = value => String(value ?? '').replace(/[&<>"]/g, '');
   runInNewContext(renderer + '\ncbRenderConversations();', {
-    document, window: {}, currentData, esc, String, Map, Intl, conversationHistory: {requestId:0,businessId:null,customerId:null,rows:[],cursor:null,hasMore:false,loading:false},
+    document, window: {}, currentData, esc, String, Map, Intl, currentBusiness: {id:'business-a'}, cbLoadConversationHistory: () => {}, conversationHistory: {requestId:0,businessId:null,customerId:null,rows:[],cursor:null,hasMore:false,loading:false},
   });
   return { list, picker, main, head, messagesPane, composer, send, search, select };
 };
