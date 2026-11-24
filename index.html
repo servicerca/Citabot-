@@ -745,7 +745,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
     <section id="view-clients" class="view"><div class="page-head"><div><h1>Clientes</h1><p>Clientes reales registrados en tu negocio.</p></div><button class="btn primary" onclick="openModal('Nuevo cliente')">+ Nuevo cliente</button></div><div class="grid3"><div class="card metric"><small>Clientes</small><strong>0</strong></div><div class="card metric"><small>Frecuentes</small><strong>0</strong></div><div class="card metric"><small>Por recuperar</small><strong>0</strong></div></div><div class="card" style="margin:14px 0"><input id="clientSearch" class="search" placeholder="Buscar cliente…" oninput="filterClients()"></div><div class="card"><div style="overflow:auto"><table id="clientTable" class="table"><thead><tr><th>Cliente</th><th>Última cita</th><th>Citas</th><th>Valor de servicios</th><th>Estado</th><th>Acción</th></tr></thead><tbody></tbody></table></div></div><div id="recoveryPanel"></div></section>
 
-    <section id="view-conversations" class="view"><div class="page-head"><div><h1>Conversaciones</h1><p>Mensajes reales de tus clientes.</p></div></div><div class="card chat"><div class="chat-list"></div><div class="chat-main"><div style="padding:14px;border-bottom:1px solid var(--line)"><b style="font-size:12px">Sin conversaciones</b></div><div class="messages"><div class="empty">Aún no hay mensajes reales.</div></div><div class="composer"><input id="msgInput" placeholder="Escribe un mensaje…"><button id="sendMsgBtn" type="button" class="btn primary" onclick="sendMessage()">Enviar</button></div></div></div></section>
+    <section id="view-conversations" class="view"><div class="page-head"><div><h1>Mensajes</h1><p>Mensajes reales de tus clientes.</p></div></div><div class="card chat"><div class="chat-list"></div><div class="chat-main"><div style="padding:14px;border-bottom:1px solid var(--line)"><b style="font-size:12px">Sin conversaciones</b></div><div class="messages"><div class="empty">Aún no hay mensajes reales.</div></div><div class="composer"><input id="msgInput" placeholder="Escribe un mensaje…"><button id="sendMsgBtn" type="button" class="btn primary" onclick="sendMessage()">Enviar</button></div></div></div></section>
 
     <section id="view-ai" class="view"><div class="page-head"><div><h1>IA</h1><p>Análisis con los datos reales del negocio.</p></div><button class="btn primary" onclick="runAI()">Analizar negocio</button></div><div class="grid2"><div class="card ai-card"><div class="ai-head"><span class="ai-icon">✦</span><div><small style="color:#aaa4ff">OPORTUNIDADES REALES</small><b style="display:block">Clientes por recuperar</b></div></div><p>Calculando oportunidades…</p></div><div class="card"><b>Pregunta a CitaBot</b><p style="font-size:11px;color:var(--muted)">La IA responde usando el contexto real del negocio.</p><div style="display:flex;gap:8px"><input id="aiInput" class="search" placeholder="Escribe una pregunta…"><button class="btn primary" onclick="askAI()">Preguntar</button></div><div id="aiAnswer" style="margin-top:14px;font-size:12px;white-space:pre-wrap"></div><div class="cb-ai-status" style="margin-top:10px;font-size:10px;color:var(--muted)"></div></div></div></section>
 
@@ -783,7 +783,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 <script>
 const state={business:"Mi negocio",type:"service",view:"dashboard",onboardStep:1,modalType:"",scrollPositions:{}};
 const integrationStatus={whatsapp:"unknown",whatsappMessage:"",mercadopago:"unknown",mercadopagoMessage:""};
-const labels={dashboard:"Inicio",agenda:"Agenda",clients:"Clientes",conversations:"Conversaciones",ai:"IA",marketing:"Marketing",reports:"Reportes",revenue:"Ingresos",settings:"Configuración","platform-admin":"Administración"};
+const labels={dashboard:"Inicio",agenda:"Agenda",clients:"Clientes",conversations:"Mensajes",ai:"IA",marketing:"Marketing",reports:"Reportes",revenue:"Ingresos",settings:"Configuración","platform-admin":"Administración"};
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function showToast(message){const t=document.getElementById("toast");if(!t)return;t.textContent=message;t.classList.add("show");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove("show"),2400)}
 function closeModal(){const modal=document.getElementById("modal");if(!modal)return;modal.classList.remove("open");state.modalType="";const body=document.getElementById("modalBody");if(body)body.innerHTML=""}
@@ -813,7 +813,10 @@ function go(view,rememberPosition=false){
     moreToggle.classList.toggle("active",moreActive);
     moreToggle.setAttribute("aria-expanded","false");
   }
-  document.getElementById("navMoreMenu")?.classList.remove("open");
+  const menuForFocus=document.getElementById("navMoreMenu");
+  const restoreMoreFocus=Boolean(menuForFocus?.contains(document.activeElement));
+  menuForFocus?.classList.remove("open");
+  if(restoreMoreFocus)moreToggle?.focus();
   const crumb=document.getElementById("crumb");
   if(crumb)crumb.textContent=labels[view]||view;
   if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()===true)void window.cbLoadPlatformAdminPanel?.();
