@@ -13,21 +13,21 @@ assert.match(html, /\.eq\(['"]messages\.business_id['"],bid\)/,
   'La consulta de previsualizaciones debe limitar mensajes al negocio.');
 assert.match(html, /\.limit\(1,\{referencedTable:'messages'\}\)/,
   'Cada cliente debe devolver solo su mensaje más reciente.');
-assert.match(html, /cbFetchAllPages\\(\\(from,to\\)=>sb\\.from\\(['"]customers['"]\\)/,
+assert.match(html, /cbFetchAllPages\(\(from,to\)=>sb\.from\(['"]customers['"]\)/,
   'La lista de conversaciones debe paginar clientes y no traer todo el historial.');
 
 const start = html.indexOf('function cbMessageCursorFilter(cursor)');
 const end = html.indexOf('function cbRenderConversations()', start);
 assert.ok(start >= 0 && end > start, 'Debe existir un cargador de historial delimitable.');
 const source = html.slice(start, end);
-assert.match(source, /\\.eq\\(['"]business_id['"],businessId\\)/);
-assert.match(source, /\\.eq\\(['"]customer_id['"],customerId\\)/);
-assert.match(source, /\\.order\\(['"]created_at['"],\\{ascending:false\\}\\)/);
-assert.match(source, /\\.order\\(['"]id['"],\\{ascending:false\\}\\)/);
-assert.match(source, /\\.limit\\(CONVERSATION_HISTORY_PAGE_SIZE\\+1\\)/);
-assert.match(source, /query\\.or\\(cbMessageCursorFilter\\(conversationHistory\\.cursor\\)\\)/);
-assert.match(source, /requestId!==conversationHistory\\.requestId/);
-assert.match(source, /messages\\.scrollHeight-previousHeight\\+previousTop/);
+assert.match(source, /\.eq\(['"]business_id['"],businessId\)/);
+assert.match(source, /\.eq\(['"]customer_id['"],customerId\)/);
+assert.match(source, /\.order\(['"]created_at['"],\{ascending:false\}\)/);
+assert.match(source, /\.order\(['"]id['"],\{ascending:false\}\)/);
+assert.match(source, /\.limit\(CONVERSATION_HISTORY_PAGE_SIZE\+1\)/);
+assert.match(source, /query\.or\(cbMessageCursorFilter\(conversationHistory\.cursor\)\)/);
+assert.match(source, /requestId!==conversationHistory\.requestId/);
+assert.match(source, /messages\.scrollHeight-previousHeight\+previousTop/);
 
 const calls = [];
 let databaseRows = [];
@@ -56,7 +56,7 @@ class FakeQuery {
       row.customer_id === filters.customer_id
     );
     if (cursorFilter) {
-      const match = /^created_at\\.lt\\.(.+),and\\(created_at\\.eq\\.(.+),id\\.lt\\.([0-9a-f-]+)\\)$/i.exec(cursorFilter);
+      const match = /^created_at\.lt\.(.+),and\(created_at\.eq\.(.+),id\.lt\.([0-9a-f-]+)\)$/i.exec(cursorFilter);
       assert.ok(match, 'El cursor debe expresar created_at menor o igualdad con id menor.');
       const [, lessThanTimestamp, equalTimestamp, lessThanId] = match;
       assert.equal(lessThanTimestamp, equalTimestamp, 'El límite temporal debe conservar toda su precisión.');
