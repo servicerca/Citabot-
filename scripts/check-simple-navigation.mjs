@@ -36,6 +36,9 @@ assert.match(html, /navMoreToggle\?\.addEventListener\("click"/);
 assert.match(html, /event\.key==="Escape"&&navMoreMenu\?\.classList\.contains\("open"\)/);
 assert.match(html, /if\(wrap&&!wrap\.contains\(event\.target\)\)closeMoreMenu\(\)/);
 assert.match(html, /if\(moreToggle\)\{[\s\S]*?setAttribute\("aria-expanded","false"\)/);
+assert.ok(html.includes('conversations:"Mensajes"'), 'El nombre Mensajes debe coincidir en el menú y la ruta.');
+assert.match(html, /if\(restoreMoreFocus\)moreToggle\?\.focus\(\)/,
+  'Al seleccionar una opción de Más, el foco debe volver al botón Más.');
 
 assert.match(html, /@media\(max-width:700px\)\{[\s\S]*?\.nav\{grid-template-columns:repeat\(5,minmax\(0,1fr\)\);grid-template-rows:1fr/);
 assert.match(html, /<style id="citabot-tablet-navigation">[\s\S]*?@media \(min-width:701px\) and \(max-width:1050px\)/);
