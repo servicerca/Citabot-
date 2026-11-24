@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const goStart = html.indexOf('function go(');
-const goEnd = html.indexOf('document.querySelectorAll(".nav button[data-view]")', goStart);
+const goEnd = html.indexOf('\ndocument.querySelectorAll(".nav button[data-view]")', goStart);
 const goSource = goStart >= 0 && goEnd > goStart ? html.slice(goStart, goEnd) : '';
 
 assert.ok(goSource, 'La función global go debe existir y poder delimitarse completa.');
