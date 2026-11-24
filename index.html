@@ -783,6 +783,7 @@ document.addEventListener("keydown",e=>{if(e.key!=="Escape")return;if(document.g
   let authMode='signup', currentBusiness=null, isPlatformAdmin=false;
   window.cbIsPlatformAdmin = () => isPlatformAdmin;
   let currentData={services:[],staff:[],customers:[],appointments:[],messages:[],campaigns:[],payments:[],subscription:null,promotions:[],boostOrders:[],platformRevenue:[]};
+  // El historial se carga por cliente y negocio en páginas keyset; nunca se hidrata entero.
   const CONVERSATION_HISTORY_PAGE_SIZE=50;
   const conversationHistory={businessId:null,customerId:null,rows:[],cursor:null,hasMore:false,loading:false,requestId:0};
   const $=id=>document.getElementById(id);
