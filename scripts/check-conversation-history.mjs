@@ -16,9 +16,9 @@ assert.match(html, /\.limit\(1,\{referencedTable:'messages'\}\)/,
 assert.match(html, /cbFetchAllPages\(\(from,to\)=>sb\.from\(['"]customers['"]\)/,
   'La lista de conversaciones debe paginar clientes y no traer todo el historial.');
 
-const start = html.indexOf('function cbMessageCursorFilter(cursor)');
+const start = html.indexOf('const CONVERSATION_HISTORY_PAGE_SIZE=50;');
 const end = html.indexOf('function cbRenderConversations()', start);
-assert.ok(start >= 0 && end > start, 'Debe existir un cargador de historial delimitable.');
+assert.ok(start >= 0 && end > start, 'Debe existir un estado y cargador de historial delimitables.');
 const source = html.slice(start, end);
 assert.match(source, /\.eq\(['"]business_id['"],businessId\)/);
 assert.match(source, /\.eq\(['"]customer_id['"],customerId\)/);
