@@ -608,6 +608,24 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   .nav-more-menu .nav-logout{grid-column:1/-1;margin-top:3px;padding-top:10px}
   .content{padding-bottom:100px}
 }
+<style id="citabot-tablet-navigation">
+/* En tablet prioriza nombres visibles y una navegación vertical legible. */
+@media (min-width:701px) and (max-width:1050px){
+  .app{grid-template-columns:210px minmax(0,1fr)}
+  .sidebar{padding:18px 10px}
+  .brand span:last-child,.workspace,.nav button span:not(.nav-icon),.side-bottom{display:block}
+  .brand{justify-content:flex-start}
+  .nav button{display:flex;align-items:center;gap:8px;text-align:left;padding:10px 9px}
+  .nav button span:last-child{white-space:normal;overflow:visible;text-overflow:clip;max-width:none}
+  .nav .nav-icon{display:inline-block;width:22px;flex:0 0 22px;text-align:center}
+  .nav-more-toggle{justify-content:flex-start}
+  .nav-more-menu{margin-left:10px;padding-left:9px}
+  .topbar{padding:0 18px}
+  .content{padding:22px 18px}
+  .page-head h1{font-size:28px}
+}
+</style>
+
 </style>
 
 </head>
