@@ -11,6 +11,7 @@ on:
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
       - "scripts/check-simple-navigation.mjs"
+      - "e2e/browser-smoke.spec.cjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -22,6 +23,7 @@ on:
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
       - "scripts/check-simple-navigation.mjs"
+      - "e2e/browser-smoke.spec.cjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -46,6 +48,9 @@ jobs:
         run: node scripts/check-platform-admin-navigation.mjs
       - name: Check simple responsive navigation
         run: node scripts/check-simple-navigation.mjs
+
+      - name: Check browser smoke test syntax
+        run: node --check e2e/browser-smoke.spec.cjs
 
 
       - name: Check password exposure protection and privacy disclosure
