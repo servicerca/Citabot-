@@ -1049,7 +1049,8 @@ function cbRenderSettings(){const sec=document.getElementById('view-settings');i
   window.contactCustomerTelegram=(name)=>{const business=currentBusiness?.name||'mi negocio';const text='Hola '+String(name||'')+', te contacto desde '+business+'.';const url='https://t.me/share/url?url=&text='+encodeURIComponent(text);window.open(url,'_blank','noopener');};
   window.contactCurrentCustomerPhone=()=>{const id=document.querySelector('#view-conversations .chat-main')?.dataset?.customer;const c=currentData.customers.find(x=>x.id===id);if(c)contactCustomerPhone(c.phone);};
   window.contactCurrentCustomerTelegram=()=>{const id=document.querySelector('#view-conversations .chat-main')?.dataset?.customer;const c=currentData.customers.find(x=>x.id===id);if(c)contactCustomerTelegram(c.name);};
-  function cbMessageCursorFilter(cursor){
+  // Cursor compuesto: fecha descendente y UUID como desempate estable.
+function cbMessageCursorFilter(cursor){
   const createdAt=String(cursor?.created_at||'');
   const id=String(cursor?.id||'');
   const timestampPattern=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
