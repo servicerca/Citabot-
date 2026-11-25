@@ -83,7 +83,8 @@ export function parseOpenAiRateCard(input: OpenAiRateCardInput): OpenAiRateCard 
     : readRate(input.cachedInputUsdPerMillion);
   if (cachedInputUsdPerMillion === null) return null;
 
-  const scheduleVersion = safeLabel(input.scheduleVersion) ?? "unversioned";
+  const scheduleVersion = safeLabel(input.scheduleVersion);
+  if (!scheduleVersion) return null;
   return {
     inputUsdPerMillion,
     outputUsdPerMillion,
