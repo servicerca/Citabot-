@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { isInsideWhatsAppCustomerServiceWindow } from "./customer-service-window.ts";
+import { validateWhatsAppSendPurpose } from "./send-purpose.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -40,6 +41,14 @@ Deno.serve(async (req) => {
     const user = authData?.user;
     if (authError || !user) return json({ ok: false, error: "Sesión inválida" }, 401);
     const input = await req.json().catch(() => ({}));
+    const purposeDecision = validateWhatsAppSendPurpose(input.purpose);
+    if (!purposeDecision.ok) {
+      return json({
+        ok: false,
+        code: purposeDecision.code,
+        error: purposeDecision.error,
+      }, purposeDecision.status);
+    }
     const customerId = String(input.customer_id || "").trim();
     const messageBody = String(input.body || "").trim();
     if (!customerId || !messageBody) return json({ ok: false, error: "customer_id y body son obligatorios" }, 400);
