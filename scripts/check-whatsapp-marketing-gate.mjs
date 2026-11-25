@@ -25,6 +25,6 @@ const customerLookupAt = edge.indexOf('sb.from("customers")');
 const metaSendAt = edge.indexOf("https://graph.facebook.com");
 assert.ok(validationAt >= 0 && customerLookupAt > validationAt && metaSendAt > validationAt,
   "El propósito debe validarse antes de consultar destinatarios o llamar a Meta.");
-assert.match(edge, /WHATSAPP_SEND_PURPOSE_REQUIRED/);
+assert.match(purpose, /WHATSAPP_SEND_PURPOSE_REQUIRED/);
 
 console.log("CitaBot marketing consent fail-closed guard: OK");
