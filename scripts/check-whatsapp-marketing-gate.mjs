@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 const edge = await readFile(new URL("../supabase/functions/citabot-whatsapp-send/index.ts", import.meta.url), "utf8");
+const purpose = await readFile(new URL("../supabase/functions/citabot-whatsapp-send/send-purpose.ts", import.meta.url), "utf8");
 
 const recoveryStart = html.indexOf("window.sendRecoveryMessages=async()=>");
 const recoveryEnd = html.indexOf("window.filterClients=()=>", recoveryStart);
@@ -18,7 +19,7 @@ assert.match(html, /purpose:'service'/, "El chat manual debe indicar explícitam
 
 assert.match(edge, /validateWhatsAppSendPurpose/);
 assert.match(edge, /input\.purpose/);
-assert.match(edge, /WHATSAPP_MARKETING_CONSENT_REQUIRED/);
+assert.match(purpose, /WHATSAPP_MARKETING_CONSENT_REQUIRED/);
 const validationAt = edge.indexOf("validateWhatsAppSendPurpose(input.purpose)");
 const customerLookupAt = edge.indexOf('sb.from("customers")');
 const metaSendAt = edge.indexOf("https://graph.facebook.com");
