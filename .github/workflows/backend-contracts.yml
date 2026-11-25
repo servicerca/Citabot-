@@ -50,6 +50,9 @@ jobs:
       - name: Test CitaBot AI request validation boundaries
         run: deno test supabase/functions/citabot-ai/request-validation.test.ts supabase/functions/citabot-ai/responses-request.test.ts supabase/functions/citabot-ai/openai-client.test.ts
 
+      - name: Test explicit OpenAI model configuration and safe fallback
+        run: deno test supabase/functions/citabot-whatsapp-webhook/model-config.test.ts
+
       - name: Test CitaBot platform-admin pagination boundaries
         run: deno test supabase/functions/citabot-platform-admin/pagination.test.ts 
 
