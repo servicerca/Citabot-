@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { isInsideWhatsAppCustomerServiceWindow } from "./customer-service-window.ts";
-import { validateWhatsAppSendPurpose } from "./send-purpose.ts";
+import { validateWhatsAppSendPurpose, validateWhatsAppServiceReplyReference, matchesLatestInboundReply } from "./send-purpose.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -49,6 +49,15 @@ Deno.serve(async (req) => {
         error: purposeDecision.error,
       }, purposeDecision.status);
     }
+    const replyReference = validateWhatsAppServiceReplyReference(input.reply_to_message_id);
+    if (!replyReference.ok) {
+      return json({
+        ok: false,
+        code: replyReference.code,
+        error: replyReference.error,
+      }, replyReference.status);
+    }
+    const replyToMessageId = replyReference.id;
     const customerId = String(input.customer_id || "").trim();
     const messageBody = String(input.body || "").trim();
     if (!customerId || !messageBody) return json({ ok: false, error: "customer_id y body son obligatorios" }, 400);
@@ -70,7 +79,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, code: "WHATSAPP_RECIPIENT_OPTED_OUT", error: "Este cliente pidió no recibir más mensajes por WhatsApp. No se ha enviado nada." }, 403);
     }
     const { data: lastInbound, error: inboundError } = await sb.from("messages")
-      .select("provider_timestamp")
+      .select("id,provider_timestamp")
       .eq("business_id", customer.business_id)
       .eq("customer_id", customer.id)
       .eq("channel", "whatsapp")
@@ -80,6 +89,13 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
     if (inboundError) return json({ ok: false, error: "No se pudo comprobar la ventana de atención de WhatsApp." }, 500);
+    if (!matchesLatestInboundReply(replyToMessageId, lastInbound?.id)) {
+      return json({
+        ok: false,
+        code: "WHATSAPP_SERVICE_REPLY_REQUIRED",
+        error: "Solo puedes responder al mensaje entrante más reciente del cliente. No se ha enviado nada.",
+      }, 409);
+    }
     if (!isInsideWhatsAppCustomerServiceWindow(lastInbound?.provider_timestamp)) {
       return json({
         ok: false,
@@ -117,7 +133,7 @@ Deno.serve(async (req) => {
       return json({ ok: false, code: "WHATSAPP_RECIPIENT_OPTED_OUT", error: "Este cliente pidió no recibir más mensajes por WhatsApp. No se ha enviado nada." }, 403);
     }
     const { data: freshInbound, error: freshInboundError } = await sb.from("messages")
-      .select("provider_timestamp")
+      .select("id,provider_timestamp")
       .eq("business_id", customer.business_id)
       .eq("customer_id", customer.id)
       .eq("channel", "whatsapp")
@@ -128,6 +144,13 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (freshInboundError) {
       return json({ ok: false, error: "No se pudo volver a comprobar la ventana de atención. No se envió nada." }, 503);
+    }
+    if (!matchesLatestInboundReply(replyToMessageId, freshInbound?.id)) {
+      return json({
+        ok: false,
+        code: "WHATSAPP_SERVICE_REPLY_STALE",
+        error: "El cliente envió otro mensaje o la referencia ya no está vigente. Actualiza la conversación antes de responder. No se ha enviado nada.",
+      }, 409);
     }
     if (!isInsideWhatsAppCustomerServiceWindow(freshInbound?.provider_timestamp)) {
       return json({
