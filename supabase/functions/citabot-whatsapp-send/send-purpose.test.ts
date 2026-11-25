@@ -25,3 +25,25 @@ Deno.test("rechaza llamadas heredadas sin propósito en vez de asumir servicio",
     assert(result.code === "WHATSAPP_SEND_PURPOSE_REQUIRED", "Debe exigir que el cliente etiquete el propósito.");
   }
 });
+
+
+Deno.test("exige una referencia UUID al mensaje entrante para respuestas de servicio", async () => {
+  const { validateWhatsAppServiceReplyReference } = await import("./send-purpose.ts");
+  const validId = "00000000-0000-4000-8000-000000000001";
+  const result = validateWhatsAppServiceReplyReference(validId);
+  assert(result.ok, "Una referencia UUID válida debe aceptarse.");
+  assert(result.id === validId, "Debe devolver la referencia exacta.");
+  for (const value of [undefined, null, "", "not-a-uuid", 10]) {
+    const invalid = validateWhatsAppServiceReplyReference(value);
+    assert(!invalid.ok, "Una referencia ausente o inválida debe rechazarse.");
+    assert(invalid.code === "WHATSAPP_SERVICE_REPLY_REQUIRED", "Debe devolver el código estable.");
+  }
+});
+
+Deno.test("solo permite responder al último mensaje entrante comprobado por el servidor", async () => {
+  const { matchesLatestInboundReply } = await import("./send-purpose.ts");
+  const latestId = "00000000-0000-4000-8000-000000000002";
+  assert(matchesLatestInboundReply(latestId, latestId), "Debe aceptar la referencia al último inbound.");
+  assert(!matchesLatestInboundReply(latestId, "00000000-0000-4000-8000-000000000003"), "Debe rechazar referencias obsoletas.");
+  assert(!matchesLatestInboundReply(latestId, null), "Debe rechazar cuando ya no existe un inbound verificable.");
+});
