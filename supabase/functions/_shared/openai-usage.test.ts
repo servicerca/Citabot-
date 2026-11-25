@@ -34,6 +34,7 @@ Deno.test("rechaza uso ausente, incompleto o incoherente", () => {
 
 Deno.test("valida la tabla de precios y no inventa costos si faltan tarifas", () => {
   assert(parseOpenAiRateCard({ inputUsdPerMillion: "0.25" }) === null, "Sin precio de salida no existe estimación.");
+  assert(parseOpenAiRateCard({ inputUsdPerMillion: "0.25", outputUsdPerMillion: "2" }) === null, "Sin versión de tarifa no debe estimarse el costo.");
   assert(parseOpenAiRateCard({ inputUsdPerMillion: "-1", outputUsdPerMillion: "1" }) === null, "No se admiten tarifas negativas.");
   assert(parseOpenAiRateCard({ inputUsdPerMillion: "1e-3", outputUsdPerMillion: "1" }) === null, "La tarifa debe tener formato decimal explícito.");
   const card = parseOpenAiRateCard({
