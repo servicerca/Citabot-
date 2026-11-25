@@ -16,6 +16,10 @@ assert.doesNotMatch(recoveryHandler, /functions\.invoke\(['"]citabot-whatsapp-se
 assert.match(html, /recoveryConsentNotice/);
 assert.match(html, /envío promocional permanece pausado|envíos proactivos por WhatsApp siguen pausados|envíos promocionales por WhatsApp están pausados/i);
 assert.match(html, /purpose:'service'/, "El chat manual debe indicar explícitamente el propósito service.");
+assert.match(html, /reply_to_message_id:replyTo\.id/, "El chat debe pasar la referencia al mensaje entrante.");
+assert.match(edge, /validateWhatsAppServiceReplyReference\(input\.reply_to_message_id\)/);
+assert.match(edge, /matchesLatestInboundReply\(replyToMessageId, lastInbound\?\.id\)/);
+assert.match(edge, /matchesLatestInboundReply\(replyToMessageId, freshInbound\?\.id\)/);
 
 assert.match(edge, /validateWhatsAppSendPurpose/);
 assert.match(edge, /input\.purpose/);
