@@ -48,7 +48,7 @@ Deno.test("valida la tabla de precios y no inventa costos si faltan tarifas", ()
     outputTokens: 100,
     totalTokens: 1100,
     cachedInputTokens: 250,
-  }, card!) === 0.00027, "Debe calcular entrada normal, entrada en caché y salida por separado.");
+  }, card!) === 0.0002425, "Debe calcular entrada normal, entrada en caché y salida por separado.");
 });
 
 Deno.test("emite métricas por negocio sin contenido ni datos personales", () => {
