@@ -125,6 +125,8 @@ export function buildOpenAiUsageEvent(input: OpenAiUsageEventInput): Record<stri
     estimated_cost_usd: usage && input.rateCard
       ? estimateOpenAiCostUsd(usage, input.rateCard)
       : null,
+    cost_estimate_scope: "input_output_and_cached_input_only",
+    cache_write_cost_included: false,
     price_schedule_version: input.rateCard?.scheduleVersion ?? null,
   };
 }
