@@ -56,11 +56,14 @@ jobs:
       - name: Test WhatsApp opt-out and customer-service window boundaries
         run: deno test supabase/functions/citabot-whatsapp-webhook/opt-out.test.ts supabase/functions/citabot-whatsapp-send/customer-service-window.test.ts supabase/functions/_shared/whatsapp-compliance.test.ts
 
+      - name: Test OpenAI usage metering and cost estimation
+        run: deno test supabase/functions/_shared/openai-usage.test.ts
+
       - name: Test public booking trusted rate-limit identity boundaries
         run: deno test supabase/functions/citabot-public-booking/rate-limit-key.test.ts
 
       - name: Type-check production Edge Functions
-        run: deno check supabase/functions/citabot-account-delete/index.ts supabase/functions/citabot-ai/index.ts supabase/functions/citabot-commercial-checkout/index.ts supabase/functions/citabot-commercial-sync/index.ts supabase/functions/citabot-mercadopago-subscribe/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-meta-health/index.ts supabase/functions/citabot-meta-sync/index.ts supabase/functions/citabot-plan-sync/index.ts supabase/functions/citabot-platform-admin/index.ts supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-whatsapp-send/index.ts supabase/functions/citabot-whatsapp-webhook/index.ts
+        run: deno check supabase/functions/citabot-account-delete/index.ts supabase/functions/citabot-ai/index.ts supabase/functions/citabot-commercial-checkout/index.ts supabase/functions/citabot-commercial-sync/index.ts supabase/functions/citabot-mercadopago-subscribe/index.ts supabase/functions/citabot-mercadopago-webhook/index.ts supabase/functions/citabot-meta-health/index.ts supabase/functions/citabot-meta-sync/index.ts supabase/functions/citabot-plan-sync/index.ts supabase/functions/citabot-platform-admin/index.ts supabase/functions/citabot-public-booking/index.ts supabase/functions/citabot-whatsapp-send/index.ts supabase/functions/citabot-whatsapp-webhook/index.ts supabase/functions/_shared/openai-usage.ts
 
       - name: Reject obsolete database field references
         shell: bash
