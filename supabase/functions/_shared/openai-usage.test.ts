@@ -65,6 +65,8 @@ Deno.test("emite métricas por negocio sin contenido ni datos personales", () =>
   const serialized = JSON.stringify(event);
   assert(event.business_id === "00000000-0000-4000-8000-000000000001", "Debe atribuir el uso al negocio.");
   assert(event.estimated_cost_usd === 0.00002, "Debe calcular estimación con tarifas suministradas.");
+  assert(event.cost_estimate_scope === "input_output_and_cached_input_only", "Debe declarar el alcance limitado de la estimación.");
+  assert(event.cache_write_cost_included === false, "No debe afirmar que incluye cargos de escritura de caché.");
   assert(!serialized.includes("texto privado"), "No debe guardar contenido de la respuesta.");
   assert(!serialized.includes("prompt") && !serialized.includes("phone") && !serialized.includes("customer"),
     "No debe incluir prompts, teléfonos ni identificadores de clientes.");
