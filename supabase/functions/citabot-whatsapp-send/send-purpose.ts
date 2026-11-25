@@ -30,3 +30,25 @@ export function validateWhatsAppSendPurpose(value: unknown): WhatsAppSendPurpose
     error: "Indica un propósito de envío válido. Solo están habilitadas las respuestas de servicio; no se ha enviado nada.",
   };
 }
+
+export type WhatsAppServiceReplyReferenceDecision =
+  | { ok: true; id: string }
+  | { ok: false; status: 400; code: "WHATSAPP_SERVICE_REPLY_REQUIRED"; error: string };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function validateWhatsAppServiceReplyReference(value: unknown): WhatsAppServiceReplyReferenceDecision {
+  if (typeof value !== "string" || !UUID_PATTERN.test(value.trim())) {
+    return {
+      ok: false,
+      status: 400,
+      code: "WHATSAPP_SERVICE_REPLY_REQUIRED",
+      error: "Selecciona una respuesta a un mensaje entrante válido del cliente. No se ha enviado nada.",
+    };
+  }
+  return { ok: true, id: value.trim() };
+}
+
+export function matchesLatestInboundReply(replyToMessageId: string, latestInboundMessageId: unknown): boolean {
+  return typeof latestInboundMessageId === "string" && latestInboundMessageId === replyToMessageId;
+}
