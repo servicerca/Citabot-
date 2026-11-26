@@ -69,6 +69,64 @@ test.describe('CitaBot production browser smoke', () => {
     expect(consoleErrors).toEqual([]);
   });
 
+
+  test('workspace navigation remains complete and aligned on phone, tablet and desktop', async ({ page }) => {
+    const response = await page.goto(BASE_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+    expect(response && response.ok()).toBeTruthy();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.evaluate(() => {
+      document.getElementById('landing').classList.remove('active');
+      document.getElementById('app').style.display = 'grid';
+    });
+
+    const sidebar = page.locator('.sidebar');
+    const menuButton = page.locator('#mobileMenuToggle');
+    await expect(menuButton).toBeVisible();
+    await menuButton.click();
+    await expect(sidebar).toHaveClass(/is-open/);
+
+    const options = [
+      ['dashboard', 'Inicio'],
+      ['agenda', 'Agenda'],
+      ['clients', 'Clientes'],
+      ['conversations', 'Conversaciones'],
+      ['revenue', 'Ingresos'],
+      ['ai', 'IA'],
+      ['marketing', 'Marketing'],
+      ['reports', 'Reportes'],
+      ['settings', 'Configuración'],
+    ];
+
+    for (const [view, label] of options) {
+      await expect(
+        page.locator('#primaryNavigation button[data-view="' + view + '"] span:last-child')
+      ).toHaveText(label);
+    }
+
+    await page.locator('#primaryNavigation button[data-view="agenda"]').click();
+    await expect(page.locator('#view-agenda')).toHaveClass(/active/);
+    await expect(sidebar).not.toHaveClass(/is-open/);
+
+    await page.setViewportSize({ width: 800, height: 1024 });
+    await expect(menuButton).toBeHidden();
+    await expect(
+      page.locator('#primaryNavigation button[data-view="conversations"] span:last-child')
+    ).toBeVisible();
+    await expect(
+      page.locator('#primaryNavigation button[data-view="settings"] span:last-child')
+    ).toBeVisible();
+
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(
+      page.locator('#primaryNavigation button[data-view="agenda"] span:last-child')
+    ).toBeVisible();
+    await expect(page.locator('#landing .hero-preview')).toHaveCSS('transform', 'none');
+  });
+
   test('public booking sends payment method to the real backend contract', async ({ page }) => {
     let submittedBody = null;
 

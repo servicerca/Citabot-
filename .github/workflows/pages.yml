@@ -15,6 +15,7 @@ on:
       - "scripts/check-conversation-ux.mjs"
       - "scripts/check-appointment-prerequisites.mjs"
       - "scripts/check-settings-ux.mjs"
+      - "scripts/check-responsive-layout.mjs"
       - "scripts/check-agenda-usability.mjs"
       - ".github/workflows/pages.yml"
       - ".github/workflows/browser-e2e.yml"
@@ -56,6 +57,9 @@ jobs:
 
       - name: Verificar guía para crear la primera cita
         run: node scripts/check-appointment-prerequisites.mjs
+
+      - name: Verificar navegación completa y diseño adaptable
+        run: node scripts/check-responsive-layout.mjs
 
       - name: Verificar configuración de horarios en móvil
         run: node scripts/check-settings-ux.mjs
