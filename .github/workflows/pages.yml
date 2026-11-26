@@ -11,6 +11,8 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
       - "scripts/check-whatsapp-marketing-gate.mjs"
+      - "scripts/check-conversation-history.mjs"
+      - "scripts/check-conversation-ux.mjs"
       - ".github/workflows/pages.yml"
       - ".github/workflows/browser-e2e.yml"
   workflow_dispatch:
@@ -42,6 +44,12 @@ jobs:
 
       - name: Verificar bloqueo de marketing sin consentimiento
         run: node scripts/check-whatsapp-marketing-gate.mjs
+
+      - name: Verificar historial paginado y aislamiento entre negocios
+        run: node scripts/check-conversation-history.mjs
+
+      - name: Verificar selector móvil de conversaciones
+        run: node scripts/check-conversation-ux.mjs
 
       - name: Validar HTML y JavaScript de producción
         shell: python

@@ -25,15 +25,30 @@ for (const table of [
     `La consulta de ${table} debe recuperar páginas completas y ordenar de forma estable.`);
 }
 
-assert.match(
+assert.doesNotMatch(
   html,
-  /sb\.from\('messages'\)\.select\('\*'\)\.eq\('business_id',bid\)\.order\('created_at',\{ascending:false\}\)\.order\('id',\{ascending:false\}\)\.limit\(200\)/,
-  "El historial debe cargar los 200 mensajes más recientes, no los primeros 200 antiguos.",
+  /sb\.from\(['"]messages['"]\).*\.limit\(200\)/s,
+  "El historial no debe recortarse con un límite global de 200 mensajes.",
 );
 assert.match(
   html,
-  /messages:\(m\.data\|\|\[\]\)\.slice\(\)\.reverse\(\)/,
-  "Los mensajes recientes deben mostrarse en orden cronológico.",
+  /messages!messages_customer_id_fkey!inner/,
+  "La lista debe consultar mensajes recientes a través de cada cliente.",
+);
+assert.match(
+  html,
+  /\.eq\(['"]messages\.business_id['"],bid\)/,
+  "La vista previa de mensajes debe aislarse por negocio.",
+);
+assert.match(
+  html,
+  /\.limit\(1,\{referencedTable:'messages'\}\)/,
+  "La vista previa debe cargar como máximo el mensaje más reciente por cliente.",
+);
+assert.match(
+  html,
+  /messages:\(m\.data\|\|\[\]\)\.flatMap\(customer=>\(customer\.messages\|\|\[\]\)\.map/,
+  "Las vistas previas deben transformarse en mensajes con el identificador del cliente.",
 );
 assert.match(
   html,
