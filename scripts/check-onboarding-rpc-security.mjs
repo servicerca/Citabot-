@@ -124,7 +124,7 @@ assert.match(
 );
 
 const pilotEnrollmentMigration = readFileSync(
-  "supabase/migrations/20261112030000_citabot_five_business_30_day_pilot.sql",
+  "supabase/migrations/20261112034422_citabot_five_business_30_day_pilot.sql",
   "utf8"
 );
 
