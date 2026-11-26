@@ -16,6 +16,7 @@ on:
       - "scripts/check-appointment-prerequisites.mjs"
       - "scripts/check-settings-ux.mjs"
       - "scripts/check-agenda-usability.mjs"
+      - "scripts/check-simple-navigation.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -32,6 +33,7 @@ on:
       - "scripts/check-appointment-prerequisites.mjs"
       - "scripts/check-settings-ux.mjs"
       - "scripts/check-agenda-usability.mjs"
+      - "scripts/check-simple-navigation.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -72,6 +74,9 @@ jobs:
 
       - name: Check agenda usability, filtering and pagination
         run: node scripts/check-agenda-usability.mjs
+
+      - name: Check simplified navigation across screen sizes
+        run: node scripts/check-simple-navigation.mjs
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs
