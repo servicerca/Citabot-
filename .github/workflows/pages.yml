@@ -16,6 +16,7 @@ on:
       - "scripts/check-appointment-prerequisites.mjs"
       - "scripts/check-settings-ux.mjs"
       - "scripts/check-agenda-usability.mjs"
+      - "scripts/check-simple-navigation.mjs"
       - ".github/workflows/pages.yml"
       - ".github/workflows/browser-e2e.yml"
   workflow_dispatch:
@@ -62,6 +63,9 @@ jobs:
 
       - name: Verificar agenda, filtros y paginación
         run: node scripts/check-agenda-usability.mjs
+
+      - name: Verificar navegación simplificada y accesible
+        run: node scripts/check-simple-navigation.mjs
 
       - name: Validar HTML y JavaScript de producción
         shell: python
