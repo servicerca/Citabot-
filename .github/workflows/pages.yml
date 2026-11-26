@@ -134,6 +134,13 @@ jobs:
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: .
 
+      - name: Esperar sincronización del artefacto de Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "El artefacto debe quedar visible para el cliente de despliegue de Pages."
+          sleep 8
+
       - name: Publicar
         id: deployment
         uses: actions/deploy-pages@v5.0.1
