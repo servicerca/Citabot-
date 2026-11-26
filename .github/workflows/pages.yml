@@ -15,6 +15,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
@@ -123,6 +124,30 @@ jobs:
         with:
           name: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
           path: .
+
+      - name: Esperar a que GitHub registre el artefacto de Pages
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_ARTIFACT: github-pages-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          response="$(mktemp)"
+          trap 'rm -f "$response"' EXIT
+          for attempt in $(seq 1 15); do
+            status="$(curl --silent --show-error --output "$response" --write-out "%{http_code}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_TOKEN}" \
+              "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts")"
+            if [ "$status" = "200" ] && python3 -c 'import json,sys; data=json.load(open(sys.argv[1], encoding="utf-8")); sys.exit(0 if any(item.get("name")==sys.argv[2] and not item.get("expired", False) for item in data.get("artifacts", [])) else 1)' "$response" "$EXPECTED_ARTIFACT"; then
+              echo "Artefacto de Pages visible en GitHub: ${EXPECTED_ARTIFACT}"
+              exit 0
+            fi
+            echo "GitHub todavía no registra ${EXPECTED_ARTIFACT}; intento ${attempt}/15."
+            sleep 2
+          done
+          echo "::error::El artefacto de Pages no apareció en la API de GitHub."
+          exit 1
 
       - name: Publicar
         id: deployment
