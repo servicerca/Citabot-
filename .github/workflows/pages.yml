@@ -14,6 +14,7 @@ on:
       - "scripts/check-conversation-history.mjs"
       - "scripts/check-conversation-ux.mjs"
       - "scripts/check-appointment-prerequisites.mjs"
+      - "scripts/check-settings-ux.mjs"
       - ".github/workflows/pages.yml"
       - ".github/workflows/browser-e2e.yml"
   workflow_dispatch:
@@ -54,6 +55,9 @@ jobs:
 
       - name: Verificar guía para crear la primera cita
         run: node scripts/check-appointment-prerequisites.mjs
+
+      - name: Verificar configuración de horarios en móvil
+        run: node scripts/check-settings-ux.mjs
 
       - name: Validar HTML y JavaScript de producción
         shell: python
