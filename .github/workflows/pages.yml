@@ -12,6 +12,7 @@ on:
       - "scripts/check-platform-admin-navigation.mjs"
       - "scripts/check-whatsapp-marketing-gate.mjs"
       - ".github/workflows/pages.yml"
+      - ".github/workflows/browser-e2e.yml"
   workflow_dispatch:
 
 permissions:
