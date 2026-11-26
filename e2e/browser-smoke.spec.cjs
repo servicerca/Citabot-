@@ -153,5 +153,70 @@ test.describe('CitaBot production browser smoke', () => {
     );
 
     expect(backendResponse.status()).toBe(400);
-    await expect(page.locator('#pbMsg')).not.toContainText(/reserva confirmada/i);
-  });});
+    await expect(page.locator('#pbMsg')).not.toContainText(/reserva confirmada/i);  });
+
+  test('simplified workspace navigation works at mobile, tablet and desktop widths', async ({ page }) => {
+    const response = await page.goto(BASE_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+    expect(response && response.ok()).toBeTruthy();
+
+    // Reveal only the already-rendered workspace shell. No login is forged and no API is mocked.
+    await page.evaluate(() => {
+      document.getElementById('landing')?.classList.remove('active');
+      const app = document.getElementById('app');
+      if (app) app.style.display = 'grid';
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    const nav = page.locator('#app nav[aria-label="Navegación principal"]');
+    const more = page.locator('#navMoreToggle');
+    const menu = page.locator('#navMoreMenu');
+    await expect(nav).toBeVisible();
+    for (const view of ['dashboard', 'agenda', 'clients', 'conversations']) {
+      await expect(page.locator('.nav button[data-view="' + view + '"]')).toBeVisible();
+    }
+    await expect(more).toBeVisible();
+    expect(await nav.evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length)).toBe(5);
+
+    await more.click();
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    await expect(menu).toBeVisible();
+    await page.getByRole('button', { name: 'Reportes' }).click();
+    await expect(page.locator('#view-reports')).toHaveClass(/active/);
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await expect(menu).toBeHidden();
+    await expect(more).toBeFocused();
+
+    await more.click();
+    await page.keyboard.press('Escape');
+    await expect(menu).toBeHidden();
+    await expect(more).toHaveAttribute('aria-expanded', 'false');
+
+    await more.click();
+    await page.locator('#crumb').click();
+    await expect(menu).toBeHidden();
+
+    await page.locator('.nav button[data-view="conversations"]').click();
+    await expect(page.locator('#view-conversations h1')).toHaveText('Mensajes');
+    await expect(page.locator('#crumb')).toHaveText('Mensajes');
+
+    // Tablet: retain readable labels rather than an icon-only navigation rail.
+    await page.setViewportSize({ width: 800, height: 900 });
+    const sidebarWidth = await page.locator('.sidebar').evaluate(el => el.getBoundingClientRect().width);
+    expect(sidebarWidth).toBeGreaterThanOrEqual(200);
+    const agendaLabelDisplay = await page.locator('.nav button[data-view="agenda"] span:last-child')
+      .evaluate(el => getComputedStyle(el).display);
+    expect(agendaLabelDisplay).not.toBe('none');
+    await expect(more).toBeVisible();
+
+    // Desktop: retain the full sidebar and keep the platform-admin route denied.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    const desktopSidebarWidth = await page.locator('.sidebar').evaluate(el => el.getBoundingClientRect().width);
+    expect(desktopSidebarWidth).toBeGreaterThanOrEqual(240);
+    await page.evaluate(() => go('platform-admin'));
+    await expect(page.locator('#view-platform-admin')).not.toHaveClass(/active/);
+    await expect(page.locator('#view-dashboard')).toHaveClass(/active/);
+  });
+});

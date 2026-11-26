@@ -10,6 +10,7 @@ on:
       - "eliminacion-datos.html"
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-simple-navigation.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -37,6 +38,9 @@ jobs:
 
       - name: Verificar ámbito de navegación administrativa
         run: node scripts/check-platform-admin-navigation.mjs
+      - name: Check simple responsive navigation
+        run: node scripts/check-simple-navigation.mjs
+
 
       - name: Validar HTML y JavaScript de producción
         shell: python
