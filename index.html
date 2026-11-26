@@ -631,6 +631,56 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agenda-pagination .btn:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:700px){.agenda-filters{grid-template-columns:1fr}.agenda-pagination{flex-wrap:wrap}.agenda-pagination>div{width:100%}.agenda-pagination .btn{flex:1}}
 </style>
+<style id="citabot-simple-navigation">
+/* Navegación simplificada: cuatro accesos frecuentes y el resto agrupado. */
+.nav-more-wrap{position:relative;min-width:0}
+.nav-more-toggle{width:100%;display:flex;align-items:center;gap:0}
+.nav-more-toggle.active{background:#292c3b;color:#fff}
+.nav-more-menu{display:none;grid-template-columns:1fr;gap:4px;padding:5px 0 7px 10px;margin-left:12px;border-left:1px solid #3b3f4d}
+.nav-more-menu.open{display:grid}
+.nav-more-menu button{width:100%;text-align:left}
+.nav-more-menu .nav-logout{border-top:1px solid #3b3f4d;margin-top:4px;padding-top:12px;color:#e4e6ed}
+@media(max-width:1050px){
+  .nav-more-wrap{width:100%}
+  .nav-more-menu{margin-left:0;padding-left:0;border-left:0}
+}
+@media(max-width:700px){
+  .sidebar{height:82px;padding:6px 5px}
+  .nav{grid-template-columns:repeat(5,minmax(0,1fr));grid-template-rows:1fr;gap:2px;height:100%;align-items:stretch}
+  .nav>button,.nav-more-toggle{min-width:0;min-height:56px;padding:5px 2px;font-size:10px;line-height:1.1;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+  .nav .nav-icon{display:block;width:auto;font-size:18px;line-height:1}
+  .nav button span:last-child{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  .nav-more-wrap{position:static}
+  .nav-more-menu,.nav-more-menu.open{
+    position:fixed;left:12px;right:12px;bottom:90px;width:auto;max-height:min(54vh,390px);overflow:auto;
+    padding:8px;background:#171925;border:1px solid #383c4a;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.32);
+    grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;z-index:100
+  }
+  .nav-more-menu:not(.open){display:none}
+  .nav-more-menu button{min-height:46px;padding:9px 8px;display:flex;flex-direction:row;justify-content:flex-start;gap:8px;text-align:left;font-size:12px}
+  .nav-more-menu button span:last-child{display:block;white-space:normal;max-width:none}
+  .nav-more-menu .nav-icon{font-size:16px}
+  .nav-more-menu .nav-logout{grid-column:1/-1;margin-top:3px;padding-top:10px}
+  .content{padding-bottom:100px}
+}
+</style>
+<style id="citabot-tablet-navigation">
+/* En tablet prioriza nombres visibles y una navegación vertical legible. */
+@media (min-width:701px) and (max-width:1050px){
+  .app{grid-template-columns:210px minmax(0,1fr)}
+  .sidebar{padding:18px 10px}
+  .brand span:last-child,.workspace,.nav button span:not(.nav-icon),.side-bottom{display:block}
+  .brand{justify-content:flex-start}
+  .nav button{display:flex;align-items:center;gap:8px;text-align:left;padding:10px 9px}
+  .nav button span:last-child{white-space:normal;overflow:visible;text-overflow:clip;max-width:none}
+  .nav .nav-icon{display:inline-block;width:22px;flex:0 0 22px;text-align:center}
+  .nav-more-toggle{justify-content:flex-start}
+  .nav-more-menu{margin-left:10px;padding-left:9px}
+  .topbar{padding:0 18px}
+  .content{padding:22px 18px}
+  .page-head h1{font-size:28px}
+}
+</style>
 </head>
 <body>
 <!-- CitaBot production UI -->
@@ -717,19 +767,27 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 <aside class="sidebar">
   <div class="brand"><span class="mark">C</span><span>CitaBot</span></div>
   <div class="workspace"><small>NEGOCIO</small><b id="businessName">Mi negocio</b></div>
-  <nav class="nav">
-    <button class="active" data-view="dashboard"><span class="nav-icon">⌂</span><span>Inicio</span></button>
-    <button data-view="agenda"><span class="nav-icon">◷</span><span>Agenda</span></button>
-    <button data-view="clients"><span class="nav-icon">♙</span><span>Clientes</span></button>
-    <button data-view="conversations"><span class="nav-icon">◌</span><span>Conversaciones</span></button>
-    <button data-view="revenue"><span class="nav-icon">$</span><span>Ingresos</span></button>
-    <button data-view="ai"><span class="nav-icon">✦</span><span>IA</span></button>
-    <button data-view="marketing"><span class="nav-icon">↗</span><span>Marketing</span></button>
-    <button data-view="reports"><span class="nav-icon">▥</span><span>Reportes</span></button>
-    <button data-view="settings"><span class="nav-icon">⚙</span><span>Configuración</span></button>
-    <button id="navPlatformAdmin" data-view="platform-admin" style="display:none"><span class="nav-icon">♜</span><span>Administración</span></button>
+  <nav class="nav" aria-label="Navegación principal">
+    <button type="button" class="active" data-view="dashboard" aria-current="page"><span class="nav-icon" aria-hidden="true">⌂</span><span>Inicio</span></button>
+    <button type="button" data-view="agenda"><span class="nav-icon" aria-hidden="true">◷</span><span>Agenda</span></button>
+    <button type="button" data-view="clients"><span class="nav-icon" aria-hidden="true">♙</span><span>Clientes</span></button>
+    <button type="button" data-view="conversations"><span class="nav-icon" aria-hidden="true">◌</span><span>Mensajes</span></button>
+    <div class="nav-more-wrap">
+      <button type="button" class="nav-more-toggle" id="navMoreToggle" aria-expanded="false" aria-controls="navMoreMenu" aria-label="Más opciones">
+        <span class="nav-icon" aria-hidden="true">•••</span><span>Más</span>
+      </button>
+      <div class="nav-more-menu" id="navMoreMenu" role="group" aria-label="Más opciones">
+        <button type="button" data-view="revenue"><span class="nav-icon" aria-hidden="true">$</span><span>Ingresos</span></button>
+        <button type="button" data-view="ai"><span class="nav-icon" aria-hidden="true">✦</span><span>IA</span></button>
+        <button type="button" data-view="marketing"><span class="nav-icon" aria-hidden="true">↗</span><span>Marketing</span></button>
+        <button type="button" data-view="reports"><span class="nav-icon" aria-hidden="true">▥</span><span>Reportes</span></button>
+        <button type="button" data-view="settings"><span class="nav-icon" aria-hidden="true">⚙</span><span>Configuración</span></button>
+        <button type="button" id="navPlatformAdmin" data-view="platform-admin" style="display:none"><span class="nav-icon" aria-hidden="true">♜</span><span>Administración</span></button>
+        <button type="button" class="nav-logout" onclick="logout()"><span class="nav-icon" aria-hidden="true">↪</span><span>Cerrar sesión</span></button>
+      </div>
+    </div>
   </nav>
-  <div class="side-bottom"><button onclick="logout()">Cerrar sesión</button></div>
+  
 </aside>
 <main class="main">
   <header class="topbar"><div class="crumb" id="crumb">Inicio</div><div class="top-actions"><span class="avatar">CB</span></div></header>
@@ -747,31 +805,56 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 
     <section id="view-marketing" class="view"><div class="card empty">Cargando datos reales…</div></section>
 
-    <section id="view-reports" class="view"><div class="card empty">Cargando datos reales…</div></section>
-
-    
-<section id="view-revenue" class="view"><div class="card empty">Cargando datos reales…</div></section>
-
-<section id="view-settings" class="view"><div class="card empty">Cargando datos reales…</div></section>
-
-    <section id="view-platform-admin" class="view">
-      <div class="page-head">
-        <div>
-          <h1>Administración de plataforma</h1>
-          <p>Vista global protegida de CitaBot y gestión controlada de los cinco cupos del piloto.</p>
-        </div>
-        <div class="actions">
-          <span class="badge confirmed" style="align-self:center">Acceso de plataforma</span>
-          <button class="btn secondary" type="button" onclick="window.cbLoadPlatformAdminPanel?.()">Actualizar</button>
-        </div>
-      </div>
-      <div id="platformAdminPanel" class="card empty">Cargando administración…</div>
-    </section>
-  </div>
-</main>
-</div>
-
-<div id="directoryModal" class="directory-modal" role="dialog" aria-modal="true" aria-labelledby="directoryTitle" onclick="if(event.target===this)closeDirectory()"><div class="directory-box"><div class="directory-head"><div><h2 id="directoryTitle">Descubre negocios en CitaBot</h2><p>Explora negocios reales y reserva gratis. Los clientes no pagan por usar el directorio ni por encontrar un negocio.</p></div><button class="close" type="button" aria-label="Cerrar directorio" onclick="closeDirectory()">×</button></div><div class="directory-filters"><input id="directorySearch" placeholder="Buscar negocio o servicio…" onkeydown="if(event.key===\\'Enter\\')loadDirectory()"><input id="directoryCity" placeholder="Ciudad"><select id="directoryCategory"><option value="">Todas las categorías</option><option value="service">Servicios</option><option value="restaurant">Restaurantes</option></select><button class="btn primary" onclick="loadDirectory()">Buscar</button></div><div id="directoryResults" class="directory-grid" aria-live="polite"><div class="empty">Abre el directorio para cargar negocios reales.</div></div></div></div>
+    <section id="view-reports" class="view"><div class="card empty">Cargando datos realefunction go(view,rememberPosition=false){
+  if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()!==true){showToast("No tienes acceso al panel administrativo.");view="dashboard";}
+  if(rememberPosition&&state.view)state.scrollPositions[state.view]=window.scrollY;
+  state.view=view;
+  document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+  const target=document.getElementById("view-"+view);
+  if(target)target.classList.add("active");
+  document.querySelectorAll(".nav button[data-view]").forEach(b=>{
+    const active=b.dataset.view===view;
+    b.classList.toggle("active",active);
+    if(active)b.setAttribute("aria-current","page");else b.removeAttribute("aria-current");
+  });
+  const moreViews=["revenue","ai","marketing","reports","settings","platform-admin"];
+  const moreToggle=document.getElementById("navMoreToggle");
+  const moreActive=moreViews.includes(view);
+  if(moreToggle){
+    moreToggle.classList.toggle("active",moreActive);
+    moreToggle.setAttribute("aria-expanded","false");
+  }
+  const menuForFocus=document.getElementById("navMoreMenu");
+  const restoreMoreFocus=Boolean(menuForFocus?.contains(document.activeElement));
+  menuForFocus?.classList.remove("open");
+  if(restoreMoreFocus)moreToggle?.focus();
+  const crumb=document.getElementById("crumb");
+  if(crumb)crumb.textContent=labels[view]||view;
+  if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()===true)void window.cbLoadPlatformAdminPanel?.();
+  requestAnimationFrame(()=>{
+    const saved=rememberPosition?state.scrollPositions[view]:null;
+    if(Number.isFinite(saved)){window.scrollTo({top:saved,behavior:"auto"});return;}
+    const topbarH=document.querySelector(".topbar")?.offsetHeight||72;
+    const y=Math.max(0,target?target.getBoundingClientRect().top+window.scrollY-topbarH:0);
+    window.scrollTo({top:y,behavior:"smooth"});
+  });
+}
+document.querySelectorAll(".nav button[data-view]").forEach(b=>b.addEventListener("click",()=>go(b.dataset.view,true)));
+const navMoreToggle=document.getElementById("navMoreToggle");
+const navMoreMenu=document.getElementById("navMoreMenu");
+navMoreToggle?.addEventListener("click",()=>{
+  const open=!navMoreMenu?.classList.contains("open");
+  navMoreMenu?.classList.toggle("open",open);
+  navMoreToggle.setAttribute("aria-expanded",String(open));
+});
+document.addEventListener("click",event=>{
+  const wrap=document.querySelector(".nav-more-wrap");
+  if(wrap&&!wrap.contains(event.target))closeMoreMenu();
+});
+document.addEventListener("keydown",event=>{
+  if(event.key==="Escape"&&navMoreMenu?.classList.contains("open"))closeMoreMenu(true);
+});
+lientes no pagan por usar el directorio ni por encontrar un negocio.</p></div><button class="close" type="button" aria-label="Cerrar directorio" onclick="closeDirectory()">×</button></div><div class="directory-filters"><input id="directorySearch" placeholder="Buscar negocio o servicio…" onkeydown="if(event.key===\\'Enter\\')loadDirectory()"><input id="directoryCity" placeholder="Ciudad"><select id="directoryCategory"><option value="">Todas las categorías</option><option value="service">Servicios</option><option value="restaurant">Restaurantes</option></select><button class="btn primary" onclick="loadDirectory()">Buscar</button></div><div id="directoryResults" class="directory-grid" aria-live="polite"><div class="empty">Abre el directorio para cargar negocios reales.</div></div></div></div>
 <div id="legalModal" class="modal" onclick="if(event.target===this)closeLegal()"><div class="modal-box" style="max-width:760px;max-height:88vh;overflow:auto"><button class="close" onclick="closeLegal()">×</button><div id="legalBody"></div><div class="modal-actions"><button class="btn primary" onclick="closeLegal()">Cerrar</button></div></div></div>
 <div id="modal" class="modal"><div class="modal-box"><button class="close" onclick="closeModal()">×</button><h2 id="modalTitle">Nueva acción</h2><p id="modalDesc">Completa los datos.</p><div id="modalBody"></div><div class="modal-actions"><button class="btn secondary" onclick="closeModal()">Cancelar</button><button class="btn primary" onclick="confirmModal()">Guardar</button></div></div></div>
 <div id="toast" class="toast"></div>
@@ -779,10 +862,17 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 <script>
 const state={business:"Mi negocio",type:"service",view:"dashboard",onboardStep:1,modalType:"",scrollPositions:{}};
 const integrationStatus={whatsapp:"unknown",whatsappMessage:"",mercadopago:"unknown",mercadopagoMessage:""};
-const labels={dashboard:"Inicio",agenda:"Agenda",clients:"Clientes",conversations:"Conversaciones",ai:"IA",marketing:"Marketing",reports:"Reportes",revenue:"Ingresos",settings:"Configuración","platform-admin":"Administración"};
+const labels={dashboard:"Inicio",agenda:"Agenda",clients:"Clientes",conversations:"Mensajes",ai:"IA",marketing:"Marketing",reports:"Reportes",revenue:"Ingresos",settings:"Configuración","platform-admin":"Administración"};
 function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]))}
 function showToast(message){const t=document.getElementById("toast");if(!t)return;t.textContent=message;t.classList.add("show");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove("show"),2400)}
 function closeModal(){const modal=document.getElementById("modal");if(!modal)return;modal.classList.remove("open");state.modalType="";const body=document.getElementById("modalBody");if(body)body.innerHTML=""}
+function closeMoreMenu(returnFocus=false){
+  const toggle=document.getElementById("navMoreToggle");
+  const menu=document.getElementById("navMoreMenu");
+  if(menu)menu.classList.remove("open");
+  if(toggle)toggle.setAttribute("aria-expanded","false");
+  if(returnFocus)toggle?.focus();
+}
 function go(view,rememberPosition=false){if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()!==true){showToast("No tienes acceso al panel administrativo.");view="dashboard";}if(rememberPosition&&state.view)state.scrollPositions[state.view]=window.scrollY;state.view=view;document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));const target=document.getElementById("view-"+view);if(target)target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));const crumb=document.getElementById("crumb");if(crumb)crumb.textContent=labels[view]||view;if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()===true)void window.cbLoadPlatformAdminPanel?.();requestAnimationFrame(()=>{const saved=rememberPosition?state.scrollPositions[view]:null;if(Number.isFinite(saved)){window.scrollTo({top:saved,behavior:"auto"});return;}const topbarH=document.querySelector(".topbar")?.offsetHeight||72;const y=Math.max(0,target?target.getBoundingClientRect().top+window.scrollY-topbarH:0);window.scrollTo({top:y,behavior:"smooth"});});}
 document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.view,true)));
 function renderOnboarding(){
