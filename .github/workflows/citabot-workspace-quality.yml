@@ -14,6 +14,7 @@ on:
       - "scripts/check-conversation-history.mjs"
       - "scripts/check-conversation-ux.mjs"
       - "scripts/check-appointment-prerequisites.mjs"
+      - "scripts/check-settings-ux.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -28,6 +29,7 @@ on:
       - "scripts/check-conversation-history.mjs"
       - "scripts/check-conversation-ux.mjs"
       - "scripts/check-appointment-prerequisites.mjs"
+      - "scripts/check-settings-ux.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -62,6 +64,9 @@ jobs:
 
       - name: Check first-appointment guidance and accessible form labels
         run: node scripts/check-appointment-prerequisites.mjs
+
+      - name: Check responsive business-hour settings and toggle behavior
+        run: node scripts/check-settings-ux.mjs
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs
