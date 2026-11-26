@@ -13,6 +13,7 @@ on:
       - "scripts/check-whatsapp-marketing-gate.mjs"
       - "scripts/check-conversation-history.mjs"
       - "scripts/check-conversation-ux.mjs"
+      - "scripts/check-appointment-prerequisites.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -26,6 +27,7 @@ on:
       - "scripts/check-whatsapp-marketing-gate.mjs"
       - "scripts/check-conversation-history.mjs"
       - "scripts/check-conversation-ux.mjs"
+      - "scripts/check-appointment-prerequisites.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -57,6 +59,9 @@ jobs:
 
       - name: Check accessible responsive conversation picker
         run: node scripts/check-conversation-ux.mjs
+
+      - name: Check first-appointment guidance and accessible form labels
+        run: node scripts/check-appointment-prerequisites.mjs
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs
