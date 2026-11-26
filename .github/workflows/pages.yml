@@ -13,6 +13,7 @@ on:
       - "scripts/check-whatsapp-marketing-gate.mjs"
       - "scripts/check-conversation-history.mjs"
       - "scripts/check-conversation-ux.mjs"
+      - "scripts/check-appointment-prerequisites.mjs"
       - ".github/workflows/pages.yml"
       - ".github/workflows/browser-e2e.yml"
   workflow_dispatch:
@@ -50,6 +51,9 @@ jobs:
 
       - name: Verificar selector móvil de conversaciones
         run: node scripts/check-conversation-ux.mjs
+
+      - name: Verificar guía para crear la primera cita
+        run: node scripts/check-appointment-prerequisites.mjs
 
       - name: Validar HTML y JavaScript de producción
         shell: python
