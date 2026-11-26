@@ -15,6 +15,7 @@ on:
       - "scripts/check-conversation-ux.mjs"
       - "scripts/check-appointment-prerequisites.mjs"
       - "scripts/check-settings-ux.mjs"
+      - "scripts/check-responsive-layout.mjs"
       - "scripts/check-agenda-usability.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
@@ -69,6 +70,9 @@ jobs:
 
       - name: Check responsive business-hour settings and toggle behavior
         run: node scripts/check-settings-ux.mjs
+
+      - name: Check complete responsive navigation and alignment
+        run: node scripts/check-responsive-layout.mjs
 
       - name: Check agenda usability, filtering and pagination
         run: node scripts/check-agenda-usability.mjs
