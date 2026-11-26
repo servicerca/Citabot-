@@ -10,6 +10,7 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-whatsapp-marketing-gate.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -20,6 +21,7 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-whatsapp-marketing-gate.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -42,6 +44,9 @@ jobs:
 
       - name: Check platform-admin navigation scope
         run: node scripts/check-platform-admin-navigation.mjs
+
+      - name: Check WhatsApp marketing consent gate
+        run: node scripts/check-whatsapp-marketing-gate.mjs
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs

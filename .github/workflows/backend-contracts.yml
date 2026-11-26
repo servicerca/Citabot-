@@ -59,6 +59,9 @@ jobs:
       - name: Test WhatsApp opt-out and customer-service window boundaries
         run: deno test supabase/functions/citabot-whatsapp-webhook/opt-out.test.ts supabase/functions/citabot-whatsapp-send/customer-service-window.test.ts supabase/functions/_shared/whatsapp-compliance.test.ts
 
+      - name: Test WhatsApp message purpose and marketing consent gate
+        run: deno test supabase/functions/citabot-whatsapp-send/send-purpose.test.ts
+
       - name: Test public booking trusted rate-limit identity boundaries
         run: deno test supabase/functions/citabot-public-booking/rate-limit-key.test.ts
 
