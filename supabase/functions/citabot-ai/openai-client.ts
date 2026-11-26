@@ -1,5 +1,3 @@
-const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504]);
-
 export type OpenAiResponseResult = {
   ok: boolean;
   data: Record<string, unknown>;
@@ -14,7 +12,6 @@ export type OpenAiResponseResult = {
 export type OpenAiRequestOptions = {
   fetcher?: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   timeoutMs?: number;
-  wait?: (milliseconds: number) => Promise<void>;
 };
 
 function safeProviderField(value: unknown): string | null {
@@ -45,8 +42,6 @@ export async function createOpenAiResponse(
 ): Promise<OpenAiResponseResult> {
   const fetcher = options.fetcher ?? fetch;
   const timeoutMs = options.timeoutMs ?? 15_000;
-  const wait = options.wait ?? ((milliseconds: number) =>
-    new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
 
   let lastData: Record<string, unknown> = {};
   let lastStatus: number | null = null;
@@ -56,7 +51,8 @@ export async function createOpenAiResponse(
   let failureKind: string | null = null;
   let attempts = 0;
 
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  // One provider attempt per reserved quota unit; client retries require a new reservation.
+  for (let attempt = 1; attempt <= 1; attempt++) {
     attempts = attempt;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -93,7 +89,7 @@ export async function createOpenAiResponse(
       }
 
       failureKind = "http_error";
-      if (!RETRYABLE_STATUS_CODES.has(response.status)) break;
+      break;
     } catch (error) {
       failureKind = error instanceof Error
         ? (error.name === "AbortError" ? "timeout" : error.name)
@@ -106,7 +102,6 @@ export async function createOpenAiResponse(
       clearTimeout(timeout);
     }
 
-    if (attempt < 3) await wait(400 * attempt);
   }
 
   return {

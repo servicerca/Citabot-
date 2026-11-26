@@ -6,6 +6,7 @@ export function buildResponsesRequest(
   businessName: string,
   serializedContext: string,
   input: string,
+  maxOutputTokens = 300,
 ) {
   const context = serializedContext
     ? "\nContexto de CitaBot:\n" + serializedContext
@@ -16,6 +17,6 @@ export function buildResponsesRequest(
     // Keep trusted instructions separate from business and customer content.
     instructions: CITABOT_AI_INSTRUCTIONS,
     input: "Negocio: " + businessName + context + "\n\nSolicitud:\n" + input,
-    max_output_tokens: 300,
+    max_output_tokens: Math.min(Math.max(Math.trunc(maxOutputTokens), 1), 300),
   };
 }
