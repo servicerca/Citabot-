@@ -631,6 +631,171 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 .agenda-pagination .btn:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:700px){.agenda-filters{grid-template-columns:1fr}.agenda-pagination{flex-wrap:wrap}.agenda-pagination>div{width:100%}.agenda-pagination .btn{flex:1}}
 </style>
+
+<style id="citabot-responsive-layout-final">
+/* CitaBot: alineación y navegación adaptable sin ocultar módulos. */
+#landing .hero-preview,
+.hero-preview { transform: none !important; }
+.mobile-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+  border-radius: 12px;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  font-size: 22px !important;
+  line-height: 1;
+}
+.nav-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: rgba(12, 14, 24, .58);
+  z-index: 69;
+}
+.sidebar { transition: transform .22s ease; }
+#app .content { width: 100%; min-width: 0; }
+#app .card { min-width: 0; }
+@media (min-width: 701px) and (max-width: 1050px) {
+  .app { grid-template-columns: 225px minmax(0, 1fr); }
+  .sidebar {
+    position: sticky;
+    top: 0;
+    width: auto;
+    height: 100vh;
+    min-height: 100dvh;
+    padding: 20px 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    transform: none;
+  }
+  .sidebar .brand { display: flex; justify-content: flex-start; padding: 4px 8px 22px; }
+  .sidebar .brand span:last-child { display: inline; }
+  .sidebar .workspace { display: block; }
+  .sidebar .nav { display: grid; grid-template-columns: 1fr; grid-template-rows: none; height: auto; gap: 5px; align-items: stretch; }
+  .sidebar .nav button {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+    text-align: left;
+    white-space: normal;
+    min-height: 44px;
+    padding: 10px 9px;
+    font-size: 13px;
+  }
+  .sidebar .nav button span:not(.nav-icon) { display: inline; }
+  .sidebar .nav .nav-icon { display: inline-flex; align-items: center; justify-content: center; width: 23px; flex: 0 0 23px; }
+  .sidebar .side-bottom { display: block; }
+  .content { padding: 24px 18px; }
+  .topbar { padding: 0 18px; }
+  .hero-preview { transform: none !important; }
+}
+@media (min-width: 701px) and (max-width: 820px) {
+  .app { grid-template-columns: 205px minmax(0, 1fr); }
+  .sidebar { padding: 18px 9px; }
+  .sidebar .nav button { gap: 7px; padding-inline: 7px; font-size: 12px; }
+  .content { padding: 20px 14px; }
+}
+@media (max-width: 700px) {
+  .app { grid-template-columns: minmax(0, 1fr); }
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(86vw, 320px);
+    max-width: 320px;
+    height: 100dvh;
+    min-height: 100dvh;
+    padding: 20px 14px;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    z-index: 80;
+    transform: translateX(-105%);
+    transition: transform .22s ease;
+    box-shadow: 18px 0 48px rgba(12, 14, 24, .22);
+  }
+  .sidebar.is-open { transform: translateX(0); }
+  .sidebar .brand { display: flex; justify-content: flex-start; padding: 4px 8px 22px; }
+  .sidebar .brand span:last-child { display: inline; }
+  .sidebar .workspace { display: block; }
+  .sidebar .nav {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
+    align-items: stretch;
+    gap: 5px;
+    width: 100%;
+    height: auto;
+  }
+  .sidebar .nav button {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 12px;
+    min-width: 0;
+    min-height: 47px;
+    padding: 10px 12px;
+    text-align: left;
+    white-space: normal;
+    font-size: 14px;
+  }
+  .sidebar .nav button span:not(.nav-icon) {
+    display: block;
+    max-width: none;
+    white-space: normal;
+  }
+  .sidebar .nav .nav-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    flex: 0 0 24px;
+    font-size: 19px;
+  }
+  .sidebar .nav button[data-view="ai"] { margin-top: 8px; border-top: 1px solid #333745; padding-top: 10px; }
+  .sidebar .side-bottom { display: block; margin-top: auto; padding-top: 18px; }
+  .mobile-menu-toggle { display: inline-flex !important; flex: 0 0 42px; }
+  body.nav-open { overflow: hidden; }
+  body.nav-open .nav-scrim { display: block; }
+  .topbar { height: 64px; padding: 0 14px; gap: 10px; }
+  .topbar .crumb { flex: 1; min-width: 0; }
+  .top-actions { flex: 0 0 auto; }
+  .content { width: 100%; max-width: 100%; min-width: 0; padding: 18px 14px 34px; overflow-x: clip; }
+  .page-head { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .page-head h1 { font-size: 28px; line-height: 1.15; }
+  .actions { width: 100%; flex-wrap: wrap; }
+  .actions .btn { flex: 1 1 auto; min-width: 0; }
+  .grid4, .grid3, .grid2, .form-grid { grid-template-columns: minmax(0, 1fr); }
+  .calendar-wrap { width: 100%; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  #landing .hero { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  #landing .hero-preview { transform: none !important; width: 100%; max-width: 100%; }
+  #landing .hero h1 { font-size: clamp(2.35rem, 10.5vw, 3.1rem); }
+  #landing .hero-actions { flex-direction: column; }
+  #landing .hero-actions .btn { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar { transition: none !important; }
+  .hero-preview { transition: none !important; }
+}
+</style>
+
 </head>
 <body>
 <!-- CitaBot production UI -->
@@ -717,7 +882,7 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
 <aside class="sidebar">
   <div class="brand"><span class="mark">C</span><span>CitaBot</span></div>
   <div class="workspace"><small>NEGOCIO</small><b id="businessName">Mi negocio</b></div>
-  <nav class="nav">
+  <nav class="nav" id="primaryNavigation">
     <button class="active" data-view="dashboard"><span class="nav-icon">⌂</span><span>Inicio</span></button>
     <button data-view="agenda"><span class="nav-icon">◷</span><span>Agenda</span></button>
     <button data-view="clients"><span class="nav-icon">♙</span><span>Clientes</span></button>
@@ -731,8 +896,13 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,te
   </nav>
   <div class="side-bottom"><button onclick="logout()">Cerrar sesión</button></div>
 </aside>
+<button class="nav-scrim" id="navScrim" type="button" aria-label="Cerrar menú" onclick="toggleMobileNav(false)"></button>
 <main class="main">
-  <header class="topbar"><div class="crumb" id="crumb">Inicio</div><div class="top-actions"><span class="avatar">CB</span></div></header>
+  <header class="topbar">
+    <button class="mobile-menu-toggle" id="mobileMenuToggle" type="button" aria-label="Abrir menú" aria-expanded="false" aria-controls="primaryNavigation" onclick="toggleMobileNav()">☰</button>
+    <div class="crumb" id="crumb">Inicio</div>
+    <div class="top-actions"><span class="avatar">CB</span></div>
+  </header>
   <div class="content">
 
     <section id="view-dashboard" class="view"><div class="card empty">Cargando datos reales…</div></section>
@@ -784,7 +954,27 @@ function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&l
 function showToast(message){const t=document.getElementById("toast");if(!t)return;t.textContent=message;t.classList.add("show");clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>t.classList.remove("show"),2400)}
 function closeModal(){const modal=document.getElementById("modal");if(!modal)return;modal.classList.remove("open");state.modalType="";const body=document.getElementById("modalBody");if(body)body.innerHTML=""}
 function go(view,rememberPosition=false){if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()!==true){showToast("No tienes acceso al panel administrativo.");view="dashboard";}if(rememberPosition&&state.view)state.scrollPositions[state.view]=window.scrollY;state.view=view;document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));const target=document.getElementById("view-"+view);if(target)target.classList.add("active");document.querySelectorAll(".nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===view));const crumb=document.getElementById("crumb");if(crumb)crumb.textContent=labels[view]||view;if(view==="platform-admin"&&window.cbIsPlatformAdmin?.()===true)void window.cbLoadPlatformAdminPanel?.();requestAnimationFrame(()=>{const saved=rememberPosition?state.scrollPositions[view]:null;if(Number.isFinite(saved)){window.scrollTo({top:saved,behavior:"auto"});return;}const topbarH=document.querySelector(".topbar")?.offsetHeight||72;const y=Math.max(0,target?target.getBoundingClientRect().top+window.scrollY-topbarH:0);window.scrollTo({top:y,behavior:"smooth"});});}
-document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.view,true)));
+document.querySelectorAll(".nav button").forEach(b=>b.addEventListener("click",()=>{go(b.dataset.view,true);if(window.innerWidth<=700)toggleMobileNav(false);}));
+function toggleMobileNav(force){
+  const sidebar=document.querySelector(".sidebar");
+  if(!sidebar)return;
+  const opened=typeof force==="boolean"?force:!sidebar.classList.contains("is-open");
+  sidebar.classList.toggle("is-open",opened);
+  document.body.classList.toggle("nav-open",opened);
+  const trigger=document.getElementById("mobileMenuToggle");
+  if(trigger){
+    trigger.setAttribute("aria-expanded",String(opened));
+    trigger.setAttribute("aria-label",opened?"Cerrar menú":"Abrir menú");
+  }
+  if(opened){
+    const first=sidebar.querySelector('.nav button:not([style*="display: none"])');
+    if(first)first.focus({preventScroll:true});
+  }else if(force===undefined&&trigger){
+    trigger.focus({preventScroll:true});
+  }
+}
+document.addEventListener("keydown",event=>{if(event.key==="Escape")toggleMobileNav(false);});
+window.addEventListener("resize",()=>{if(window.innerWidth>700&&document.body.classList.contains("nav-open"))toggleMobileNav(false);});
 function renderOnboarding(){
  const s=document.getElementById("onboardStep"),bar=document.getElementById("progressBar");if(!s||!bar)return;bar.style.width=(state.onboardStep/3*100)+"%";
  if(state.onboardStep===1)s.innerHTML=`<span style="font-size:11px;color:var(--primary);font-weight:850">PASO 1 DE 3</span><h1 style="font-size:38px;letter-spacing:-.04em;margin:10px 0">¿Qué tipo de negocio tienes?</h1><p style="color:var(--muted);font-size:13px">CitaBot adaptará la agenda y las herramientas a tu negocio.</p><div class="choice-grid"><button class="choice ${state.type==="service"?"selected":""}" onclick="state.type='service';renderOnboarding()"><b>✂️ Servicios</b><span>Barbería, peluquería, spa, estética y más.</span></button><button class="choice ${state.type==="restaurant"?"selected":""}" onclick="state.type='restaurant';renderOnboarding()"><b>🍽️ Restaurante</b><span>Reservas, mesas, clientes y atención.</span></button></div><div style="margin-top:25px;text-align:right"><button class="btn primary" onclick="nextOnboard()">Continuar →</button></div>`;
@@ -1604,5 +1794,31 @@ sb.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){cbSe
   window.addEventListener('unhandledrejection',function(e){console.error('CitaBot promise error:',e.reason)});
 })();
 </script>
+
+<script id="citabot-mobile-navigation-runtime">
+(function(){
+  if(typeof window.toggleMobileNav!=="function"){
+    window.toggleMobileNav=function(force){
+      const sidebar=document.querySelector(".sidebar");
+      if(!sidebar)return;
+      const opened=typeof force==="boolean"?force:!sidebar.classList.contains("is-open");
+      sidebar.classList.toggle("is-open",opened);
+      document.body.classList.toggle("nav-open",opened);
+      const trigger=document.getElementById("mobileMenuToggle");
+      if(trigger){
+        trigger.setAttribute("aria-expanded",String(opened));
+        trigger.setAttribute("aria-label",opened?"Cerrar menú":"Abrir menú");
+      }
+      if(opened){
+        const first=sidebar.querySelector('.nav button:not([style*="display: none"])');
+        if(first)first.focus({preventScroll:true});
+      }else if(force===undefined&&trigger){
+        trigger.focus({preventScroll:true});
+      }
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
