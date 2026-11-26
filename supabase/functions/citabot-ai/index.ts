@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { validateAiRequest } from "./request-validation.ts";
 import { buildResponsesRequest } from "./responses-request.ts";
 import { createOpenAiResponse } from "./openai-client.ts";
+import { buildOpenAiUsageEvent, parseOpenAiRateCard } from "../_shared/openai-usage.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -111,6 +112,21 @@ Deno.serve(async (req: Request) => {
         provider_status: provider.status,
       }, 503);
     }
+
+    const rateCard = parseOpenAiRateCard({
+      inputUsdPerMillion: Deno.env.get("OPENAI_INPUT_USD_PER_MILLION_TOKENS"),
+      outputUsdPerMillion: Deno.env.get("OPENAI_OUTPUT_USD_PER_MILLION_TOKENS"),
+      cachedInputUsdPerMillion: Deno.env.get("OPENAI_CACHED_INPUT_USD_PER_MILLION_TOKENS"),
+      scheduleVersion: Deno.env.get("OPENAI_PRICE_SCHEDULE_VERSION"),
+    });
+    console.info("CITABOT_OPENAI_USAGE", JSON.stringify(buildOpenAiUsageEvent({
+      source: "assistant",
+      businessId,
+      model,
+      requestId: provider.requestId,
+      response: provider.data,
+      rateCard,
+    })));
 
     const rawText = provider.data.output_text;
     const outputItems = Array.isArray(provider.data.output) ? provider.data.output : [];
