@@ -1089,7 +1089,7 @@ async function cbLoadConversationHistory(customerId,older=false){
   const previousHeight=messages.scrollHeight;
   const previousTop=messages.scrollTop;
   conversationHistory.loading=true;
-  const loadButton=messages.querySelector('#loadOlderMessages');
+  const loadButton=messages.querySelector('.load-older-messages');
   if(loadButton){
     loadButton.disabled=true;
     loadButton.textContent='Cargando mensajes anteriores…';
@@ -1132,7 +1132,7 @@ async function cbLoadConversationHistory(customerId,older=false){
     conversationHistory.loading=false;
 
     const olderButton=conversationHistory.hasMore
-      ? '<button id="loadOlderMessages" type="button" class="btn soft" style="display:block;margin:8px auto;min-height:34px" onclick="cbLoadOlderConversationMessages()">Cargar mensajes anteriores</button>'
+      ? '<button class="load-older-messages" type="button" class="btn soft" style="display:block;margin:8px auto;min-height:34px" onclick="cbLoadOlderConversationMessages()">Cargar mensajes anteriores</button>'
       : '';
     const bubbles=conversationHistory.rows.map(message=>
       '<div class="bubble '+(message.direction==='outbound'?'out':'in')+'">'+esc(message.body)+'</div>'
@@ -1151,7 +1151,7 @@ async function cbLoadConversationHistory(customerId,older=false){
     )return;
     conversationHistory.loading=false;
     const olderButton=conversationHistory.hasMore
-      ? '<button id="loadOlderMessages" type="button" class="btn soft" style="display:block;margin:8px auto;min-height:34px" onclick="cbLoadOlderConversationMessages()">Reintentar mensajes anteriores</button>'
+      ? '<button class="load-older-messages" type="button" class="btn soft" style="display:block;margin:8px auto;min-height:34px" onclick="cbLoadOlderConversationMessages()">Reintentar mensajes anteriores</button>'
       : '';
     if(older&&conversationHistory.rows.length){
       const bubbles=conversationHistory.rows.map(message=>
