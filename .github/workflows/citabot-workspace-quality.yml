@@ -2,7 +2,7 @@ name: CitaBot workspace quality guard
 
 on:
   pull_request:
-    branches: ["main"]
+    branches: ["main", "fix/citabot-mobile-conversation-picker-20261123"]
     paths:
       - "index.html"
       - "politica-privacidad.html"
@@ -10,6 +10,8 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-conversation-ux.mjs"
+      - "scripts/check-conversation-history.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
   push:
     branches: ["main"]
@@ -20,6 +22,8 @@ on:
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-password-check-fails-closed.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-conversation-ux.mjs"
+      - "scripts/check-conversation-history.mjs"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
@@ -42,6 +46,13 @@ jobs:
 
       - name: Check platform-admin navigation scope
         run: node scripts/check-platform-admin-navigation.mjs
+
+      - name: Check responsive conversation navigation
+        run: node scripts/check-conversation-ux.mjs
+
+      - name: Check conversation history pagination and tenant isolation
+        if: hashFiles('scripts/check-conversation-history.mjs') != ''
+        run: node scripts/check-conversation-history.mjs
 
       - name: Check password exposure protection and privacy disclosure
         run: node scripts/check-password-check-fails-closed.mjs

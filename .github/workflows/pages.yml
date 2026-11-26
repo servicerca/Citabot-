@@ -10,6 +10,8 @@ on:
       - "eliminacion-datos.html"
       - "scripts/check-workspace-pagination.mjs"
       - "scripts/check-platform-admin-navigation.mjs"
+      - "scripts/check-conversation-ux.mjs"
+      - "scripts/check-conversation-history.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -37,6 +39,13 @@ jobs:
 
       - name: Verificar ámbito de navegación administrativa
         run: node scripts/check-platform-admin-navigation.mjs
+
+      - name: Check responsive conversation navigation
+        run: node scripts/check-conversation-ux.mjs
+
+      - name: Check conversation history pagination and tenant isolation
+        if: hashFiles('scripts/check-conversation-history.mjs') != ''
+        run: node scripts/check-conversation-history.mjs
 
       - name: Validar HTML y JavaScript de producción
         shell: python
