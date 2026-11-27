@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { verifyMercadoPagoAccessToken } from "./provider-credentials.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -199,7 +200,22 @@ Deno.serve(async (req) => {
     if (!membership.data || !["owner", "admin"].includes(membership.data.role)) {
       return json({ ok: false, error: "No autorizado." }, 403);
     }
-    if (!mp) return json({ ok: false, error: "Mercado Pago no está configurado." }, 503);
+    const credentialCheck = await verifyMercadoPagoAccessToken(mp);
+    if (!credentialCheck.ok) {
+      const error = credentialCheck.code === "not_configured"
+        ? "Falta configurar MERCADOPAGO_ACCESS_TOKEN en el servidor."
+        : credentialCheck.code === "provider_rejected"
+        ? "Mercado Pago rechazó la credencial configurada. Revisa el entorno y vuelve a guardar el token correcto."
+        : credentialCheck.code === "invalid_response"
+        ? "Mercado Pago respondió sin identificar la cuenta; no se considera una conexión verificada."
+        : "No fue posible comprobar la credencial de Mercado Pago por un problema de red.";
+      return json({
+        ok: false,
+        stage: "credentials",
+        credential_check: credentialCheck.code,
+        error,
+      }, credentialCheck.code === "not_configured" ? 503 : 502);
+    }
 
     let premium: any = null;
     const boosts: any[] = [];
@@ -256,7 +272,13 @@ Deno.serve(async (req) => {
       boosts.push(synced);
     }
 
-    return json({ ok: true, premium, boosts });
+    return json({
+      ok: true,
+      credentials: { verified: true, site_id: credentialCheck.site_id },
+      premium,
+      boosts,
+      payment_flow_verified: false,
+    });
   } catch (error) {
     logBackendFailure(error);
     return json({

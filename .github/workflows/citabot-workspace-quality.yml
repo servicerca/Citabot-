@@ -5,6 +5,8 @@ on:
     branches: ["main"]
     paths:
       - "index.html"
+      - "supabase/functions/citabot-meta-sync/index.ts"
+      - "scripts/check-whatsapp-integration-setup.mjs"
       - "scripts/check-directory-boost-gate.mjs"
       - "supabase/migrations/20261126120000_citabot_marketing_consent_read_scope.sql"
       - "supabase/functions/citabot-whatsapp-send/send-purpose.ts"
@@ -27,6 +29,8 @@ on:
     branches: ["main"]
     paths:
       - "index.html"
+      - "supabase/functions/citabot-meta-sync/index.ts"
+      - "scripts/check-whatsapp-integration-setup.mjs"
       - "politica-privacidad.html"
       - "terminos-servicio.html"
       - "scripts/check-workspace-pagination.mjs"
@@ -67,6 +71,9 @@ jobs:
 
       - name: Check WhatsApp marketing consent gate
         run: node scripts/check-whatsapp-marketing-gate.mjs
+
+      - name: Check secure WhatsApp Business connection setup
+        run: node scripts/check-whatsapp-integration-setup.mjs
 
       - name: Check directory-boost payment pause in UI and server
         run: node scripts/check-directory-boost-gate.mjs

@@ -59,8 +59,17 @@ jobs:
       - name: Test WhatsApp opt-out and customer-service window boundaries
         run: deno test supabase/functions/citabot-whatsapp-webhook/opt-out.test.ts supabase/functions/citabot-whatsapp-send/customer-service-window.test.ts supabase/functions/_shared/whatsapp-compliance.test.ts
 
+      - name: Test WhatsApp Meta webhook challenge validation
+        run: deno test supabase/functions/citabot-whatsapp-webhook/webhook-verification.test.ts
+
       - name: Test WhatsApp message purpose and marketing consent gate
         run: deno test supabase/functions/citabot-whatsapp-send/send-purpose.test.ts
+
+      - name: Test Meta approved marketing-template readiness
+        run: deno test supabase/functions/citabot-meta-sync/template-readiness.test.ts
+
+      - name: Test read-only Mercado Pago credential verification
+        run: deno test supabase/functions/citabot-commercial-sync/provider-credentials.test.ts
 
       - name: Test OpenAI usage metering and cost estimation
         run: deno test supabase/functions/_shared/openai-usage.test.ts
