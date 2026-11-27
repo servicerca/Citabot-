@@ -5,6 +5,11 @@ on:
     branches: ["main"]
     paths:
       - "index.html"
+      - "scripts/check-directory-boost-gate.mjs"
+      - "supabase/migrations/20261126120000_citabot_marketing_consent_read_scope.sql"
+      - "supabase/functions/citabot-whatsapp-send/send-purpose.ts"
+      - "supabase/functions/citabot-commercial-checkout/index.ts"
+      - "supabase/functions/citabot-public-booking/index.ts"
       - "politica-privacidad.html"
       - "terminos-servicio.html"
       - "scripts/check-workspace-pagination.mjs"
@@ -58,6 +63,9 @@ jobs:
 
       - name: Check WhatsApp marketing consent gate
         run: node scripts/check-whatsapp-marketing-gate.mjs
+
+      - name: Check directory-boost payment pause in UI and server
+        run: node scripts/check-directory-boost-gate.mjs
 
       - name: Check paginated conversation history and tenant isolation
         run: node scripts/check-conversation-history.mjs
