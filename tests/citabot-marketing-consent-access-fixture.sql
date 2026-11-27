@@ -39,6 +39,30 @@ CREATE TABLE public.legal_acceptances (
 
 ALTER TABLE public.legal_acceptances ENABLE ROW LEVEL SECURITY;
 GRANT SELECT ON public.business_members TO authenticated;
+GRANT SELECT ON public.legal_acceptances TO authenticated;
+
+-- Reproduce the two legacy permissive policies that the migration must consolidate.
+CREATE POLICY legal_acceptances_business_marketing_select
+ON public.legal_acceptances
+FOR SELECT
+TO authenticated
+USING (
+  document = 'whatsapp'
+  AND context = 'public_booking_marketing'
+  AND metadata ->> 'purpose' = 'marketing'
+  AND EXISTS (
+    SELECT 1
+    FROM public.business_members AS bm
+    WHERE bm.business_id = legal_acceptances.business_id
+      AND bm.user_id = (SELECT auth.uid())
+  )
+);
+
+CREATE POLICY legal_acceptances_select_own
+ON public.legal_acceptances
+FOR SELECT
+TO authenticated
+USING ((SELECT auth.uid()) = user_id);
 
 INSERT INTO public.business_members(business_id,user_id,role) VALUES
 ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-4111-8111-111111111111','owner'),
@@ -50,3 +74,6 @@ INSERT INTO public.legal_acceptances(id,business_id,document,version,context,met
 ('00000000-0000-4000-8000-000000000002','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','whatsapp','booking-v1','public_booking','{"consent":"reservation_contact"}'),
 ('00000000-0000-4000-8000-000000000003','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','whatsapp','marketing-v1','public_booking_marketing','{"purpose":"marketing","customer_id":"customer-b"}'),
 ('00000000-0000-4000-8000-000000000004','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','whatsapp','other-v1','public_booking_marketing','{"purpose":"service","customer_id":"customer-c"}');
+
+INSERT INTO public.legal_acceptances(id,user_id,document,version,context,metadata) VALUES
+('00000000-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','privacy','signup-v1','signup','{"source":"owner-account"}');
