@@ -5,6 +5,8 @@ on:
     branches: ["main"]
     paths:
       - "index.html"
+      - "supabase/functions/citabot-meta-sync/index.ts"
+      - "scripts/check-whatsapp-integration-setup.mjs"
       - "scripts/check-directory-boost-gate.mjs"
       - "supabase/migrations/20261126120000_citabot_marketing_consent_read_scope.sql"
       - "supabase/functions/citabot-whatsapp-send/send-purpose.ts"
