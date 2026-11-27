@@ -76,9 +76,12 @@ Deno.serve(async (req) => {
       return json({ ok: false, error: "No se pudo consultar la configuración de WhatsApp." });
     }
 
-    const waba = String(integration?.whatsapp_business_account_id || "").trim();
-    const phone = String(integration?.whatsapp_phone_number_id || "").trim();
-    if (!waba || !phone) {
+    if (!integration?.id) {
+      return json({ ok: false, stage: "config", error: "Todavía no se ha guardado la conexión de WhatsApp Business para este negocio." });
+    }
+    const waba = String(integration.whatsapp_business_account_id || "").trim();
+    const phoneId = String(integration.whatsapp_phone_number_id || "").trim();
+    if (!waba || !phoneId) {
       return json({ ok: false, stage: "config", error: "Falta el WhatsApp Business Account o el Phone Number ID." });
     }
 
@@ -179,8 +182,8 @@ Deno.serve(async (req) => {
         error: e.message || "No fue posible consultar los números vinculados a esta cuenta de WhatsApp Business.",
       });
     }
-    const phone = phoneListPayload.data.find((item: any) => String(item?.id || "") === PHONE);
-    if (!phone) {
+    const phoneDetails = phoneListPayload.data.find((item: any) => String(item?.id || "") === phoneId);
+    if (!phoneDetails) {
       return json({
         ok: false,
         stage: "phone_validation",
@@ -215,11 +218,11 @@ Deno.serve(async (req) => {
       waba_id: waba,
       business_id: businessId,
       phone: {
-        id: phone.id || null,
-        display_phone_number: phone.display_phone_number || null,
-        verified_name: phone.verified_name || null,
-        quality_rating: phone.quality_rating || null,
-        code_verification_status: phone.code_verification_status || null,
+        id: phoneDetails.id || null,
+        display_phone_number: phoneDetails.display_phone_number || null,
+        verified_name: phoneDetails.verified_name || null,
+        quality_rating: phoneDetails.quality_rating || null,
+        code_verification_status: phoneDetails.code_verification_status || null,
       },
       template_readiness: templateReadiness,
       approved_marketing_template_available: templateReadiness.checked &&
