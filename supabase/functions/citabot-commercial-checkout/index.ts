@@ -396,6 +396,11 @@ Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response("ok",{head
    return json({ok:true,plan:"premium",subscription_id:newProviderId,init_point:remoteInitPoint,amount:69900});
  }
  if(mode==="boost"){
+   // External Mercado Pago end-to-end validation is not complete. Keep this server gate closed so direct API calls cannot bypass the disabled UI.
+   const DIRECTORY_BOOST_CHECKOUT_ENABLED = false;
+   if(!DIRECTORY_BOOST_CHECKOUT_ENABLED){
+     return json({ok:false,code:"DIRECTORY_BOOST_CHECKOUT_PAUSED",error:"Las compras de visibilidad destacada están pausadas hasta completar y verificar la prueba externa de Mercado Pago. No se creó ningún pedido ni enlace de pago."},503);
+   }
    const days=Number(b.duration_days);const prices:{[k:string]:number}={7:9900,15:19900,30:34900};if(!prices[days])return json({ok:false,error:"Duración no válida."},400);
    const title="CitaBot · Visibilidad destacada ("+days+" días)";
    const pending=await db.from("directory_boost_orders").select("id").eq("business_id",businessId).eq("status","pending").order("created_at",{ascending:false}).limit(1).maybeSingle();if(pending.error)throw pending.error;
