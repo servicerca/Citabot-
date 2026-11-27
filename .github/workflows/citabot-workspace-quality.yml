@@ -38,6 +38,10 @@ on:
       - "scripts/check-appointment-prerequisites.mjs"
       - "scripts/check-settings-ux.mjs"
       - "scripts/check-agenda-usability.mjs"
+      - "scripts/check-directory-boost-gate.mjs"
+      - "supabase/migrations/20261126120000_citabot_marketing_consent_read_scope.sql"
+      - "supabase/functions/citabot-commercial-checkout/index.ts"
+      - "supabase/functions/citabot-public-booking/index.ts"
       - ".github/workflows/citabot-workspace-quality.yml"
 
 permissions:
