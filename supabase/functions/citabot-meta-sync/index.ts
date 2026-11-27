@@ -66,10 +66,9 @@ Deno.serve(async (req) => {
 
     const { data: integration, error: integrationError } = await sb
       .from("business_integrations")
-      .select("whatsapp_business_account_id,whatsapp_phone_number_id")
+      .select("id,business_id,whatsapp_business_account_id,whatsapp_phone_number_id,enabled")
       .eq("business_id", businessId)
       .eq("provider", "whatsapp")
-      .eq("enabled", true)
       .maybeSingle();
 
     if (integrationError) {
@@ -108,11 +107,11 @@ Deno.serve(async (req) => {
       });
     }
 
-    const subscribed = Array.isArray(subPayload.data) && subPayload.data.length > 0;
+    let subscribed = Array.isArray(subPayload.data) && subPayload.data.length > 0;
     if (!subscribed) {
       const subscribeResponse = await fetch(subscriptionUrl, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: "Bearer " + token },
       });
       const subscribePayload = await subscribeResponse.json().catch(() => ({}));
 
@@ -131,19 +130,99 @@ Deno.serve(async (req) => {
           meta_status: subscribeResponse.status,
           meta_code: e.code,
           meta_type: e.type,
-          error: e.message || `Meta rechazó la suscripción (HTTP ${subscribeResponse.status}).`,
+          error: e.message || "Meta rechazó la suscripción (HTTP " + subscribeResponse.status + ").",
         });
       }
+
+      // Confirm the subscription with Meta instead of trusting only the POST response.
+      const verifySubscription = await fetch(subscriptionUrl, {
+        headers: { Authorization: "Bearer " + token },
+      });
+      const verifyPayload = await verifySubscription.json().catch(() => ({}));
+      if (!verifySubscription.ok) {
+        const e = metaError(verifyPayload);
+        return json({
+          ok: false,
+          stage: "subscription_verify",
+          meta_status: verifySubscription.status,
+          meta_code: e.code,
+          meta_type: e.type,
+          error: e.message || "No se pudo verificar la suscripción de la aplicación con Meta.",
+        });
+      }
+      subscribed = Array.isArray(verifyPayload.data) && verifyPayload.data.length > 0;
+    }
+
+    if (!subscribed) {
+      return json({
+        ok: false,
+        stage: "subscription_verify",
+        error: "Meta no confirmó que CitaBot esté suscrito a la cuenta de WhatsApp Business.",
+      });
+    }
+
+    // Confirm that the configured Phone Number ID belongs to the supplied WABA.
+    const phoneListUrl = "https://graph.facebook.com/v26.0/" + encodeURIComponent(waba)
+      + "/phone_numbers?fields=id,display_phone_number,verified_name,quality_rating,code_verification_status&limit=100";
+    const phoneListResponse = await fetch(phoneListUrl, {
+      headers: { Authorization: "Bearer " + token },
+    });
+    const phoneListPayload = await phoneListResponse.json().catch(() => ({}));
+    if (!phoneListResponse.ok || !Array.isArray(phoneListPayload.data)) {
+      const e = metaError(phoneListPayload);
+      return json({
+        ok: false,
+        stage: "phone_list",
+        meta_status: phoneListResponse.status,
+        meta_code: e.code,
+        meta_type: e.type,
+        error: e.message || "No fue posible consultar los números vinculados a esta cuenta de WhatsApp Business.",
+      });
+    }
+    const phone = phoneListPayload.data.find((item: any) => String(item?.id || "") === PHONE);
+    if (!phone) {
+      return json({
+        ok: false,
+        stage: "phone_validation",
+        error: "El Phone Number ID no pertenece a la cuenta de WhatsApp Business indicada.",
+      });
+    }
+
+    const { data: enabledIntegration, error: enableError } = await sb
+      .from("business_integrations")
+      .update({ enabled: true, updated_at: new Date().toISOString() })
+      .eq("id", integration.id)
+      .eq("business_id", businessId)
+      .eq("provider", "whatsapp")
+      .select("id")
+      .maybeSingle();
+    if (enableError || !enabledIntegration?.id) {
+      console.error("citabot-meta-sync integration enable failed", {
+        code: enableError?.code || "INTEGRATION_ENABLE_NOT_CONFIRMED",
+      });
+      return json({
+        ok: false,
+        stage: "integration_enable",
+        error: "Meta respondió, pero no se pudo activar la conexión del negocio.",
+      });
     }
 
     const templateReadiness = await readApprovedMarketingTemplates(waba, token);
     return json({
       ok: true,
       subscribed: true,
+      integration_enabled: true,
       waba_id: waba,
       business_id: businessId,
+      phone: {
+        id: phone.id || null,
+        display_phone_number: phone.display_phone_number || null,
+        verified_name: phone.verified_name || null,
+        quality_rating: phone.quality_rating || null,
+        code_verification_status: phone.code_verification_status || null,
+      },
       template_readiness: templateReadiness,
-      marketing_campaigns_ready: templateReadiness.checked &&
+      approved_marketing_template_available: templateReadiness.checked &&
         templateReadiness.approved_marketing_templates.length > 0,
     });
   } catch (error) {
