@@ -7,6 +7,10 @@ const metaSync = await readFile(new URL("../supabase/functions/citabot-meta-sync
 assert.match(html, /id="setWhatsAppWaba"/);
 assert.match(html, /id="setWhatsAppPhoneId"/);
 assert.match(html, /window\.saveWhatsAppIntegration=async/);
+assert.match(html, /id="whatsappWebhookUrl"/);
+assert.match(html, /functions\/v1\/citabot-whatsapp-webhook/);
+assert.match(html, /copyWhatsAppWebhookUrl/);
+assert.match(html, /Verify Token configurado en el servidor/);
 const handlerStart=html.indexOf("window.saveWhatsAppIntegration=async");
 const handlerEnd=html.indexOf("window.saveSettings=async",handlerStart);
 assert.ok(handlerStart>=0&&handlerEnd>handlerStart);
