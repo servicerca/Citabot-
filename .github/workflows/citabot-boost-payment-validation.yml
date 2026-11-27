@@ -72,9 +72,11 @@ jobs:
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261019013600_citabot_whatsapp_provider_timestamp.sql
       - name: Verify provider timestamp semantics and lookup index
         run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-whatsapp-provider-timestamp-migration.sql
+      - name: Create isolated marketing-consent test database
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c "CREATE DATABASE citabot_marketing_consent_test"
       - name: Create disposable marketing-consent access fixture
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-marketing-consent-access-fixture.sql
+        run: psql "postgres://postgres:postgres@localhost:5432/citabot_marketing_consent_test" -X -v ON_ERROR_STOP=1 -f tests/citabot-marketing-consent-access-fixture.sql
       - name: Apply business-scoped marketing-consent read policy
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261126120000_citabot_marketing_consent_read_scope.sql
+        run: psql "postgres://postgres:postgres@localhost:5432/citabot_marketing_consent_test" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261126120000_citabot_marketing_consent_read_scope.sql
       - name: Verify tenant isolation and server-only consent writes
-        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -f tests/citabot-marketing-consent-access.sql
+        run: psql "postgres://postgres:postgres@localhost:5432/citabot_marketing_consent_test" -X -v ON_ERROR_STOP=1 -f tests/citabot-marketing-consent-access.sql
