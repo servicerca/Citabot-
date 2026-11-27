@@ -22,7 +22,7 @@ END
 $$;
 
 SELECT set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', false);
-DO $
+DO $$
 DECLARE visible_count integer;
 BEGIN
   SELECT count(*) INTO visible_count FROM public.legal_acceptances;
@@ -30,9 +30,9 @@ BEGIN
     RAISE EXCEPTION 'A different business owner must see only that business marketing-consent rows; got %', visible_count;
   END IF;
 END
-$;
+$$;
 
-DO $
+DO $$
 BEGIN
   BEGIN
     INSERT INTO public.legal_acceptances(id,document,version,context,metadata)
