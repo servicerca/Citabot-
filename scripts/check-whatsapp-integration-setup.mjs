@@ -20,7 +20,7 @@ assert.doesNotMatch(metaSync,/\.eq\("enabled", true\)/);
 assert.match(metaSync,/phone_numbers\?fields=/);
 assert.match(metaSync,/El Phone Number ID no pertenece/);
 assert.match(metaSync,/integration_enabled: true/);
-const phoneCheckAt=metaSync.indexOf("const phone = phoneListPayload.data.find");
+const phoneCheckAt=metaSync.indexOf("const phoneDetails = phoneListPayload.data.find");
 const enableAt=metaSync.indexOf(".update({ enabled: true",phoneCheckAt);
 assert.ok(phoneCheckAt>0&&enableAt>phoneCheckAt,"Integration is enabled only after Meta confirms that the phone belongs to the WABA.");
 assert.match(metaSync,/readApprovedMarketingTemplates/);
