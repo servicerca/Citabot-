@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { readApprovedMarketingTemplates } from "./template-readiness.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -135,7 +136,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ ok: true, subscribed: true, waba_id: waba, business_id: businessId });
+    const templateReadiness = await readApprovedMarketingTemplates(waba, token);
+    return json({
+      ok: true,
+      subscribed: true,
+      waba_id: waba,
+      business_id: businessId,
+      template_readiness: templateReadiness,
+      marketing_campaigns_ready: templateReadiness.checked &&
+        templateReadiness.approved_marketing_templates.length > 0,
+    });
   } catch (error) {
     console.error("citabot-meta-sync unexpected error", error);
     return json({
