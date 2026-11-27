@@ -27,6 +27,7 @@ const db = createClient(url, serviceKey, {
 type SafeClientError = { status: number; message: string };
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const MARKETING_CONSENT_VERSION = "2026-11-26-marketing-v1";
 
 // Only known, deliberately authored business-rule messages may be returned to
 // an unauthenticated caller. Unexpected PostgREST/Postgres errors stay private.
@@ -154,6 +155,7 @@ Deno.serve(async (req) => {
     const paymentMethod = String(input.payment_method ?? "cash").trim().toLowerCase();
     const privacyConsent = input.privacy_consent === true;
     const whatsappConsent = input.whatsapp_consent === true;
+    const marketingConsent = input.marketing_consent === true;
 
     if (!/^[a-z0-9-]{2,80}$/.test(slug)) return json({ ok: false, error: "Negocio inválido." }, 400);
     if (!serviceId || !customerName || !customerPhone || !startsAt) {
@@ -212,7 +214,47 @@ Deno.serve(async (req) => {
       }, 503);
     }
 
-    return json({ ok: true, appointment_id: data });
+    let marketingConsentRecorded = false;
+    if (marketingConsent) {
+      const { data: appointment, error: appointmentLookupError } = await db.from("appointments")
+        .select("id,business_id,customer_id")
+        .eq("id", data)
+        .maybeSingle();
+      if (appointmentLookupError || !appointment?.id || !appointment.business_id || !appointment.customer_id) {
+        logBackendFailure("PUBLIC_BOOKING_MARKETING_CONSENT_APPOINTMENT_LOOKUP_FAILED", appointmentLookupError || new Error("APPOINTMENT_RECORD_MISSING"));
+      } else {
+        const consentText = "Autorizo de forma opcional recibir por WhatsApp promociones, descuentos y novedades de este negocio. No es requisito para reservar y puedo retirar este permiso respondiendo BAJA.";
+        const { error: consentInsertError } = await db.from("legal_acceptances").insert({
+          user_id: null,
+          business_id: appointment.business_id,
+          appointment_id: appointment.id,
+          document: "whatsapp",
+          version: MARKETING_CONSENT_VERSION,
+          context: "public_booking_marketing",
+          metadata: {
+            purpose: "marketing",
+            channel: "whatsapp",
+            customer_id: appointment.customer_id,
+            source: "public_booking",
+            consent: "granted",
+            consent_text: consentText
+          }
+        });
+        if (consentInsertError) {
+          logBackendFailure("PUBLIC_BOOKING_MARKETING_CONSENT_RECORD_FAILED", consentInsertError);
+        } else {
+          marketingConsentRecorded = true;
+          // A fresh, explicit opt-in supersedes an earlier WhatsApp opt-out.
+          const { error: optInError } = await db.from("customers").update({
+            whatsapp_opted_out_at: null,
+            whatsapp_opt_out_source: null,
+            updated_at: new Date().toISOString()
+          }).eq("id", appointment.customer_id).eq("business_id", appointment.business_id);
+          if (optInError) logBackendFailure("PUBLIC_BOOKING_MARKETING_RECONSENT_UPDATE_FAILED", optInError);
+        }
+      }
+    }
+    return json({ ok: true, appointment_id: data, marketing_consent_recorded: marketingConsentRecorded });
   } catch (error) {
     if (error instanceof BookingDependencyUnavailable) {
       return json({
