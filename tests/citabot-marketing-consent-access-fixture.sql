@@ -73,5 +73,7 @@ INSERT INTO public.legal_acceptances(id,business_id,document,version,context,met
 ('00000000-0000-4000-8000-000000000001','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','whatsapp','marketing-v1','public_booking_marketing','{"purpose":"marketing","customer_id":"customer-a"}'),
 ('00000000-0000-4000-8000-000000000002','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','whatsapp','booking-v1','public_booking','{"consent":"reservation_contact"}'),
 ('00000000-0000-4000-8000-000000000003','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','whatsapp','marketing-v1','public_booking_marketing','{"purpose":"marketing","customer_id":"customer-b"}'),
-('00000000-0000-4000-8000-000000000004','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','whatsapp','other-v1','public_booking_marketing','{"purpose":"service","customer_id":"customer-c"}'),
-('00000000-0000-4000-8000-000000000005',NULL,'privacy','signup-v1','signup','{"source":"owner-account"}');
+('00000000-0000-4000-8000-000000000004','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','whatsapp','other-v1','public_booking_marketing','{"purpose":"service","customer_id":"customer-c"}');
+
+INSERT INTO public.legal_acceptances(id,user_id,document,version,context,metadata) VALUES
+('00000000-0000-4000-8000-000000000005','11111111-1111-4111-8111-111111111111','privacy','signup-v1','signup','{"source":"owner-account"}');
