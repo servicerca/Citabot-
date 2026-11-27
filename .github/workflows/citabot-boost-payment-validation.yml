@@ -80,3 +80,11 @@ jobs:
         run: psql "postgres://postgres:postgres@localhost:5432/citabot_marketing_consent_test" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261126120000_citabot_marketing_consent_read_scope.sql
       - name: Verify tenant isolation and server-only consent writes
         run: psql "postgres://postgres:postgres@localhost:5432/citabot_marketing_consent_test" -X -v ON_ERROR_STOP=1 -f tests/citabot-marketing-consent-access.sql
+      - name: Create isolated WhatsApp integration test database
+        run: psql "$DATABASE_URL" -X -v ON_ERROR_STOP=1 -c "CREATE DATABASE citabot_whatsapp_integration_test"
+      - name: Create WhatsApp integration fixture
+        run: psql "postgres://postgres:postgres@localhost:5432/citabot_whatsapp_integration_test" -X -v ON_ERROR_STOP=1 -f tests/citabot-whatsapp-integration-fixture.sql
+      - name: Apply one-WhatsApp-integration-per-business migration
+        run: psql "postgres://postgres:postgres@localhost:5432/citabot_whatsapp_integration_test" -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261127050000_citabot_one_whatsapp_integration_per_business.sql
+      - name: Verify WhatsApp integration uniqueness and provider independence
+        run: psql "postgres://postgres:postgres@localhost:5432/citabot_whatsapp_integration_test" -X -v ON_ERROR_STOP=1 -f tests/citabot-whatsapp-integration-index.sql
