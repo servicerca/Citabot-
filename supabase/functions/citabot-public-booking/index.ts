@@ -250,7 +250,10 @@ Deno.serve(async (req) => {
             whatsapp_opt_out_source: null,
             updated_at: new Date().toISOString()
           }).eq("id", appointment.customer_id).eq("business_id", appointment.business_id);
-          if (optInError) logBackendFailure("PUBLIC_BOOKING_MARKETING_RECONSENT_UPDATE_FAILED", optInError);
+          if (optInError) {
+            marketingConsentRecorded = false;
+            logBackendFailure("PUBLIC_BOOKING_MARKETING_RECONSENT_UPDATE_FAILED", optInError);
+          }
         }
       }
     }
